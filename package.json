@@ -1,0 +1,17 @@
+{
+  "name": "adamant-exchangebot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "adamant-api": "^0.1.5",
+    "express": "^4.17.1",
+    "jsonminify": "^0.4.1",
+    "mongodb": "^3.2.6"
+  }
+}
