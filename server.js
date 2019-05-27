@@ -38,6 +38,6 @@ if (port) {
 		});
 	});
 
-	app.listen(port, () => console.info('Server listening on port ' + port + ' http://localhost:' + port + '/db?tb=SystemDb'));
+	app.listen(port, () => console.info('Server listening on port ' + port + ' http://localhost:' + port + '/db?tb=system'));
 
 }

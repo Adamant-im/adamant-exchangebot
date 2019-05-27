@@ -2,6 +2,8 @@ const jsonminify = require('jsonminify');
 const fs = require('fs');
 const log = require('../helpers/log');
 const notify = require('../helpers/notyfy');
+const keys = require('adamant-api/helpers/keys');
+
 let config = {};
 
 
@@ -51,14 +53,24 @@ const fields = {
 try {
 	config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
 
+	let keysPair;
+	try {
+		keysPair = keys.createKeypairFromPassPhrase(config.passphrase);
+	} catch (e) {
+		exit('Passphrase is not a valide!' + e);
+	}
+	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
+	config.publicKey = keysPair.publicKey;
+	config.address = address;
+
 	Object.keys(fields).forEach(f => {
 		if (!config[f] && fields[f].isRequired) {
-			exit(`Exchange Bot config is wrong. Field ${f} is not valid. Cannot start Bot.`);
+			exit(`Exchange Bot ${address} config is wrong. Field ${f} is not valid. Cannot start Bot.`);
 		} else if (!config[f] && fields[f].default) {
 			config[f] = fields[f].default;
 		}
 		if (fields[f].type !== config[f].__proto__.constructor) {
-			exit(`Exchange Bot config is wrong. Fields type ${f} is not valid, must be ${fields[f].type.name}. Cannot start Bot.`);
+			exit(`Exchange Bot ${address} config is wrong. Fields type ${f} is not valid, must be ${fields[f].type.name}. Cannot start Bot.`);
 		}
 	});
 

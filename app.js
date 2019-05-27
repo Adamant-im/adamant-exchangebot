@@ -7,15 +7,15 @@ const Storage = require('./modules/Storage');
 const checker = require('./modules/checkerTransactions');
 setTimeout(init, 2000);
 
+
 function init() {
 	require('./server');
 	try {
-		db.SystemDb.findOne().then(system => {
+		db.system.findOne().then(system => {
 			if (system) {
 				Storage.lastBlock = system.lastBlock;
 			} else { // if fst start
-				const lastBlock = api.get('uri', 'blocks').blocks[0];
-				Storage.updateSystem('lastBlock', lastBlock);
+				Storage.updateLastBlock();
 			}
 			checker();
 		});

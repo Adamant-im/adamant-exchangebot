@@ -12,7 +12,8 @@ mongoClient.connect((err, client) => {
 	}
 	const db = client.db("excahngesdb");
 	collections.db = db;
-	collections.SystemDb = db.collection("systems");
+	collections.system = db.collection("systems");
+	collections.incoming_txs = db.collection("incomingtxs");
 });
 
 module.exports = collections;
