@@ -1,12 +1,8 @@
-const config = require('./modules/configReader');
 const notify = require('./helpers/notyfy');
-const log = require('./helpers/log');
 const db = require('./modules/DB');
-const api = require('./modules/api');
 const Storage = require('./modules/Storage');
 const checker = require('./modules/checkerTransactions');
 setTimeout(init, 2000);
-
 
 function init() {
 	require('./server');
