@@ -1,38 +1,41 @@
-const Storage = require('./Storage');
+const Store = require('./Store');
 const api = require('./api');
 const config = require('./configReader');
 const exchangeTrans = require('./exchangeTrans');
 const chatTrans = require('./chatTrans');
+const log = require('../helpers/log');
 
 function check() {
-	const {lastHeight} = Storage;
+	try {
+		// const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight).transactions;
+		const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=10').transactions;
 
-	const tx = api.get('uri', 'chats/get/?recipientId=' + config.address + '&orderBy=timestamp:desc&fromHeight=' + lastHeight).transactions;
-
-	tx.forEach(t => {
-		const {type} = t;
-		if (type !== 8) {
-			return;
-		}
-		if (t.amount > 1) {
-			exchangeTrans(t, 'ADM');
-		}
-		const chat = t.asset.chat;
-		const msg = api.decodeMsg(chat.message, t.senderPublicKey, config.passPhrase, chat.own_message);
-		try {
-			const obj = JSON.parse(msg);
-			if (~obj.type.indexOf('_transaction')) {
-				const coin = obj.type.split('_')[0];
-				exchangeTrans(t, coin, obj);
+		tx.forEach(t => {
+			const {type} = t;
+			if (type !== 8) {
+				return;
 			}
-		} catch (e) {
-			chatTrans(t, msg);
-		}
-
-	});
-	Storage.updateLastBlock();
+			const chat = t.asset.chat;
+			const msg = api.decodeMsg(chat.message, t.senderPublicKey, config.passPhrase, chat.own_message);
+			try {
+				const data = JSON.parse(msg);
+				if (~data.type.indexOf('_transaction')) {
+					const coin = data.type.split('_')[0];
+					exchangeTrans({t, coin, msg, data});
+				}
+			} catch (e) {
+				if (t.amount > 1) {
+					exchangeTrans({t, coin: 'ADM', msg});
+				} else {
+					chatTrans(t, msg);
+				}
+			}
+		});
+		Store.updateLastBlock();
+	} catch (e){
+		log.error(' check transactions ' + e);
+	}
 }
-
 module.exports = () => {
 	setInterval(check, 4500);
 };

@@ -12,8 +12,9 @@ mongoClient.connect((err, client) => {
 	}
 	const db = client.db("excahngesdb");
 	collections.db = db;
-	collections.system = db.collection("systems");
-	collections.incoming_txs = db.collection("incomingtxs");
+	collections.systemDb = db.collection("systems");
+	collections.incomingTxsDb = db.collection("incomingtxs");
+	collections.paymentsDb = db.collection("payments");
 });
 
 module.exports = collections;
