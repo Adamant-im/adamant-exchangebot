@@ -85,11 +85,13 @@ module.exports = async (params) => {
 		}, true);
 		notify(msgNotify, 'warn'); // TODO: send msgSendBack to Adamanте messenger
 	} else {
-		await txs.save();
-		if (in_currency !== 'ADM'){
-		// validatorBlockChain(txs);
+		if (in_currency === 'ADM'){
+			txs.validateIsFinish = true;
+		} else {
+			// validatorBlockChain(txs);
 		// TODO: если не ADM отправить на 2й валидатор - соответвие данным в БЧ коина
 		}
+		txs.save();
 	}
 };
 
