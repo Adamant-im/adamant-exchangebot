@@ -23,7 +23,7 @@ module.exports = async (itx, tx) => {
 		in_currency = msg.match(/"type":"(.*)_transaction/)[1];
 		try {
 			const json = JSON.parse(msg);
-			in_amount_message = json.amount;
+			in_amount_message = Number(json.amount);
 			hash = json.hash;
 			out_currency = json.comments;
 		} catch (e){
@@ -41,8 +41,9 @@ module.exports = async (itx, tx) => {
 		in_currency,
 		out_currency,
 		hash,
+		in_amount_message,
 		validateIsFinish: false,
-		in_amount_message
+		need_to_send_back: false
 	});
 	// Validate
 	// console.log({
@@ -68,23 +69,25 @@ module.exports = async (itx, tx) => {
 	} // TODO: equal USD
 
 	if (msgSendBack){ // Error validate
-		await pay.update({
+		pay.update({
 			msgSendBack,
 			need_to_send_back: true,
 			validateIsFinish: true
-		}, true);
-	
-		await itx.update({isProcessed: true}, true);
+		}, true);	
+		itx.update({isProcessed: true}, true);
 		notify(msgNotify, 'warn'); // TODO: send msgSendBack to Adamanте messenger
 	} else { // Success validation 
-		if (in_currency === 'ADM'){
-			await itx.update({isProcessed: true}, true);
-			await pay.update({validateIsFinish: true}, true);
-		} else {
-			// validatorBlockChain(txs);
-		// TODO: если не ADM отправить на 2й валидатор - соответвие данным в БЧ коина
-		}
+		pay.save();
 	}
+	// if (in_currency === 'ADM'){
+	// 	// itx.update({isProcessed: true}, true);
+	// 	// pay.update({validateIsFinish: true}, true);
+	// } else {
+	// 	pay.save();// TODO: REMOVE!
+	// 	// validatorBlockChain(txs);
+	// // TODO: если не ADM отправить на 2й валидатор - соответвие данным в БЧ коина
+	// }
+	// }
 };
 
 

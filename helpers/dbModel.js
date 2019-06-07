@@ -3,9 +3,9 @@ module.exports = (db) => {
 		constructor(data = {}, isSave) {
 			this.db = db;
 			Object.assign(this, data);
-			// if (isSave){
-			// 	this.save();
-			// }
+			if (isSave){
+				this.save();
+			}
 		}
 		static get db() {
 			return db;
