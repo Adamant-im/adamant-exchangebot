@@ -1,14 +1,21 @@
 module.exports = (db) => {
 	return class {
-		constructor(data = {}) {
+		constructor(data = {}, isSave) {
 			this.db = db;
 			Object.assign(this, data);
+			// if (isSave){
+			// 	this.save();
+			// }
 		}
 		static get db() {
 			return db;
 		}
-		static find(a, b, c) { // return Array
-			db.find(a, b, c);
+		static find(a) { // return Array
+			return new Promise((resolve, reject) => {
+				this.db.find(a).toArray((err, data) => {				
+					resolve(data.map(d=>new this(d)));
+				});
+			});
 		}
 		static findOne(a) {
 			return new Promise((resolve, reject) => {

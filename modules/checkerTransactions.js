@@ -1,8 +1,9 @@
 const Store = require('./Store');
 const api = require('./api');
-const config = require('./configReader');
-const exchangeTrans = require('./exchangeTrans');
-const chatTrans = require('./chatTrans');
+// const config = require('./configReader');
+// const exchangeTrans = require('./exchangeTrans');
+// const chatTrans = require('./chatTrans');
+const txParser = require('./incomingTxsParser');
 const log = require('../helpers/log');
 
 function check() {
@@ -15,18 +16,7 @@ function check() {
 			if (type !== 8) {
 				return;
 			}
-			const chat = t.asset.chat;
-			const msg = api.decodeMsg(chat.message, t.senderPublicKey, config.passPhrase, chat.own_message);
-			try {
-				const data = JSON.parse(msg);
-				let coin = 'ADM';
-				if (~data.type.indexOf('_transaction')) {
-					coin = data.type.split('_')[0];
-				}
-				exchangeTrans({t, coin, msg, data});
-			} catch (e) {
-				chatTrans(t, msg);
-			}
+			txParser (t);
 		});
 		Store.updateLastBlock();
 	} catch (e){
