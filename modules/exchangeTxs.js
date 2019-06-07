@@ -8,7 +8,6 @@ const config = require('./configReader');
 const Store = require('./Store');
 
 module.exports = async (itx, tx) => {
-	console.log('--------' + itx._id);
 	const {paymentsDb} = db;
 	const msg = itx.encrypted_content;
 	let in_currency,
@@ -75,14 +74,11 @@ module.exports = async (itx, tx) => {
 		}, true);
 	
 		itx.update({isProcessed: true}, true);
-		console.log(itx._id);
 		notify(msgNotify, 'warn'); // TODO: send msgSendBack to Adamanте messenger
 	} else { // Success validation 
 		if (in_currency === 'ADM'){
-			itx.validateIsFinish = true;
-			
-			itx.save();
-			
+			itx.update({isProcessed: true}, true);
+			pay.update({validateIsFinish: true}, true);
 		} else {
 			// validatorBlockChain(txs);
 		// TODO: если не ADM отправить на 2й валидатор - соответвие данным в БЧ коина

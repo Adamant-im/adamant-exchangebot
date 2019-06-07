@@ -9,8 +9,7 @@ const notify = require('../helpers/notify');
 
 setTimeout(()=>{
 	try {
-		db.incomingTxsDb.db.drop();
-		db.incomingTxsDb.db.drop();
+		// db.incomingTxsDb.db.drop();
 	} catch (e) {}
 }, 2000);
 module.exports = async (params) => {
