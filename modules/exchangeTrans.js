@@ -6,6 +6,7 @@ const api = require('./api');
 const config = require('./configReader');
 const Store = require('./Store');
 const notify = require('../helpers/notify');
+
 setTimeout(()=>{
 	try {
 		db.incomingTxsDb.db.drop();
@@ -67,10 +68,10 @@ module.exports = async (params) => {
 	} else if (in_currency === out_currency){
 		msgNotify = `Exchange Bot ${Store.user.adm.address} received request to exchange ${in_currency} for ${out_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${t.id}.`;
 		msgSendBack = `Not a big deal to exchange ${in_currency} for ${out_currency}. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient.`;
-	} else if (!config.accepted_crypto.includes[in_currency]){
+	} else if (!config.accepted_crypto.includes(in_currency){
 		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about incoming transfer of unaccepted crypto: ${in_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${t.id}`;
 		msgSendBack = `Crypto ${in_currency} is not accepted. I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient`;
-	} else if (!config.exchange_crypto.includes[out_currency]){
+	} else if (!config.exchange_crypto.includes(out_currency){
 		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about incoming transfer of unaccepted crypto: ${out_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${t.id}`;
 		msgSendBack = `I don’t accept exchange to ${out_currency}. I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient`;
 	} // TODO: equal USD
