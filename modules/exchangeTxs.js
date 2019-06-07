@@ -42,6 +42,7 @@ module.exports = async (itx, tx) => {
 		out_currency,
 		hash,
 		in_amount_message,
+		transactionIsValid: false,
 		validateIsFinish: false,
 		need_to_send_back: false
 	});
