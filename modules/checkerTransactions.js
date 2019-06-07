@@ -9,7 +9,7 @@ const log = require('../helpers/log');
 function check() {
 	try {
 		// const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight).transactions;
-		const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=10').transactions;
+		const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=2').transactions;
 
 		tx.forEach(t => {
 			const {type} = t;

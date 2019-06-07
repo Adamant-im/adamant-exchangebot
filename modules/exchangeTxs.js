@@ -36,6 +36,7 @@ module.exports = async (itx, tx) => {
 		out_currency = null;
 	}
 	const pay = new paymentsDb({
+		date: $u.unix(),
 		itx_id: itx._id,
 		in_currency,
 		out_currency,
@@ -67,18 +68,18 @@ module.exports = async (itx, tx) => {
 	} // TODO: equal USD
 
 	if (msgSendBack){ // Error validate
-		pay.update({
+		await pay.update({
 			msgSendBack,
 			need_to_send_back: true,
 			validateIsFinish: true
 		}, true);
 	
-		itx.update({isProcessed: true}, true);
+		await itx.update({isProcessed: true}, true);
 		notify(msgNotify, 'warn'); // TODO: send msgSendBack to Adamanте messenger
 	} else { // Success validation 
 		if (in_currency === 'ADM'){
-			itx.update({isProcessed: true}, true);
-			pay.update({validateIsFinish: true}, true);
+			await itx.update({isProcessed: true}, true);
+			await pay.update({validateIsFinish: true}, true);
 		} else {
 			// validatorBlockChain(txs);
 		// TODO: если не ADM отправить на 2й валидатор - соответвие данным в БЧ коина
