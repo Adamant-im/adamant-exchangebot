@@ -1,7 +1,7 @@
 const jsonminify = require('jsonminify');
 const fs = require('fs');
 const log = require('../helpers/log');
-const notify = require('../helpers/notyfy');
+const notify = require('../helpers/notify');
 const keys = require('adamant-api/helpers/keys');
 
 let config = {};
@@ -76,8 +76,7 @@ if (process.argv.reverse()[0]) {
 		});
 
 	} catch (e) {
-		console.log('Err config:' + e);
-		exit('Create config: ' + e);
+		log.error('Err config: ' + e);
 	}
 
 	function exit(msg) {

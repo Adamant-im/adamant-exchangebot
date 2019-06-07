@@ -16,7 +16,7 @@ if (port) {
 	})); // for parsing application/x-www-form-urlencoded
 
 	app.get('/db', (req, res) => {
-		const tb = db[req.query.tb];
+		const tb = db[req.query.tb].db;
 		if (!tb) {
 			res.json({
 				err: 'tb not find'
@@ -38,6 +38,6 @@ if (port) {
 		});
 	});
 
-	app.listen(port, () => console.info('Server listening on port ' + port + ' http://localhost:' + port + '/db?tb=system'));
+	app.listen(port, () => console.info('Server listening on port ' + port + ' http://localhost:' + port + '/db?tb=systemDb'));
 
 }

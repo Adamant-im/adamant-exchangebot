@@ -19,16 +19,13 @@ function check() {
 			const msg = api.decodeMsg(chat.message, t.senderPublicKey, config.passPhrase, chat.own_message);
 			try {
 				const data = JSON.parse(msg);
+				let coin = 'ADM';
 				if (~data.type.indexOf('_transaction')) {
-					const coin = data.type.split('_')[0];
-					exchangeTrans({t, coin, msg, data});
+					coin = data.type.split('_')[0];
 				}
+				exchangeTrans({t, coin, msg, data});
 			} catch (e) {
-				if (t.amount > 1) {
-					exchangeTrans({t, coin: 'ADM', msg});
-				} else {
-					chatTrans(t, msg);
-				}
+				chatTrans(t, msg);
 			}
 		});
 		Store.updateLastBlock();

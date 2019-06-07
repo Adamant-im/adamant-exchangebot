@@ -1,4 +1,4 @@
-const notify = require('./helpers/notyfy');
+const notify = require('./helpers/notify');
 const db = require('./modules/DB');
 const Store = require('./modules/Store');
 const checker = require('./modules/checkerTransactions');
