@@ -13,12 +13,11 @@ const notify = require('../helpers/notify');
 setTimeout(()=>{
 	db.incomingTxsDb.db.drop();
 	db.paymentsDb.db.drop();
-	
 }, 2000);
 const historyTxs = {}; // catch saved txs. Defender dublicated
 module.exports = async (tx) => {
 	if (historyTxs[tx.id]){
-		console.log('TX in historyTxs!');
+		// console.log('TX in historyTxs!');
 		return;
 	}
 	historyTxs[tx.id] = $u.unix();
@@ -26,7 +25,7 @@ module.exports = async (tx) => {
 	const {incomingTxsDb} = db;
 	const checkedTx = await incomingTxsDb.findOne({txid: tx.id});
 	if (checkedTx !== null) {
-		log.warn(` Transaction dublicate id: ${tx.id}`);
+		// log.warn(` Transaction dublicate id: ${tx.id}`);
 		return;
 	};
 	log.info(`New incoming transaction`);
@@ -36,6 +35,7 @@ module.exports = async (tx) => {
 	if (msg.startsWith('/')){
 		type = 'command';
 	} else if (msg.includes('_transaction') || tx.amount > 0){
+		console.log(msg);
 		type = "exchange";
 	}
 	const itx = new incomingTxsDb({
