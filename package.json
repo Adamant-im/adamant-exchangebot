@@ -9,11 +9,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "adamant-api": "^0.1.8",
+    "adamant-api": "^0.1.9",
     "express": "^4.17.1",
     "jsonminify": "^0.4.1",
     "mongodb": "^3.2.6",
-    "request": "^2.88.0",
-    "web3": "^1.0.0-beta.55"
+    "request": "^2.88.0"
   }
 }

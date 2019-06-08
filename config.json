@@ -1,0 +1,14 @@
+{
+	"passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwe",
+	"node": [
+		"https://endless.adamant.im",
+		"https://clown.adamant.im",
+		"http://185.231.245.26:36666",
+		"http://80.211.177.181:36666",
+		"https://lake.adamant.im"
+	],
+	"exchange_crypto": ["ADM", "ETH"],
+	"accepted_crypto": ["ADM", "ETH"],
+	"known_crypto": ["ADM", "ETH"],
+	"api": 3333
+}

@@ -1,19 +1,14 @@
 const Store = require('./Store');
 const api = require('./api');
-// const config = require('./configReader');
-// const exchangeTrans = require('./exchangeTrans');
-// const chatTrans = require('./chatTrans');
 const txParser = require('./incomingTxsParser');
 const log = require('../helpers/log');
 
-function check() {
+async function check() {
 	try {
 		// const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight).transactions;
-		const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=10').transactions;
-
+		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=10')).transactions;
 		tx.forEach(t => {
-			const {type} = t;
-			if (type !== 8) {
+			if (t.type !== 8) {
 				return;
 			}
 			txParser (t);

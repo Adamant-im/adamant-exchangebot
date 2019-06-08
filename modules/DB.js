@@ -1,8 +1,5 @@
 const MongoClient = require("mongodb").MongoClient;
-
-const mongoClient = new MongoClient("mongodb://localhost:27017/", {
-	useNewUrlParser: true
-});
+const mongoClient = new MongoClient("mongodb://localhost:27017/", {useNewUrlParser: true});
 const model = require('../helpers/dbModel');
 
 const collections = {};

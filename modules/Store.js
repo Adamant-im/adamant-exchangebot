@@ -4,7 +4,6 @@ const keys = require('adamant-api/helpers/keys');
 const api = require('./api');
 const config = require('./configReader');
 const request = require('request');
-
 const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 const AdmAddress = keys.createAddressFromPublicKey(AdmKeysPair.publicKey);
 const ethData = api.eth.keys(config.passPhrase);
@@ -31,25 +30,23 @@ module.exports = {
 		db.systemDb.db.updateOne({}, {$set}, {upsert: true});
 		this[field] = data;
 	},
-	updateLastBlock() {
+	async updateLastBlock() {
 		try {
-			const lastBlock = api.get('uri', 'blocks').blocks[0];
+			const lastBlock = (await api.get('uri', 'blocks')).blocks[0];
 			this.updateSystem('lastBlock', lastBlock);
 		} catch (e) {
 			log.error(' Store update last block ' + e);
 		}
 	},
-	updateCurrencies(){
-		request('https://info.adamant.im/get', (err, body)=>{
-			try {
-				const data = JSON.parse(body.body);
-				if (data.success){
-					this.currencies = data.result;
-				}
-			} catch (e){
-				log.error(' update currencys ' + e);
-			};
-		});
+	async updateCurrencies(){
+		try {
+			const data = await api.syncGet(config.infoservice + '/get', true);
+			if (data.success){
+				this.currencies = data.result;
+			}
+		} catch (e){
+			log.error('Update currencys ' + e);
+		};
 	}
 };
 
