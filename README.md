@@ -1,5 +1,7 @@
 
-ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient.
+**WORK IS IN PROCESS. NOT READY TO USE YET**
+
+ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
 Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
@@ -12,8 +14,8 @@ Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://med
 ## Setup
 ```
 su - adamant
-git clone https://github.com/Adamant-im/adamant-pool
-cd ./adamant-pool
+git clone https://github.com/Adamant-im/adamant-exchangebot
+cd ./adamant-exchangebot
 npm i
 ```
 
@@ -36,19 +38,19 @@ Parameters:
 * `port` <number> Port for connecting the web interface. The web interface is available at http://IP:port. Default: 36668
 
 ## Launching
-You can start the pool with the `node app` command, but it is recommended to use the process manager for this purpose.
+You can start the Exchange Bot with the `node app` command, but it is recommended to use the process manager for this purpose.
 ```
-pm2 start --name adamantpool app.js 
+pm2 start --name exchangebot app.js 
 ```
 
-## Add pool to cron:
+## Add Exchange Bot to cron:
 ```
 crontab -e
 ```
 
 Add string:
 ```
-@reboot cd /home/adamant/adamant-pool && pm2 start --name adamantpool app.js
+@reboot cd /home/adamant/adamant-exchangebot && pm2 start --name exchangebot app.js
 ```
 
 
