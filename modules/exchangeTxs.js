@@ -135,7 +135,7 @@ module.exports = async (itx, tx) => {
 	$u.sendAdmMsg(tx.senderId, msgSendBack);
 
 	if (!pay.isFinished){
-		deepExchangeValidator(itx, pay, tx);
+		deepExchangeValidator(pay, tx);
 	}
 };
 
