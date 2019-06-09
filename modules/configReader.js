@@ -3,8 +3,8 @@ const fs = require('fs');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const keys = require('adamant-api/helpers/keys');
-const ENV = process.argv.reverse()[0] === 'dev' && 'dev' || 'prod';
-console.log({ENV});
+const isDev = process.argv.reverse()[0] === 'dev';
+console.log('isDev: ' + isDev);
 let config = {};
 
 // Validate config fields
@@ -49,15 +49,19 @@ const fields = {
 		type: Number,
 		default: 3
 	},
+	exchange_fee: {
+		type: Number,
+		default: 1
+	},
 	welcome_string: {
 		type: String,
-		default: `Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.`
+		default: 'Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.'
 	}
 };
 try {
-	if (ENV === 'dev') {
-		config = require('../tests');}
-	else {
+	if (isDev) {
+		config = require('../tests');
+	} else {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
 	}
 
@@ -90,4 +94,5 @@ function exit(msg) {
 	notify(msg, 'error');
 	process.exit(-1);
 }
+config.isDev = isDev;
 module.exports = config;

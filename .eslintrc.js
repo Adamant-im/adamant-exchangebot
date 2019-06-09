@@ -4,6 +4,7 @@ module.exports = {
         "sourceType": "module"
     },
     "rules": {
+		quotes: ["error", "single"],
         "semi": "warn", // обязательно ;
         "semi-spacing": ["error", {"before": false, "after": true}],
         "indent": ["error", "tab"],

@@ -6,46 +6,47 @@ const notify = require('../helpers/notify');
 const api = require('./api');
 const config = require('./configReader');
 const Store = require('./Store');
+const deepExchangeValidator = require('./deepExchangeValidator');
 
 module.exports = async (itx, tx) => {
 	const {paymentsDb} = db;
+	const {min_confirmations} = config;
 	const msg = itx.encrypted_content;
-	let in_currency,
-		out_currency,
-		in_txid,
-		in_amount_message;
+	let inCurrency,
+		outCurrency,
+		inTxid,
+		inAmountMessage;
 
 	if (tx.amount > 0){ // ADM
-		in_amount_message = tx.amount / SAT;
-		in_currency = 'ADM';
-		out_currency = msg;
-		in_txid = tx.id;
+		inAmountMessage = tx.amount / SAT;
+		inCurrency = 'ADM';
+		outCurrency = msg;
+		inTxid = tx.id;
 	} else if (msg.includes('_transaction')){ // no ADM
-		in_currency = msg.match(/"type":"(.*)_transaction/)[1];
+		inCurrency = msg.match(/"type":"(.*)_transaction/)[1];
 		try {
 			const json = JSON.parse(msg);
-			in_amount_message = Number(json.amount);
-			in_txid = json.hash;
-			out_currency = json.comments;
+			inAmountMessage = Number(json.amount);
+			inTxid = json.hash;
+			outCurrency = json.comments;
 		} catch (e){
-			in_currency = 'none';
+			inCurrency = 'none';
 		}
 	}
 
-	if (typeof out_currency === 'string'){
-		out_currency = out_currency.toUpperCase().trim();
+	if (typeof outCurrency === 'string'){
+		outCurrency = outCurrency.toUpperCase().trim();
 	}
 	const pay = new paymentsDb({
 		date: $u.unix(),
-		itx_id: itx._id,
+		itxId: itx._id,
 		senderId: tx.senderId,
-		in_currency,
-		out_currency,
-		in_txid,
-		try_counter: 0,
-		in_amount_message,
-		transactionIsValid: false,
-		validateIsFinish: false,
+		inCurrency,
+		outCurrency,
+		inTxid,
+		tryCounter: 0,
+		inAmountMessage,
+		transactionIsValid: null,
 		needHumanCheck: false,
 		needToSendBack: false,
 		isFinished: false
@@ -54,58 +55,88 @@ module.exports = async (itx, tx) => {
 
 	let msgSendBack = false;
 	let msgNotify = false;
-	const in_txid_dublicate = await paymentsDb.findOne({in_txid});
+	const inTxidDublicate = await paymentsDb.findOne({inTxid});
 
 	// Checkers
-	if (in_txid_dublicate){
+	if (inTxidDublicate){
 		pay.isFinished = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} thinks transaction of ${in_amount_message} ${in_currency} is duplicated. Tx hash: ${in_txid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>.. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
-		msgSendBack = `I think transaction of ${in_amount_message} ${in_currency} with Tx ID ${in_txid} is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
+		pay.error = 1;
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${inAmountMessage} ${inCurrency} is duplicated. Tx hash: ${inTxid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>.. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+
+		msgSendBack = `I think transaction of ${inAmountMessage} ${inCurrency} with Tx ID ${inTxid} is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
 	}
-	else if (!config.known_crypto.includes(in_currency)){
+	else if (!config.known_crypto.includes(inCurrency)){
+		pay.error = 2;
 		pay.needHumanCheck = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about incoming transfer of unknown crypto: ${in_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
-		msgSendBack = `I don’t know crypto {in_currency}. If you think it’s a mistake, contact my master.`;
+		pay.isFinished = true;
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unknown crypto: ${inCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+
+		msgSendBack = 'I don’t know crypto ${inCurrency}. If you think it’s a mistake, contact my master.';
 	}
-	else if (!config.known_crypto.includes(out_currency)){
+	else if (!config.known_crypto.includes(outCurrency)){
+		pay.error = 3;
 		pay.needToSendBack = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about request of unknown crypto: ${out_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
-		msgSendBack = `I don’t know crypto ${out_currency}. I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient.`;
+
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about request of unknown crypto: ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+
+		msgSendBack = `I don’t know crypto ${outCurrency}. I will try to send transfer back to you. I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient.`;
 	}
-	else if (in_currency === out_currency){
+	else if (inCurrency === outCurrency){
+		pay.error = 4;
 		pay.needToSendBack = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} received request to exchange ${in_currency} for ${out_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
-		msgSendBack = `Not a big deal to exchange ${in_currency} for ${out_currency}. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient.`;
+
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} received request to exchange ${inCurrency} for ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+
+		msgSendBack = `Not a big deal to exchange ${inCurrency} for ${outCurrency}. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!config.accepted_crypto.includes(in_currency)){
+	else if (!config.accepted_crypto.includes(inCurrency)){
+		pay.error = 5;
 		pay.needToSendBack = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about incoming transfer of unaccepted crypto: ${in_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`;
-		msgSendBack = `Crypto ${in_currency} is not accepted. I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient`;
+
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unaccepted crypto: ${inCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`;
+
+		msgSendBack = `Crypto ${inCurrency} is not accepted. I will try to send transfer back to you. I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
 	}
-	else if (!config.exchange_crypto.includes(out_currency)){
+	else if (!config.exchange_crypto.includes(outCurrency)){
+		pay.error = 6;
 		pay.needToSendBack = true;
-		msgNotify = `Exchange Bot ${Store.user.adm.address} notifies about incoming transfer of unaccepted crypto: ${out_currency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`;
-		msgSendBack = `I don’t accept exchange to ${out_currency}. I will try to send transfer back to you. I will validate your transfer and wait for <Min_confirmations> block confirmations. It can take a time, please be patient`;
+
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unaccepted crypto: ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`;
+
+		msgSendBack = `I don’t accept exchange to ${outCurrency}. I will try to send transfer back to you. I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
 	}
 	// TODO: equal USD
 	// TODO: Daily_limit_usd
-
-	if (pay.needHumanCheck || pay.isFinished){
-		pay.update({
-			isFinished: true,
-			validateIsFinish: true
-		});
-		notify(msgNotify, 'error');
+	let notifyType = 'info';
+	if (pay.isFinished){
+		notifyType = 'error';
 	} else if (pay.needToSendBack){ // Error validate
-		notify(msgNotify, 'warn'); // TODO: send msgSendBack to Adamanте messenger
+		notifyType = 'warn';
 	} else {
-		// TODO: computed out amount
+		pay.update(Store.mathEqual(inCurrency, outCurrency, inAmountMessage));
+		if (!pay.outAmount){ // cant math outAmount // TODO: messages!
+			pay.error = 7;
+			pay.needToSendBack = true;
+
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} cant math outAmount.`;
+
+			msgSendBack = `I cant math your request to exchange ${inAmountMessage} ${inCurrency}.`;
+		} else { // its Ok
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction for exchange: ${inAmountMessage} ${inCurrency} for price ${pay.exchangePrice}. Tx hash: ${inTxid}. Exchange to ${pay.outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+
+			msgSendBack = `I understood your request to exchange ${inAmountMessage} ${inCurrency} for ${pay.outAmount} ${outCurrency} for price ${pay.exchangePrice}. Now I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
+		}
 	}
-	if (msgSendBack){
-		api.send(config.passPhrase, tx.senderId, msgSendBack, 'message');
+
+	await pay.save();
+	await itx.update({isProcessed: true}, true);
+
+	notify(msgNotify, notifyType);
+	$u.sendAdmMsg(tx.senderId, msgSendBack);
+
+	if (!pay.isFinished){
+		deepExchangeValidator(itx, pay, tx);
 	}
-	pay.save();
-	itx.update({isProcessed: true}, true);
 };
 
 

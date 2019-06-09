@@ -3,22 +3,26 @@ const log = require('../helpers/log');
 const keys = require('adamant-api/helpers/keys');
 const api = require('./api');
 const config = require('./configReader');
-const request = require('request');
 const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 const AdmAddress = keys.createAddressFromPublicKey(AdmKeysPair.publicKey);
 const ethData = api.eth.keys(config.passPhrase);
 
 module.exports = {
 	user: {
-		adm: {
+		ADM: {
 			passPhrase: config.passPhrase,
 			keysPair: AdmKeysPair,
 			address: AdmAddress
 		},
-		eth: {
+		ETH: {
 			address: ethData.address,
 			privateKey: ethData.privateKey,
 		}
+	},
+	comissions: {
+		ETH: 0.0001,
+		BTC: 0.00005,
+		ADM: 0.5
 	},
 	lastBlock: null,
 	get lastHeight() {
@@ -46,6 +50,26 @@ module.exports = {
 			}
 		} catch (e){
 			log.error('Update currencys ' + e);
+		};
+	},
+	getPrice(from, to){
+		try {
+			from = from.toUpperCase();
+			to = to.toUpperCase();
+			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || null).toFixed(8);
+		} catch (e){
+			console.log('getPrice: ', e);
+			return null;
+		}
+	},
+	mathEqual(from, to, amount){
+		const price = this.getPrice(from, to);
+		if (!price){
+			return null;
+		}
+		return {
+			outAmount: +(price * (amount - this.comissions[from])).toFixed(8) * (100 - config.exchange_fee) / 100,
+			exchangePrice: price
 		};
 	}
 };

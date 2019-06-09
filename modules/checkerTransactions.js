@@ -5,8 +5,8 @@ const log = require('../helpers/log');
 
 async function check() {
 	try {
-		// const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight).transactions;
-		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.adm.address + '&orderBy=timestamp:desc&limit=10')).transactions;
+		// const tx = api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight).transactions;
+		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
 		tx.forEach(t => {
 			if (t.type !== 8) {
 				return;
@@ -15,7 +15,7 @@ async function check() {
 		});
 		Store.updateLastBlock();
 	} catch (e){
-		log.error(' check transactions ' + e);
+		log.error('check transactions ' + e);
 	}
 }
 module.exports = () => {
