@@ -6,8 +6,8 @@ module.exports = {
 	unix() {
 		return new Date().getTime();
 	},
-	sendAdmMsg(address, msg){
-		if (!config.isDev){
+	sendAdmMsg(address, msg) {
+		if (!config.isDev) {
 			api.send(config.passPhrase, address, msg, 'message');
 		}
 	},
@@ -19,10 +19,10 @@ module.exports = {
 			} else {
 				return null;
 			}
-		} catch (e){
+		} catch (e) {
 			console.log('Error getAddressCryptoFromAdmAddressADM ' + e);
 			return null;
 		}
 	},
-	ETH_syncGetTransaction: eth_utils.syncGetTransaction
+	ETH: eth_utils
 };

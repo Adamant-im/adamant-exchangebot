@@ -44,7 +44,7 @@ module.exports = async (pay, tx) => {
 		// check incoming TX in blockchain inCurrency
 		if (pay.inCurrency !== 'ADM') {
 			try {
-				const in_tx = await $u[pay.inCurrency + '_syncGetTransaction'](pay.inTxid);
+				const in_tx = await $u[pay.inCurrency].syncGetTransaction(pay.inTxid);
 				if (!in_tx) { // TODO: ??????????
 					pay.update({
 						needHumanCheck: true,
@@ -58,7 +58,7 @@ module.exports = async (pay, tx) => {
 						inAmountReal: in_tx.amount
 					});
 
-					if (pay.sender !== pay.sender_kvs_in_address) {
+					if (pay.sender.toLowerCase() !== pay.sender_kvs_in_address.toLowerCase()) {
 						pay.update({
 							transactionIsValid: false,
 							isFinished: true,
@@ -68,7 +68,7 @@ module.exports = async (pay, tx) => {
 
 						msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
 
-					} else if (pay.recipient !== Store.user[pay.inCurrency].address) {
+					} else if (pay.recipient.toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 						pay.update({
 							transactionIsValid: false,
 							isFinished: true,
@@ -91,6 +91,7 @@ module.exports = async (pay, tx) => {
 
 					} else { // its Ok
 						pay.transactionIsValid = true;
+						pay.inConfirmations = 0;
 					}
 				}
 			} catch (e) {
@@ -98,6 +99,7 @@ module.exports = async (pay, tx) => {
 			}
 		} else { // inCurrency is ADM
 			pay.transactionIsValid = true;
+			pay.inConfirmations = 0; 
 		}
 
 		await pay.save();

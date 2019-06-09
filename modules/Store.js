@@ -20,9 +20,11 @@ module.exports = {
 		}
 	},
 	comissions: {
-		ETH: 0.0001,
-		BTC: 0.00005,
-		ADM: 0.5
+		DOGE: 1,
+		LSK: 0.1,
+		DASH: 0.0001,
+		ADM: 0.5,
+		ETH: 0.0001, // TODO: get fee!
 	},
 	lastBlock: null,
 	get lastHeight() {
@@ -68,7 +70,7 @@ module.exports = {
 			return null;
 		}
 		return {
-			outAmount: +(price * (amount - this.comissions[from])).toFixed(8) * (100 - config.exchange_fee) / 100,
+			outAmount: +(price * amount).toFixed(8) * (100 - config.exchange_fee) / 100,
 			exchangePrice: price
 		};
 	}

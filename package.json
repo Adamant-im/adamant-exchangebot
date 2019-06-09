@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "adamant-api": "^0.1.9",
+    "adamant-api": "^0.1.10",
     "express": "^4.17.1",
     "jsonminify": "^0.4.1",
     "jsonrpc-client": "^0.1.1",

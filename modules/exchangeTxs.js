@@ -49,6 +49,7 @@ module.exports = async (itx, tx) => {
 		transactionIsValid: null,
 		needHumanCheck: false,
 		needToSendBack: false,
+		transactionFailed: false,
 		isFinished: false
 	});
 	// Validate
