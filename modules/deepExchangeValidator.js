@@ -90,18 +90,22 @@ module.exports = async (pay, tx) => {
 						msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
 
 					} else { // its Ok
-						pay.transactionIsValid = true;
-						pay.inConfirmations = 0;
+						pay.update({
+							transactionIsValid: true,
+							inConfirmations: 0
+						});
 					}
 				}
 			} catch (e) {
 				log.error('Error deep validate no ADM incoming coins ' + e);
 			}
 		} else { // inCurrency is ADM
-			pay.transactionIsValid = true;
-			pay.inConfirmations = 0; 
+			pay.update({
+				inTxStatus: true,
+				transactionIsValid: true,
+				inConfirmations: 0
+			});
 		}
-
 		await pay.save();
 
 		if (msgSendBack) {

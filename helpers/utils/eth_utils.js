@@ -24,7 +24,6 @@ module.exports = {
 	getTransactionStatus(hash) {
 		return new Promise(resolve => {
 			eth.getTransactionReceipt(hash, (err, tx) => {
-				// console.log(tx)
 				if (err) {
 					resolve(null);
 				} else {
@@ -32,6 +31,17 @@ module.exports = {
 						blockNumber: tx.blockNumber,
 						status: tx.status
 					});
+				}
+			});
+		});
+	},
+	getLastBlockNumber() {
+		return new Promise(resolve => {
+			eth.getBlock('latest').then(block => {
+				if (block) {
+					resolve(block.number);
+				} else {
+					resolve(null);
 				}
 			});
 		});

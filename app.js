@@ -6,6 +6,7 @@ setTimeout(init, 2000);
 
 function init() {
 	require('./server');
+	require('./modules/confirmationsCounter');
 	try {
 		db.systemDb.findOne().then(system => {
 			if (system) {
