@@ -33,10 +33,6 @@ const fields = {
 		type: Array,
 		default: ['https://ethnode1.adamant.im']
 	},
-	node_ETH: {
-		type: Array,
-		default: ['https://ethnode1.adamant.im']
-	},
 	infoservice: {
 		type: Array,
 		default: ['https://info.adamant.im']

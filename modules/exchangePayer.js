@@ -31,6 +31,7 @@ module.exports = async () => {
 			if (outAmount > Store.user[outCurrency].balance) {
 				log.warn('needToSendBack', outCurrency, outAmount, Store.user[outCurrency].balance);
 				pay.update({
+					error: 15,
 					needToSendBack: true
 				}, true);
 				notify(`Exchange Bot ${Store.user.ADM.addre} notifies about insufficient balance for exchange of ${inAmountMessage} ${inCurrency} for ${outAmount} ${outCurrency}. Balance of ${outCurrency} is ${Store.user[outCurrency].balance}. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
