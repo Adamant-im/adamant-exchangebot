@@ -1,12 +1,15 @@
+const config = require('../../modules/configReader');
 const Web3 = require('web3');
-const web3 = new Web3('https://ethnode1.adamant.im');
+const web3 = new Web3(config.node_ETH[0]);// TODO: health check
 const {eth} = web3;
 const Store = require('../../modules/Store');
 const EthereumTx = require('ethereumjs-tx').Transaction;
 const ethSat = 1000000000000000000;
-eth.defaultAccount = Store.user.ETH.address;
+const User = Store.user.ETH;
+eth.defaultAccount = User.address;
+eth.defaultBlock = 'latest';
 const privateKey = Buffer.from(
-	Store.user.ETH.privateKey.replace('0x', ''),
+	User.privateKey.replace('0x', ''),
 	'hex',
 );
 
@@ -60,12 +63,19 @@ module.exports = {
 			}
 		});
 	},
+	updateBalance(){
+		eth.getBalance(User.address, (err, balance) => {
+			if (!err){
+				User.balance = balance / ethSat;
+			}
+		});
+	},
 	get FEE() {
 		return this.gasPrice * 21000 / ethSat * 3;
 	},
 	getNonce() {
 		return new Promise(resolve => {
-			eth.getTransactionCount(Store.user.ETH.address).then(nonce => {
+			eth.getTransactionCount(User.address).then(nonce => {
 				this.currentNonce = nonce;
 				resolve(nonce);
 			});
@@ -105,10 +115,15 @@ module.exports = {
 	lastNonce: 0,
 };
 
-
 // Init
 module.exports.updateGasPrice();
+module.exports.updateBalance();
 module.exports.getNonce();
+
 setInterval(() => {
 	module.exports.updateGasPrice();
 }, 10 * 1000);
+
+setInterval(() => {
+	module.exports.updateBalance();
+}, 60 * 1000);

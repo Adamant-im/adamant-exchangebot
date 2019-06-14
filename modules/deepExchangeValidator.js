@@ -9,17 +9,17 @@ module.exports = async (pay, tx) => {
 	pay.tryCounter++;
 
 	try {
-		let sender_kvs_in_address = pay.sender_kvs_in_address || pay.inCurrency === 'ADM' && tx.senderId ||
+		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
 			await $u.getAddressCryptoFromAdmAddressADM(pay.inCurrency, tx.senderId);
-		let sender_kvs_out_address = pay.sender_kvs_out_address || pay.outCurrency === 'ADM' && tx.senderId ||
+		let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
 			await $u.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
 
 		pay.update({
-			sender_kvs_in_address,
-			sender_kvs_out_address
+			senderKvsInAddress,
+			senderKvsOutAddress
 		});
 
-		if (!sender_kvs_in_address) {
+		if (!senderKvsInAddress) {
 			pay.update({
 				error: 8,
 				isFinished: true,
@@ -32,7 +32,7 @@ module.exports = async (pay, tx) => {
 
 		let msgSendBack = false;
 		let msgNotify = false;
-		if (!sender_kvs_out_address && !pay.needToSendBack) {
+		if (!senderKvsOutAddress && !pay.needToSendBack) {
 			pay.update({
 				needToSendBack: true,
 				error: 9
@@ -58,13 +58,13 @@ module.exports = async (pay, tx) => {
 						inAmountReal: in_tx.amount
 					});
 
-					if (pay.sender.toLowerCase() !== pay.sender_kvs_in_address.toLowerCase()) {
+					if (pay.sender.toLowerCase() !== pay.senderKvsInAddress.toLowerCase()) {
 						pay.update({
 							transactionIsValid: false,
 							isFinished: true,
 							error: 11
 						});
-						msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${pay.inAmountMessage} ${pay.inCurrency} is wrong. Sender expected: ${sender_kvs_in_address}, real sender is ${pay.sender}.`;
+						msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${pay.inAmountMessage} ${pay.inCurrency} is wrong. Sender expected: ${senderKvsInAddress}, real sender is ${pay.sender}.`;
 
 						msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
 

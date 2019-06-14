@@ -1,6 +1,7 @@
 const api = require('../../modules/api');
 const config = require('../../modules/configReader');
 const eth_utils = require('./eth_utils');
+const adm_utils = require('./adm_utils');
 
 module.exports = {
 	unix() {
@@ -24,5 +25,6 @@ module.exports = {
 			return null;
 		}
 	},
-	ETH: eth_utils
+	ETH: eth_utils,
+	ADM: adm_utils
 };

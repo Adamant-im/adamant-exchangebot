@@ -12,9 +12,7 @@ module.exports = async () => {
 	const lastBlockNumber = {
 		ETH: await $u.ETH.getLastBlockNumber()
 	};
-	if (!lastBlockNumber.ETH){
-		return;
-	}
+	
 
 	(await paymentsDb.find({
 		transactionIsValid: true,
@@ -36,6 +34,10 @@ module.exports = async () => {
 				return;
 			}
 			if (inCurrency !== 'ADM') {
+				if (!lastBlockNumber[inCurrency]){
+					log.warn('Miss confirmation, no defined lastBlockNumber ' + inCurrency);
+					return;
+				}
 				const {status, blockNumber} = (await $u[inCurrency].getTransactionStatus(inTxid));
 				if (!blockNumber){
 					console.log('Return', {blockNumber, status});
@@ -62,10 +64,7 @@ module.exports = async () => {
 				}
 				pay.inConfirmations = tx.transaction.confirmations;
 			}
-			// console.log(`
-			// inCurrency: ${inCurrency}
-			// inConfirmations: ${pay.inConfirmations}
-			// status:			${pay.inTxStatus}`);
+
 			await pay.save();
 			if (msgSendBack) {
 				notify(msgNotify, 'warn');

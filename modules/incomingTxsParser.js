@@ -23,7 +23,7 @@ module.exports = async (tx) => {
 	log.info(`New incoming transaction ${tx.id}`);
 	const chat = tx.asset.chat;
 	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message);
-
+console.log({msg})
 	let type = 'unknown';
 	if (msg.startsWith('/')){
 		type = 'command';
