@@ -1,12 +1,12 @@
 const request = require('request');
 const config = require('../modules/configReader');
 const log = require('./log');
-
+const api = require('../modules/api');
 const {
 	adamant_notify,
 	slack
 } = config;
-const api = require('./api');
+
 
 module.exports = (message, type) => {
 	try {

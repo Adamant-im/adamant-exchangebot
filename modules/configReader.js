@@ -93,7 +93,7 @@ try {
 		} else if (!config[f] && fields[f].default) {
 			config[f] = fields[f].default;
 		}
-		if (fields[f].type !== config[f].__proto__.constructor) {
+		if (config[f] && fields[f].type !== config[f].__proto__.constructor) {
 			exit(`Exchange Bot ${address} config is wrong. Fields type ${f} is not valid, must be ${fields[f].type.name}. Cannot start Bot.`);
 		}
 	});
