@@ -57,6 +57,14 @@ const fields = {
 		type: Number,
 		default: 1
 	},
+	adamant_notify: {
+		type: String,
+		default: null
+	},
+	slack: {
+		type: String,
+		default: null
+	},
 	welcome_string: {
 		type: String,
 		default: 'Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.'
