@@ -9,14 +9,17 @@ const config = require('../../modules/configReader');
 const User = Store.user.ADM;
 
 module.exports = {
-
+	get FEE() {
+		return Store.comissions.ADM;
+	},
 	async send(params) {
 		try {
 			const {
+				fee,
 				address,
 				value
 			} = params;
-			const res = api.send(User.passPhrase, address, value - Store.comissions.ADM);
+			const res = api.send(User.passPhrase, address, value - fee && this.FEE);
 			if (!res) {
 				return {
 					success: false

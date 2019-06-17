@@ -33,7 +33,7 @@ module.exports = async () => {
 			if (inTxStatus && inConfirmations >= config.min_confirmations){
 				return;
 			}
-			if (inCurrency !== 'ADM') {
+			if (!['ADM'].includes(inCurrency)) { // array has confirmations count in api
 				if (!lastBlockNumber[inCurrency]){
 					log.warn('Miss confirmation, no defined lastBlockNumber ' + inCurrency);
 					return;
@@ -57,7 +57,7 @@ module.exports = async () => {
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of ${pay.inAmountMessage} ${pay.inCurrency} is Failed. Tx hash: ${inTxid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>`;
 					msgSendBack = `Transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${inTxid} is Failed and will not be processed. Try again. If you think it’s a mistake, contact my master.`;
 				}
-			} else { // if ADM
+			} else { // if count confirm in api
 				const tx = await api.get('uri', 'transactions/get?id=' + inTxid);
 				if (!tx.success) {
 					return;

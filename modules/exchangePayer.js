@@ -46,7 +46,7 @@ module.exports = async () => {
 			});
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
-				value: outAmount
+				value: outAmount // TODO: add fee exchange
 			});
 			console.log({
 				result
