@@ -12,7 +12,6 @@ module.exports = async () => {
 	const lastBlockNumber = {
 		ETH: await $u.ETH.getLastBlockNumber()
 	};
-	
 
 	(await paymentsDb.find({
 		transactionIsValid: true,

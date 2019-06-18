@@ -23,26 +23,51 @@ module.exports = async () => {
 		.forEach(async pay => {
 			const {
 				inAmountReal,
-				outAmount,
 				inCurrency,
-				outCurrency,
-				senderKvsOutAddress,
-				inAmountMessage
+				senderKvsInAddress
 			} = pay;
+
+			let msgSendBack = false;
+			let msgNotify = false;
 
 			const outFee = $u[inCurrency].FEE;
 			const sentBackAmount = inAmountReal - outFee;
 			const sentBackAmountUsd = Store.mathEqual(inCurrency, 'USD', sentBackAmount).outAmount;
-		
-			if (sentBackAmountUsd < 0 || sentBackAmountUsd < config.min_value_usd){
-				pay.isFinished = true;
 
+			if (sentBackAmountUsd < 0 || sentBackAmountUsd < config.min_value_usd){
+				pay.errorSendBack = 16;
+			} else if (sentBackAmount > Store.user[inCurrency].balance){
+				pay.errorSendBack = 17;
+				pay.needHumanCheck = true;
+			} else {// its Ok, send back!
+				const result = await $u[inCurrency].send({
+					address: senderKvsInAddress,
+					value: sentBackAmount
+				});
+				if (result.success) {
+					pay.sentBackTx = result.hash;
+					Store.user[inCurrency].balance -= inAmountReal;
+					log.info(`Success exchange send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`);
+				} else { // TODO: send again 50 times!!!!???
+					pay.errorSendBack = 18;
+					pay.needHumanCheck = true;
+					log.error(`Fail exchange send ${sentBackAmount} ${inCurrency}`);
+				}
 			}
-			console.log({
+			// console.log({
+			// 	tx: pay.sentBackTx,
+			// 	error: pay.errorSendBack,
+			// 	balance: Store.user[inCurrency].balance,
+			// 	outFee,
+			// 	sentBackAmount,
+			// 	sentBackAmountUsd
+			// });
+			pay.update({
+				isFinished: true,
 				outFee,
 				sentBackAmount,
 				sentBackAmountUsd
-			});
+			}, true);
 		});
 };
 
