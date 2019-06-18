@@ -36,7 +36,11 @@ module.exports = async () => {
 
 			if (sentBackAmountUsd < 0 || sentBackAmountUsd < config.min_value_usd){
 				pay.errorSendBack = 16;
+				msgNotify = '(need text msg!) I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master';
+				msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
 			} else if (sentBackAmount > Store.user[inCurrency].balance){
+				msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about insufficient balance for send back of ${inAmountReal} ${inCurrency}. Balance of <out_currency> is <out_balance>. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}. Attention needed.`;
+				msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 				pay.errorSendBack = 17;
 				pay.needHumanCheck = true;
 			} else {// its Ok, send back!
@@ -47,11 +51,13 @@ module.exports = async () => {
 				if (result.success) {
 					pay.sentBackTx = result.hash;
 					Store.user[inCurrency].balance -= inAmountReal;
-					log.info(`Success exchange send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`);
+					log.info(`Success back send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`);
+					msgSendBack = `Success back send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`;
 				} else { // TODO: send again 50 times!!!!???
 					pay.errorSendBack = 18;
 					pay.needHumanCheck = true;
 					log.error(`Fail exchange send ${sentBackAmount} ${inCurrency}`);
+					msgSendBack = 'I can’t send transfer back to you. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 				}
 			}
 			// console.log({
@@ -68,6 +74,9 @@ module.exports = async () => {
 				sentBackAmount,
 				sentBackAmountUsd
 			}, true);
+
+			notify(msgNotify, 'error');
+			$u.sendAdmMsg(pay.senderId, msgSendBack);
 		});
 };
 

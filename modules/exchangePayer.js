@@ -35,7 +35,7 @@ module.exports = async () => {
 					needToSendBack: true
 				}, true);
 				notify(`Exchange Bot ${Store.user.ADM.addre} notifies about insufficient balance for exchange of ${inAmountMessage} ${inCurrency} for ${outAmount} ${outCurrency}. Balance of ${outCurrency} is ${Store.user[outCurrency].balance}. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
-				$u.sendAdmMsg(`I can’t transfer ${outAmount} ${outCurrency} to you because of insufficient funds (I count blockchain fees also). Check my balances with /balances command. I will try to send transfer back to you.`);
+				$u.sendAdmMsg(pay.senderId, `I can’t transfer ${outAmount} ${outCurrency} to you because of insufficient funds (I count blockchain fees also). Check my balances with /balances command. I will try to send transfer back to you.`);
 				return;
 			}
 			console.log('Send', {
