@@ -7,9 +7,7 @@ const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
-	const {
-		paymentsDb
-	} = db;
+	const {paymentsDb} = db;
 
 	(await paymentsDb.find({
 		transactionIsValid: true,
@@ -28,6 +26,7 @@ module.exports = async () => {
 				senderKvsOutAddress,
 				inAmountMessage
 			} = pay;
+			pay.tryCounter++;
 			if (outAmount > Store.user[outCurrency].balance) {
 				log.warn('needToSendBack', outCurrency, outAmount, Store.user[outCurrency].balance);
 				pay.update({
@@ -54,12 +53,13 @@ module.exports = async () => {
 			if (result.success) {
 				pay.update({
 					outTxid: result.hash
-				}, true);
-				Store.user[outCurrency].balance -= outCurrency;
+				});
+				Store.user[outCurrency].balance -= outAmount;
 				log.info(`Success exchange send ${outAmount} ${outCurrency}. Hash: ${result.hash}`);
 			} else {
 				log.error(`Fail exchange send ${outAmount} ${outCurrency}`);
 			}
+			pay.save();
 		});
 };
 

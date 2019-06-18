@@ -15,11 +15,10 @@ module.exports = {
 	async send(params) {
 		try {
 			const {
-				fee,
 				address,
 				value
 			} = params;
-			const res = api.send(User.passPhrase, address, value - fee && this.FEE);
+			const res = api.send(User.passPhrase, address, value);
 			if (!res) {
 				return {
 					success: false

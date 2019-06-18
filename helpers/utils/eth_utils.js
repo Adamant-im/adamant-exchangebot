@@ -88,7 +88,7 @@ module.exports = {
 				gasPrice: this.gasPrice,
 				gas: web3.utils.toHex(22000),
 				to: params.address,
-				value: params.value * ethSat - params.fee && this.FEE
+				value: params.value * ethSat
 			};
 
 			const tx = new EthereumTx(txParams);
