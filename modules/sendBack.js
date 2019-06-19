@@ -57,27 +57,27 @@ module.exports = async () => {
 				needHumanCheck: true,
 				isFinished: true
 			});
-		} else {// its Ok, send back!
+		} else { // We are able to send transfer back
 			const result = await $u[inCurrency].send({
 				address: senderKvsInAddress,
-				value: sentBackAmount
+				value: sentBackAmount // TODO: add fee 
 			});
 			if (result.success) {
 				pay.sentBackTx = result.hash;
-				Store.user[inCurrency].balance -= inAmountReal;
-				log.info(`Success back send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`);
-				msgSendBack = `Success back send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`;
-			} else { // TODO: send again 50 times!!!!???
+				Store.user[inCurrency].balance -= inAmountReal; // TODO: count fee if needed
+				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
+			} else { // Can't make a transaction. TODO: check tryCounter and try again 20 times
 				pay.update({
 					errorSendBack: 19,
 					needHumanCheck: true,
 					isFinished: true
 				});
-				log.error(`Fail exchange send ${sentBackAmount} ${inCurrency}`);
-				msgSendBack = 'I can’t send transfer back to you. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+				log.error(`Failed to send back of ${sentBackAmount} ${inCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
+				msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. Balance of _${inCurrency}_ is _${Store.user[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`;
+				msgSendBack = 'I’ve tried to make send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			}
 		}
-		console.log({
+		console.log('sendBack logs', {
 			inCurrency,
 			tx: pay.sentBackTx,
 			error: pay.errorSendBack,
@@ -87,7 +87,7 @@ module.exports = async () => {
 			sentBackAmountUsd
 		});
 		pay.save();
-		notify(msgNotify, 'error'); // TODO: add Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>.
+		notify(msgNotify, 'error');
 		$u.sendAdmMsg(pay.senderId, msgSendBack);
 	}
 };
@@ -95,27 +95,3 @@ module.exports = async () => {
 setInterval(() => {
 	module.exports();
 }, 17 * 1000);
-
-//    {_id: 5d07e08a26c063255467301a,
-//      date: 1560797322624,
-//      itxId: 5d07e08826c0632554673013,
-//      senderId: 'U15174911558868491228',
-//      inCurrency: 'ETH',
-//      outCurrency: 'BVB',
-//      inTxid:
-//       '0x2c55be7573a306ec6060f1261842f382ed6c1678c2c8499e5f327fd242f53f68',
-//      tryCounter: 1,
-//      inAmountMessage: 0.001,
-//      transactionIsValid: true,
-//      needHumanCheck: false,
-//      needToSendBack: true,
-//      transactionIsFailed: false,
-//      isFinished: false,
-//      error: 3,
-//      inAmountReal: 0.001,
-//      inConfirmations: 44462,
-//      recipient: '0xEFb1d6CA32D33B546Fd9b1C4FC12db44c8B788c6',
-//      sender: '0x1c8c51d069B154b13EC5B83e8243e185871A5EAA',
-//      senderKvsInAddress: '0x1c8c51d069b154b13ec5b83e8243e185871a5eaa',
-//      senderKvsOutAddress: null,
-//      inTxStatus: true } }
