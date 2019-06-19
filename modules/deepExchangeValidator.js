@@ -8,6 +8,7 @@ const config = require('./configReader');
 module.exports = async (pay, tx) => {
 	pay.tryCounter++;
 
+	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
 			await $u.getAddressCryptoFromAdmAddressADM(pay.inCurrency, tx.senderId);
@@ -25,8 +26,8 @@ module.exports = async (pay, tx) => {
 				isFinished: true,
 				needHumanCheck: true
 			}, true);
-			notify(`Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: ${pay.inCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'error');
-			$u.sendAdmMsg(tx.senderId, `I can’t get your ${pay.inCurrency} address from KVS. If you think it’s a mistake, contact my master`);
+			notify(`Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`, 'error');
+			$u.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
 			return;
 		};
 
@@ -37,8 +38,8 @@ module.exports = async (pay, tx) => {
 				needToSendBack: true,
 				error: 9
 			});
-			msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: ${pay.outCurrency}.`;
-			msgSendBack = `I can’t get your ${pay.outCurrency} address from KVS. Make sure you use ADAMANT wallet with ${pay.inCurrency} enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for ${config.min_confirmations} block confirmations. It can take a time, please be patient.`;
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.outCurrency}_.`;
+			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config.min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 
 		// check incoming TX in blockchain inCurrency
