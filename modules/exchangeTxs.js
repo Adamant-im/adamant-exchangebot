@@ -63,14 +63,14 @@ module.exports = async (itx, tx) => {
 	if (inTxidDublicate){
 		pay.isFinished = true;
 		pay.error = 1;
-		msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://oldexplorer.adamant.im/tx/${tx.id}_.`;
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
 		msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
 	}
 	else if (!config.known_crypto.includes(inCurrency)){
 		pay.error = 2;
 		pay.needHumanCheck = true;
 		pay.isFinished = true;
-		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unknown crypto: _${inCurrency}_. Income ADAMANT Tx: _https://oldexplorer.adamant.im/tx/${tx.id}_.`;
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unknown crypto: _${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
 		msgSendBack = 'I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.';
 	}
 	else if (!config.known_crypto.includes(outCurrency)){
