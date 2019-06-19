@@ -41,7 +41,7 @@ module.exports = async () => {
 		});
 		if (sentBackAmountUsd < 0 || sentBackAmountUsd < config.min_value_usd){
 			pay.update({
-				errorSendBack: 16,
+				errorSendBack: 17,
 				isFinished: true
 			});
 			msgNotify = '(need text msg!) I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master';
@@ -50,7 +50,7 @@ module.exports = async () => {
 			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about insufficient balance for send back of ${inAmountReal} ${inCurrency}. Balance of <out_currency> is <out_balance>. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}. Attention needed.`;
 			msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			pay.update({
-				errorSendBack: 17,
+				errorSendBack: 18,
 				needHumanCheck: true,
 				isFinished: true
 			});
@@ -66,7 +66,7 @@ module.exports = async () => {
 				msgSendBack = `Success back send ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}`;
 			} else { // TODO: send again 50 times!!!!???
 				pay.update({
-					errorSendBack: 18,
+					errorSendBack: 19,
 					needHumanCheck: true,
 					isFinished: true
 				});
@@ -75,6 +75,7 @@ module.exports = async () => {
 			}
 		}
 		console.log({
+			inCurrency,
 			tx: pay.sentBackTx,
 			error: pay.errorSendBack,
 			balance: Store.user[inCurrency].balance,

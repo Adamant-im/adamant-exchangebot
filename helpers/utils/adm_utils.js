@@ -12,6 +12,15 @@ module.exports = {
 	get FEE() {
 		return Store.comissions.ADM;
 	},
+	syncGetTransaction(hash, tx){
+		return {
+			blockNumber: tx.blockId,
+			hash: tx.id,
+			sender: tx.senderId,
+			recipient: tx.recipientId,
+			amount: +(tx.amount / SAT).toFixed(8)
+		};
+	},
 	async send(params) {
 		try {
 			const {

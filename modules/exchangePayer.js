@@ -53,13 +53,17 @@ module.exports = async () => {
 			if (result.success) {
 				pay.update({
 					outTxid: result.hash
-				});
+				}, true);
 				Store.user[outCurrency].balance -= outAmount;
 				log.info(`Success exchange send ${outAmount} ${outCurrency}. Hash: ${result.hash}`);
-			} else {
+			} else { // TODO: send again 50 times!!!!???
+				pay.update({
+					error: 16,
+					needHumanCheck: true,
+					isFinished: true
+				}, true);
 				log.error(`Fail exchange send ${outAmount} ${outCurrency}`);
 			}
-			pay.save();
 		});
 };
 
