@@ -50,6 +50,6 @@ module.exports = (message, type) => {
 			api.send(config.passPhrase, adamant_notify, `${type}| ${message.replace(/\*/g, '**')}`, 'message');
 		}
 	} catch (e) {
-		log.error(' Notifer ' + e);
+		log.error('Notifer error: ' + e);
 	}
 };

@@ -9,6 +9,7 @@ function init() {
 	require('./modules/confirmationsCounter');
 	require('./modules/exchangePayer');
 	require('./modules/sendBack');
+	require('./modules/sendedTxValidator');
 	try {
 		db.systemDb.findOne().then(system => {
 			if (system) {
@@ -19,6 +20,6 @@ function init() {
 			checker();
 		});
 	} catch (e) {
-		notify('Exchange Bot is not started. Some kind of error ' + e, 'error');
+		notify('Exchange Bot is not started. Error: ' + e, 'error');
 	}
 }

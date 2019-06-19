@@ -56,14 +56,14 @@ module.exports = {
 				hash: res.transactionId
 			};
 		} catch (e) {
-			log.error(' utils ADM send ' + e);
+			log.error('Error while sending ADM in Utils module: ' + e);
 		}
 	},
 	async updateBalance() {
 		try {
 			User.balance = (await api.get('uri', 'accounts?address=' + User.address)).account.balance / SAT;
 		} catch (e) {
-			log.error(' get balance ADM ' + e);
+			log.error('Error while getting ADM balance in Utils module: ' + e);
 		}
 	}
 };

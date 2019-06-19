@@ -41,7 +41,7 @@ module.exports = {
 			const lastBlock = (await api.get('uri', 'blocks')).blocks[0];
 			this.updateSystem('lastBlock', lastBlock);
 		} catch (e) {
-			log.error(' Store update last block ' + e);
+			log.error('Error while updating lastBlock: ' + e);
 		}
 	},
 	async updateCurrencies(){
@@ -51,7 +51,7 @@ module.exports = {
 				this.currencies = data.result;
 			}
 		} catch (e){
-			log.error('Update currencys ' + e);
+			log.error('Error while updating currencies: ' + e);
 		};
 	},
 	getPrice(from, to){
@@ -60,7 +60,7 @@ module.exports = {
 			to = to.toUpperCase();
 			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || null).toFixed(8);
 		} catch (e){
-			console.log('getPrice: ', e);
+			console.log('Error while calculating getPrice(): ', e);
 			return null;
 		}
 	},
@@ -70,7 +70,7 @@ module.exports = {
 			return null;
 		}
 		return {
-			outAmount: +(price * amount).toFixed(8) * (100 - config.exchange_fee) / 100,
+			outAmount: +(price * amount * (100 - config.exchange_fee) / 100).toFixed(8),
 			exchangePrice: price
 		};
 	}

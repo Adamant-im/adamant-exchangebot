@@ -1,7 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
 const $u = require('../helpers/utils');
-const api = require('./api');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
@@ -43,7 +42,6 @@ module.exports = async () => {
 			if (!blockNumber){
 				return;
 			}
-
 			pay.update({
 				inTxStatus: status,
 				inConfirmations: lastBlockNumber[inCurrency] - blockNumber
@@ -60,11 +58,11 @@ module.exports = async () => {
 
 			await pay.save();
 			if (msgSendBack) {
-				notify(msgNotify, 'warn');
+				notify(msgNotify, 'error');
 				$u.sendAdmMsg(pay.senderId, msgSendBack);
 			}
 		} catch (e) {
-			log.error(' conformations counter ' + e);
+			log.error('Error in ConformationsCounter module: ' + e);
 		}
 	});
 
