@@ -53,8 +53,8 @@ module.exports = async () => {
 						transactionIsFailed: true,
 						isFinished: true
 					});
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of ${pay.inAmountMessage} ${pay.inCurrency} is Failed. Tx hash: ${inTxid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>`;
-					msgSendBack = `Transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${inTxid} is Failed and will not be processed. Try again. If you think it’s a mistake, contact my master.`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/<in_adm_txid>_.`;
+					msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
 				}
 			} else { // Simple check if inCurrency crypto API allows to get confirmations count
 				const tx = await api.get('uri', 'transactions/get?id=' + inTxid);
@@ -67,11 +67,11 @@ module.exports = async () => {
 
 			await pay.save();
 			if (msgSendBack) {
-				notify(msgNotify, 'warn');
+				notify(msgNotify, 'error');
 				$u.sendAdmMsg(pay.senderId, msgSendBack);
 			}
 		} catch (e) {
-			log.error(' conformations counter ' + e);
+			log.error('Error in ConformationsCounter module: ' + e);
 		}
 	});
 
