@@ -47,7 +47,8 @@ module.exports = async (itx, tx) => {
 		tryCounter: 0,
 		inAmountMessage: +(inAmountMessage).toFixed(8),
 		transactionIsValid: null,
-		needHumanCheck: false,
+		need
+		Check: false,
 		needToSendBack: false,
 		transactionIsFailed: false,
 		isFinished: false
@@ -110,11 +111,9 @@ module.exports = async (itx, tx) => {
 		if (!pay.outAmount){ // Error while calculating outAmount
 			pay.error = 7;
 			pay.needToSendBack = true;
-
-			msgNotify = `Exchange Bot ${Store.user.ADM.address} cant math outAmount.`;
-
-			msgSendBack = `I cant math your request to exchange ${inAmountMessage} ${inCurrency}.`;
-		} else { // its Ok
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} unable to calculate _outAmount_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
+			msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange _${inAmountMessage}_ _${inCurrency}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+		} else { // Transaction is fine
 			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction for exchange: ${inAmountMessage} ${inCurrency} for price ${pay.exchangePrice}. Tx hash: ${inTxid}. Exchange to ${pay.outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 
 			msgSendBack = `I understood your request to exchange ${inAmountMessage} ${inCurrency} for ${pay.outAmount} ${outCurrency} for price ${pay.exchangePrice}. Now I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
