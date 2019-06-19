@@ -42,10 +42,10 @@ module.exports = async (pay, tx) => {
 			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config.min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 
-		// check incoming TX in blockchain inCurrency
+		// Validating incoming TX in blockchain of inCurrency
 		try {
 			const in_tx = await $u[pay.inCurrency].syncGetTransaction(pay.inTxid, tx);
-			if (!in_tx) { // TODO: ??????????
+			if (!in_tx) { // TODO: ?????????? Add counter and error message
 				pay.update({
 					needHumanCheck: true,
 					isFinished: true,
@@ -64,32 +64,25 @@ module.exports = async (pay, tx) => {
 						isFinished: true,
 						error: 11
 					});
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${pay.inAmountMessage} ${pay.inCurrency} is wrong. Sender expected: ${senderKvsInAddress}, real sender is ${pay.sender}.`;
-
-					msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
-
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
+					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (pay.recipient.toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
 						error: 12
 					});
-
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${pay.inAmountMessage} ${pay.inCurrency} is wrong. Recipient expected: ${pay.outCurrency}, real recipient is ${pay.recipient}.`;
-
-					msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
-
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${pay.outCurrency}_, but real recipient is _${pay.recipient}_.`;
+					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
 						error: 13
 					});
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of ${pay.inAmountMessage} ${pay.inCurrency} is wrong. Amount expected: ${pay.inAmountMessage}, real amount is ${pay.inAmountReal}.`;
-
-					msgSendBack = `I can’t validate transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${pay.inTxid}. If you think it’s a mistake, contact my master`;
-
-				} else { // its Ok
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
+					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
+				} else { // Transaction is valid
 					pay.update({
 						transactionIsValid: true,
 						inConfirmations: 0
@@ -97,15 +90,15 @@ module.exports = async (pay, tx) => {
 				}
 			}
 		} catch (e) {
-			log.error('Error deep validate no ADM incoming coins ' + e);
+			log.error('Error while validating non-ADM transaction: ' + e);
 		}
 
 		await pay.save();
 		if (msgSendBack) {
-			notify(msgNotify + `Tx hash: ${pay.inTxid}. Tx hash: ${pay.inTxid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`, 'warn');
+			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`, 'warn');
 			$u.sendAdmMsg(tx.senderId, msgSendBack);
 		}
 	} catch (e) {
-		log.error('deepExchangeValidator ' + e);
+		log.error('Error in deepExchangeValidator module: ' + e);
 	}
 };
