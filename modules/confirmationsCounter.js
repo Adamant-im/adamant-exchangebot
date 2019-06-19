@@ -61,6 +61,7 @@ module.exports = async () => {
 				if (!tx.success) {
 					return;
 				}
+				pay.inTxStatus = true;
 				pay.inConfirmations = tx.transaction.confirmations;
 			}
 
