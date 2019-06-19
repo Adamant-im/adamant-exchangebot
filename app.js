@@ -19,6 +19,6 @@ function init() {
 			checker();
 		});
 	} catch (e) {
-		notify('Exchange Bot is not started. Some kind of error ' + e, 'error');
+		notify('Exchange Bot is not started. Error: ' + e, 'error');
 	}
 }

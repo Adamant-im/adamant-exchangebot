@@ -20,12 +20,9 @@ async function check() {
 		});
 		Store.updateLastBlock();
 	} catch (e) {
-		log.error('check transactions ' + e);
+		log.error('Error while checking new transactions: ' + e);
 	}
 }
 module.exports = () => {
 	setInterval(check, 4500);
 };
-
-
-// {"type":"ETH_transaction","amount":0.1,"hash":"0x96075435aa404a9cdda0edf40c07e2098435b28547c135278f5864f8398c5d7d","comments":"Testing purposes "}

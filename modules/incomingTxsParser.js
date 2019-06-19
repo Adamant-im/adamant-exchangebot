@@ -20,7 +20,7 @@ module.exports = async (tx) => {
 	if (checkedTx !== null) {
 		return;
 	};
-	log.info(`New incoming transaction ${tx.id}`);
+	log.info(`New incoming transaction: ${tx.id}`);
 	const chat = tx.asset.chat;
 	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message);
 
