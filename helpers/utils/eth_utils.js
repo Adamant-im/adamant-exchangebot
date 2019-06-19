@@ -25,7 +25,7 @@ module.exports = {
 						hash: tx.hash,
 						sender: tx.from,
 						recipient: tx.to,
-						amount: tx.value / ethSat
+						amount: +(tx.value / ethSat).toFixed(8)
 					});
 				}
 			});

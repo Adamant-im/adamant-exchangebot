@@ -45,7 +45,7 @@ module.exports = async (itx, tx) => {
 		outCurrency,
 		inTxid,
 		tryCounter: 0,
-		inAmountMessage,
+		inAmountMessage: +(inAmountMessage).toFixed(8),
 		transactionIsValid: null,
 		needHumanCheck: false,
 		needToSendBack: false,
