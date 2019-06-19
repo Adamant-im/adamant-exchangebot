@@ -114,9 +114,8 @@ module.exports = async (itx, tx) => {
 			msgNotify = `Exchange Bot ${Store.user.ADM.address} unable to calculate _outAmount_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
 			msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange _${inAmountMessage}_ _${inCurrency}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		} else { // Transaction is fine
-			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction for exchange: ${inAmountMessage} ${inCurrency} for price ${pay.exchangePrice}. Tx hash: ${inTxid}. Exchange to ${pay.outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
-
-			msgSendBack = `I understood your request to exchange ${inAmountMessage} ${inCurrency} for ${pay.outAmount} ${outCurrency} for price ${pay.exchangePrice}. Now I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
+			msgSendBack = `I understood your request to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 	}
 
@@ -132,4 +131,3 @@ module.exports = async (itx, tx) => {
 };
 
 
-// {"type":"ETH_transaction","amount":0.1,"hash":"0x96075435aa404a9cdda0edf40c07e2098435b28547c135278f5864f8398c5d7d","comments":"Testing purposes "}
