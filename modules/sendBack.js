@@ -39,7 +39,7 @@ module.exports = async () => {
 			sentBackAmount,
 			sentBackAmountUsd
 		});
-		if (sentBackAmountUsd < 0 || sentBackAmountUsd < config.min_value_usd){
+		if (sentBackAmountUsd < 0){
 			pay.update({
 				errorSendBack: 17,
 				isFinished: true

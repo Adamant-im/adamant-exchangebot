@@ -21,6 +21,24 @@ module.exports = {
 			amount: +(tx.amount / SAT).toFixed(8)
 		};
 	},
+	async getLastBlockNumber(){
+		try {
+			return (await api.get('uri', 'blocks?limit=1')).blocks[0].height;
+		} catch (e){
+			return null;
+		}
+	},
+	async getTransactionStatus(txid){
+		try {
+			const tx = (await api.get('uri', 'transactions/get?id=' + txid)).transaction;
+			return {
+				blockNumber: tx.height,
+				status: true
+			};
+		} catch (e){
+			return null;
+		}
+	},
 	async send(params) {
 		try {
 			const {

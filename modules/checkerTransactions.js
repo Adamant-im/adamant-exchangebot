@@ -7,11 +7,11 @@ const config = require('./configReader');
 async function check() {
 	try {
 		let tx;
-		// if (config.isDev) {
-		// 	tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
-		// } else {
+		if (config.isDev) {
+			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
+		} else {
 			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight)).transactions;
-		// }
+		}
 		tx.forEach(t => {
 			if (t.type !== 8) {
 				return;

@@ -39,6 +39,7 @@ module.exports = async (itx, tx) => {
 	}
 	const pay = new paymentsDb({
 		date: $u.unix(),
+		admTxId: tx.id,
 		itxId: itx._id,
 		senderId: tx.senderId,
 		inCurrency,
@@ -57,7 +58,7 @@ module.exports = async (itx, tx) => {
 	let msgSendBack = false;
 	let msgNotify = false;
 	const inTxidDublicate = await paymentsDb.findOne({inTxid});
-
+	pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage).outAmount;
 	// Checkers
 	if (inTxidDublicate){
 		pay.isFinished = true;
@@ -105,8 +106,15 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unaccepted crypto: ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}`;
 
 		msgSendBack = `I don’t accept exchange to ${outCurrency}. I will try to send transfer back to you. I will validate your transfer and wait for ${min_confirmations} block confirmations. It can take a time, please be patient`;
+	} else if (!pay.inAmountMessageUsd || pay.inAmountMessageUsd < config.min_value_usd){
+		pay.update({
+			error: 20,
+			needToSendBack: true
+		});
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction below minimum value: _${inAmountMessage}_ _${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_`;
+		msgSendBack = `I don’t accept exchange crypto below minimum value of _${config.min_value_usd}. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	// TODO: equal USD
+
 	// TODO: Daily_limit_usd
 	let notifyType = 'info';
 	if (pay.isFinished){
