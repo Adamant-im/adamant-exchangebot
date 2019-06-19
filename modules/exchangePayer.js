@@ -26,14 +26,15 @@ module.exports = async () => {
 				senderKvsOutAddress,
 				inAmountMessage
 			} = pay;
+			
 			pay.tryCounter++;
 			if (outAmount > Store.user[outCurrency].balance) {
-				log.warn('needToSendBack', outCurrency, outAmount, Store.user[outCurrency].balance);
+				log.warn('needToSendBack, not enough ' + outCurrency + ' balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
 				pay.update({
 					error: 15,
 					needToSendBack: true
 				}, true);
-				notify(`Exchange Bot ${Store.user.ADM.addre} notifies about insufficient balance for exchange of ${inAmountMessage} ${inCurrency} for ${outAmount} ${outCurrency}. Balance of ${outCurrency} is ${Store.user[outCurrency].balance}. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
+				notify(`Exchange Bot ${Store.user.ADM.address} notifies about insufficient balance for exchange of ${inAmountMessage} ${inCurrency} for ${outAmount} ${outCurrency}. Balance of ${outCurrency} is ${Store.user[outCurrency].balance}. <ether_string>Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
 				$u.sendAdmMsg(pay.senderId, `I can’t transfer ${outAmount} ${outCurrency} to you because of insufficient funds (I count blockchain fees also). Check my balances with /balances command. I will try to send transfer back to you.`);
 				return;
 			}
