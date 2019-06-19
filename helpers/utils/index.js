@@ -21,7 +21,7 @@ module.exports = {
 				return null;
 			}
 		} catch (e) {
-			console.log('Error getAddressCryptoFromAdmAddressADM ' + e);
+			console.log('Error in getAddressCryptoFromAdmAddressADM(): ' + e);
 			return null;
 		}
 	},
