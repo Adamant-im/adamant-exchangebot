@@ -63,7 +63,7 @@ const fields = {
 	},
 	welcome_string: {
 		type: String,
-		default: 'Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.'
+		default: 'Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type */help* to see what I can.'
 	}
 };
 try {
@@ -77,7 +77,7 @@ try {
 	try {
 		keysPair = keys.createKeypairFromPassPhrase(config.passphrase);
 	} catch (e) {
-		exit('Passphrase is not a valide!' + e);
+		exit('Passphrase is not valid! Error:' + e);
 	}
 	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
 	config.publicKey = keysPair.publicKey;
@@ -85,17 +85,17 @@ try {
 
 	Object.keys(fields).forEach(f => {
 		if (!config[f] && fields[f].isRequired) {
-			exit(`Exchange Bot ${address} config is wrong. Field ${f} is not valid. Cannot start Bot.`);
+			exit(`Exchange Bot ${address} config is wrong. Field _${f}_ is not valid. Cannot start Bot.`);
 		} else if (!config[f] && fields[f].default) {
 			config[f] = fields[f].default;
 		}
 		if (config[f] && fields[f].type !== config[f].__proto__.constructor) {
-			exit(`Exchange Bot ${address} config is wrong. Fields type ${f} is not valid, must be ${fields[f].type.name}. Cannot start Bot.`);
+			exit(`Exchange Bot ${address} config is wrong. Field type _${f}_ is not valid, expected type is _${fields[f].type.name}_. Cannot start Bot.`);
 		}
 	});
 
 } catch (e) {
-	log.error('Err config: ' + e);
+	log.error('Error reading config: ' + e);
 }
 
 function exit(msg) {
