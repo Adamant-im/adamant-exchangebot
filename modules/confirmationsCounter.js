@@ -32,14 +32,14 @@ module.exports = async () => {
 			if (inTxStatus && inConfirmations >= config.min_confirmations){
 				return;
 			}
-			if (!['ADM'].includes(inCurrency)) { // array has confirmations count in api
+			if (!['ADM'].includes(inCurrency)) {  // If inCurrency blockchain needs for checkeng current block number
 				if (!lastBlockNumber[inCurrency]){
-					log.warn('Miss confirmation, no defined lastBlockNumber ' + inCurrency);
+					log.warn('Cannot get lastBlockNumber for ' + inCurrency + '. Waiting for next try.');
 					return;
 				}
 				const {status, blockNumber} = (await $u[inCurrency].getTransactionStatus(inTxid));
 				if (!blockNumber){
-					console.log('Return', {blockNumber, status});
+					console.log('Cannot get status or current blockNumber for ' + inCurrency + '. Waiting for next try.', {blockNumber, status});
 					return;
 				}
 
@@ -56,7 +56,7 @@ module.exports = async () => {
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of ${pay.inAmountMessage} ${pay.inCurrency} is Failed. Tx hash: ${inTxid}. Income ADAMANT Tx: https://explorer.adamant.im/tx/<in_adm_txid>`;
 					msgSendBack = `Transaction of ${pay.inAmountMessage} ${pay.inCurrency} with Tx ID ${inTxid} is Failed and will not be processed. Try again. If you think it’s a mistake, contact my master.`;
 				}
-			} else { // if count confirm in api
+			} else { // Simple check if inCurrency crypto API allows to get confirmations count
 				const tx = await api.get('uri', 'transactions/get?id=' + inTxid);
 				if (!tx.success) {
 					return;
