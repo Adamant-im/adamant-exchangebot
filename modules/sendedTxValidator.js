@@ -87,7 +87,6 @@ module.exports = async () => {
 
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} sent back of _${inAmountMessage}_ _${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_.${etherString} Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
-
 				}
 
 				$u.sendAdmMsg(pay.senderId, msgSendBack);
