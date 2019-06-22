@@ -1,4 +1,8 @@
 {
+
+	/** The exchanage bot's secret phrase for concluding transactions. 
+	Bot's ADAMANT address will correspond this passPhrase.
+    **/
 	"passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwe",
 
 	/** List of nodes to fetch transactions.
