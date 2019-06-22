@@ -70,7 +70,6 @@ module.exports = async () => {
 			});
 			
 			if (status === false) {
-				
 				if (type === 'exchange') {
 					pay.update({
 						errorValidatorSend: 21,
