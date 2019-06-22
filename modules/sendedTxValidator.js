@@ -26,18 +26,20 @@ module.exports = async () => {
 			outCurrency,
 			admTxId,
 			inAmountMessage,
+			outAmount,
 			sentBackAmount
 		} = pay;
 		const sendCurrency = pay.outTxid ? outCurrency : inCurrency;
 		const type = pay.outTxid ? 'exchange' : 'back';
+		const sendAmount = pay.outTxid ? outAmount || sentBackAmount;
 		const sendTxId = pay.outTxid || pay.sentBackTx;
-		const sendAmount = sentBackAmount || inAmountMessage;
 		try {
 			let msgNotify = null;
 			let msgSendBack = null;
+			let etherString = '';
 
 			if (!lastBlockNumber[sendCurrency]) {
-				log.warn('Miss confirmation, no defined lastBlockNumber ' + sendCurrency);
+				log.warn('Cannot get lastBlockNumber for ' + sendCurrency + '. Waiting for next try.');
 				return;
 			}
 			const {status, blockNumber} = (await $u[sendCurrency].getTransactionStatus(sendTxId));
@@ -51,24 +53,61 @@ module.exports = async () => {
 			});
 			
 			if (status === false) {
+				
 				pay.update({
 					error: 21,
-					isFinished: true
+					outTxid: null
 				});
-				msgNotify = `Exchange Bot ${Store.user.ADM.address} sent ${type} of _${inAmountMessage}_ _${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is ${Store.user[sendCurrency].balance}. <ether_string> Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}`;
 				
-				msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
+				if (type === 'exchange') {		
+					
+					pay.update({
+						error: 21,
+						outTxid: null
+					});
+					
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies that exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_.${etherString} Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;				
+					msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
+					
+				} else { // type === 'back'
+					
+					pay.update({
+						error: 22,
+						sentBackTx: null
+					});
+					
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} sent back of _${inAmountMessage}_ _${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_.${etherString} Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;				
+					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
+					
+				}
+					
+				notify(msgNotify, 'error');
+				$u.sendAdmMsg(pay.senderId, msgSendBack);
+				
 			} else if (status && pay.outConfirmations >= config.min_confirmations){
-				msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent ${type} _${inAmountMessage}_ _${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
-				msgSendBack = `{"type":"${sendCurrency}_transaction","amount":${sendAmount},"hash":"${sendTxId}","comments":"Note, some amount spent to cover blockchain fees. Try me again!"}`;
+
+				if (type === 'exchange') {		
+					
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged ${type} _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Done! Note, some amount spent to cover blockchain fees. Try me again!"}`;
+					
+				} else {
+					
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent ${type} _${inAmountMessage}_ _${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Done! Note, some amount spent to cover blockchain fees. Try me again!"}`;
+
+				}
+				
+				notify(msgNotify, 'log');
+				
+				// TODO: Check sendAmount should be string, not number
+				$u.sendAdmMsg(pay.senderId, msgSendBack); // TODO: Try every 10 seconds till success. Another module?
+				
 				pay.isFinished = true;
 			}
 
 			await pay.save();
-			if (msgSendBack) {
-				notify(msgNotify, 'warn');
-				$u.sendAdmMsg(pay.senderId, msgSendBack);
-			}
+	
 		} catch (e) {
 			log.error(`Error in sendedTxValidator module (${sendCurrency} ${sendTxId}) ${e}`);
 		}
