@@ -35,7 +35,7 @@ module.exports = async () => {
 			}
 		
 			if (!lastBlockNumber[inCurrency]){
-				log.warn('Miss confirmation, no defined lastBlockNumber ' + inCurrency);
+				log.warn('Cannot get lastBlockNumber for ' + inCurrency + '. Waiting for next try.');
 				return;
 			}
 			const {status, blockNumber} = (await $u[inCurrency].getTransactionStatus(inTxid));
@@ -52,7 +52,7 @@ module.exports = async () => {
 					transactionIsFailed: true,
 					isFinished: true
 				});
-				msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/<in_adm_txid>_.`;
+				msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/{$admTxId}_.`;
 				msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
 			}
 
