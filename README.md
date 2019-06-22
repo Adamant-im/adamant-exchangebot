@@ -35,6 +35,7 @@ Parameters:
 * `infoservice` <string, array> List of [ADAMANT InfoServices](https://github.com/Adamant-im/adamant-currencyinfo-services) for catching exchange rates, obligatorily
 * `slack` <string> Token for Slack alerts for the bot’s administrator. No alerts if not set.
 * `adamant_notify` <string> ADM address for the bot’s administrator. Recommended.
+* `known_crypto` <string, array> List of crytpocurrencies bot can work with. If bot will receive or request for crypto not in list, it will not process payment and notify owner. Obligatorily
 * `accepted_crypto` <string, array> List of crytpocurrencies you want to accept for exchange. If bot will receive payment in not-in-list crypto, it will try to return it. Obligatorily
 * `exchange_crypto` <string, array> List of crytpocurrencies you want to send in exchange. If bot will receive request for exchange of not-in-list crypto, it will try to return payment back. Obligatorily
 * `exchange_fee` <float> Pecentage you take as fee for bot's service. Default is 10.
