@@ -8,7 +8,7 @@ module.exports = {
 		return new Date().getTime();
 	},
 	sendAdmMsg(address, msg) {
-		if (!config.isDev || true) {
+		if (msg && !config.isDev || true) {
 			try {
 				return api.send(config.passPhrase, address, msg, 'message').success || null;
 			} catch (e) {
