@@ -15,6 +15,7 @@ module.exports = async () => {
 	(await paymentsDb.find({
 		$and: [
 			{isFinished: false},
+			{isPaymentSentAndValidated: false},
 			{$or: [
 				{outTxid: {$ne: null}},
 				{sentBackTx: {$ne: null}},
@@ -91,25 +92,29 @@ module.exports = async () => {
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged ${type} _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
 					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Done! Note, some amount spent to cover blockchain fees. Try me again!"}`;
 					
-				} else {
+				} else { // type === 'back'
 					
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent ${type} _${inAmountMessage}_ _${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
-					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Done! Note, some amount spent to cover blockchain fees. Try me again!"}`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully successfully sent back_${inAmountMessage}_ _${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!"}`;
 
 				}
 				
-				notify(msgNotify, 'log');
+				pay.isPaymentSentAndValidated = true;
+				notify(msgNotify, 'info');
 				
+				// Regular function does not fit	
+				// $u.sendAdmMsg(pay.senderId, msgSendBack); 
+
+				// notifyUserOnPayment(pay, type, msgSendBack); 
 				// TODO: Check sendAmount should be string, not number
-				$u.sendAdmMsg(pay.senderId, msgSendBack); // TODO: Try every 10 seconds till success. Another module?
+				// TODO: Try every 10 seconds till success. Another module.
 				
-				pay.isFinished = true;
 			}
 
 			await pay.save();
 	
 		} catch (e) {
-			log.error(`Error in sendedTxValidator module (${sendCurrency} ${sendTxId}) ${e}`);
+			log.error(`Error in sendedTxValidator module (${type}, ${sendAmount}, ${sendCurrency}, ${sendTxId}): ${e}`);
 		}
 	});
 
