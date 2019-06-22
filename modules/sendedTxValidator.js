@@ -108,7 +108,7 @@ module.exports = async () => {
 				notify(msgNotify, 'warn');
 			}
 		} catch (e) {
-			log.error(`Error in sendedTxValidator module (${{type, sendAmount, sendCurrency, sendTxId}}): ${e}`);
+			log.error('Error in sendedTxValidator module ', {type, sendAmount, sendCurrency, sendTxId}, e);
 		}
 	});
 

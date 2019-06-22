@@ -57,14 +57,18 @@ module.exports = async () => {
 				isFinished: true
 			});
 		} else { // We are able to send transfer back
+			const successMsg = `need comment/msg`; // TODO: 
 			const result = await $u[inCurrency].send({
 				address: senderKvsInAddress,
-				value: sentBackAmount // TODO: add fee 
+				value: sentBackAmount, // TODO: add fee
+				comment: successMsg
 			});
 			if (result.success) {
 				pay.sentBackTx = result.hash;
 				Store.user[inCurrency].balance -= inAmountReal; // TODO: count fee if needed
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
+				msgSendBack = successMsg;
+				msgNotify = `success msg`;
 			} else { // Can't make a transaction. TODO: check tryCounter and try again 20 times
 				pay.update({
 					errorSendBack: 19,
@@ -87,7 +91,9 @@ module.exports = async () => {
 		});
 		pay.save();
 		notify(msgNotify, 'error');
-		$u.sendAdmMsg(pay.senderId, msgSendBack);
+		if (inCurrency !== 'ADM'){
+			$u.sendAdmMsg(pay.senderId, msgSendBack);
+		}
 	}
 };
 

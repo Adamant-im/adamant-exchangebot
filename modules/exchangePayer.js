@@ -46,14 +46,17 @@ module.exports = async () => {
 				value: outAmount,
 				balance: Store.user[outCurrency].balance
 			});
+
+			const successMsg = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send transfer back to you.`;
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
-				value: outAmount // TODO: add fee exchange
+				value: outAmount, // TODO: add fee exchange
+				comment: successMsg
 			});
 			console.log('Exchange payment result', {
 				result
 			});
-		
+			
 			if (result.success) {
 				pay.update({
 					outTxid: result.hash
@@ -67,7 +70,9 @@ module.exports = async () => {
 				}, true);
 				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
 				notify(`Exchange Bot ${Store.user.ADM.address} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'error');
-				$u.sendAdmMsg(pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send transfer back to you.`);
+				if (outCurrency !== 'ADM') {
+					$u.sendAdmMsg(pay.senderId, successMsg);
+				}
 			}
 		});
 };

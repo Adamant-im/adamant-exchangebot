@@ -10,9 +10,9 @@ module.exports = {
 	sendAdmMsg(address, msg) {
 		if (msg && !config.isDev || true) {
 			try {
-				return api.send(config.passPhrase, address, msg, 'message').success || null;
+				return api.send(config.passPhrase, address, msg, 'message').success || false;
 			} catch (e) {
-				return null;
+				return false;
 			}
 		}
 	},
