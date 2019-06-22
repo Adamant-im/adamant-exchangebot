@@ -70,7 +70,7 @@ module.exports = {
 			return null;
 		}
 		return {
-			outAmount: +(price * amount * (100 - config.exchange_fee) / 100).toFixed(8),
+			outAmount: +(price * amount * (100 - config['exchange_fee_' + from]) / 100).toFixed(8),
 			exchangePrice: price
 		};
 	}

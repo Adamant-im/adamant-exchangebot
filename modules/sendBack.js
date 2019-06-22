@@ -20,7 +20,7 @@ module.exports = async () => {
 		inTxStatus: true,
 		outTxid: null,
 		sentBackTx: null
-	})).filter(p => p.inConfirmations >= config.min_confirmations);
+	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency]);
 
 	for (const pay of pays){
 		const {

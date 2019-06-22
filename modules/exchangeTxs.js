@@ -10,7 +10,6 @@ const deepExchangeValidator = require('./deepExchangeValidator');
 
 module.exports = async (itx, tx) => {
 	const {paymentsDb} = db;
-	const {min_confirmations} = config;
 	const msg = itx.encrypted_content;
 	let inCurrency,
 		outCurrency,
@@ -57,6 +56,8 @@ module.exports = async (itx, tx) => {
 
 	let msgSendBack = false;
 	let msgNotify = false;
+	const min_value_usd = config['min_value_usd_' + inCurrency];
+	const min_confirmations = config['min_confirmations_' + inCurrency];
 	const inTxidDublicate = await paymentsDb.findOne({inTxid});
 	pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage).outAmount;
 	// Checkers
@@ -100,13 +101,13 @@ module.exports = async (itx, tx) => {
 
 		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
 		msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
-	} else if (!pay.inAmountMessageUsd || pay.inAmountMessageUsd < config.min_value_usd){
+	} else if (!pay.inAmountMessageUsd || pay.inAmountMessageUsd < min_value_usd){
 		pay.update({
 			error: 20,
 			needToSendBack: true
 		});
 		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction below minimum value: _${inAmountMessage}_ _${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_`;
-		msgSendBack = `I don’t accept exchange crypto below minimum value of _${config.min_value_usd}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+		msgSendBack = `I don’t accept exchange crypto below minimum value of _${min_value_usd}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
 
 	// TODO: Daily_limit_usd

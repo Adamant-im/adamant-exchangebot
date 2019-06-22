@@ -90,7 +90,7 @@ module.exports = async () => {
 
 				$u.sendAdmMsg(pay.senderId, msgSendBack);
 
-			} else if (status && pay.outConfirmations >= config.min_confirmations){
+			} else if (status && pay.outConfirmations >= config['min_confirmations_' + pay.outCurrency]){
 
 				if (type === 'exchange') {
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;

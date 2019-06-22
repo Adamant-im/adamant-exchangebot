@@ -17,7 +17,7 @@ module.exports = async () => {
 		needHumanCheck: false,
 		inTxStatus: true,
 		outTxid: null
-	})).filter(p => p.inConfirmations >= config.min_confirmations)
+	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency])
 		.forEach(async pay => {
 			const {
 				outAmount,

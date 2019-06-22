@@ -39,7 +39,7 @@ module.exports = async (pay, tx) => {
 				error: 9
 			});
 			msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.outCurrency}_.`;
-			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config.min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.outCurrency]}_ block confirmations. It can take a time, please be patient.`;
 		}
 
 		// Validating incoming TX in blockchain of inCurrency

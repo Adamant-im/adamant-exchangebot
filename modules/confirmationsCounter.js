@@ -30,7 +30,7 @@ module.exports = async () => {
 				admTxId
 			} = pay;
 
-			if (inTxStatus && inConfirmations >= config.min_confirmations){
+			if (inTxStatus && inConfirmations >= config['min_confirmations_' + inCurrency]){
 				return;
 			}
 		
