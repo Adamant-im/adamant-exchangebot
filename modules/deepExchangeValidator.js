@@ -72,7 +72,7 @@ module.exports = async (pay, tx) => {
 						isFinished: true,
 						error: 12
 					});
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${pay.outCurrency}_, but real recipient is _${pay.recipient}_.`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
