@@ -1,6 +1,12 @@
 {
 	"passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwe",
+
+	/** List of nodes to fetch forging information, needed to count rewards.
+    If one become unavailable, pool will choose live one.
+    **/
+	
 	"node": [
+		"http://localhost:36666",
 		"https://endless.adamant.im",
 		"https://clown.adamant.im",
 		"http://185.231.245.26:36666",
@@ -10,5 +16,16 @@
 	"exchange_crypto": ["ADM", "ETH"],
 	"accepted_crypto": ["ADM", "ETH"],
 	"known_crypto": ["ADM", "ETH"],
-	"api": 3333
+	
+    /** ADAMANT address for notifications and monitoring (if needed, recommended) **/
+    "adamant_notify": "",
+
+    /** Slack key for notifications and monitoring (if needed) **/
+    "slack": "https://hooks.slack.com/services/",
+
+    /** Port for getting debug info. 
+	Do not set for live exchange bots, use only for debugging. 
+	Allows to get DBs records like http://ip:port/db?tb=incomingTxsDb **/
+	"api": false
+
 }
