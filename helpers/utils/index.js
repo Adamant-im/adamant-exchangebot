@@ -8,8 +8,12 @@ module.exports = {
 		return new Date().getTime();
 	},
 	sendAdmMsg(address, msg) {
-		if (!config.isDev) {
-			api.send(config.passPhrase, address, msg, 'message');
+		if (!config.isDev || true) {
+			try {
+				return api.send(config.passPhrase, address, msg, 'message').success || null;
+			} catch (e) {
+				return null;
+			}
 		}
 	},
 	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {

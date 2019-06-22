@@ -5,7 +5,7 @@ const api = require('./api');
 const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
-const uncnounTxs = require('./uncnounTxs');
+const unknounTxs = require('./unknounTxs');
 
 const historyTxs = {}; // catch saved txs. Defender dublicated TODO: clear uptime
 
@@ -50,7 +50,7 @@ module.exports = async (tx) => {
 		commandTxs(msg);
 		break;
 	default:
-		uncnounTxs(itx, tx);
+		unknounTxs(itx, tx);
 		break;
 	}
 };
