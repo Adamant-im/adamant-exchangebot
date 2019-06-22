@@ -106,7 +106,7 @@ module.exports = async (itx, tx) => {
 			needToSendBack: true
 		});
 		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transaction below minimum value: _${inAmountMessage}_ _${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_`;
-		msgSendBack = `I don’t accept exchange crypto below minimum value of _${config.min_value_usd}. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+		msgSendBack = `I don’t accept exchange crypto below minimum value of _${config.min_value_usd}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
 
 	// TODO: Daily_limit_usd
@@ -140,5 +140,3 @@ module.exports = async (itx, tx) => {
 	}
 };
 
-
-// {"type":"ETH_transaction","amount":0.1,"hash":"0x96075435aa404a9cdda0edf40c07e2098435b28547c135278f5864f8398c5d7d","comments":"Testing purposes "}
