@@ -70,8 +70,8 @@ module.exports = async () => {
 			});
 			
 			if (status === false) {
+				
 				if (type === 'exchange') {
-					
 					pay.update({
 						errorValidatorSend: 21,
 						outTxid: null
@@ -81,7 +81,6 @@ module.exports = async () => {
 					msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 
 				} else {
-					
 					pay.update({
 						errorValidatorSend: 22,
 						sentBackTx: null
@@ -107,7 +106,7 @@ module.exports = async () => {
 			}
 
 			await pay.save();
-			console.log('pay.isPaymentSentAndValidated', pay.isPaymentSentAndValidated);
+
 			if (msgNotify) {
 				notify(msgNotify, 'warn');
 			}
