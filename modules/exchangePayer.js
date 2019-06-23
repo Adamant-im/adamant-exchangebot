@@ -19,6 +19,7 @@ module.exports = async () => {
 		outTxid: null
 	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency])
 		.forEach(async pay => {
+			pay.counterSendExchange = pay.counterSendExchange || 0;
 			const {
 				outAmount,
 				inCurrency,
@@ -27,7 +28,6 @@ module.exports = async () => {
 				inAmountMessage
 			} = pay;
 			
-			pay.tryCounter++;
 			let etherString = '';
 			if (outAmount > Store.user[outCurrency].balance) {
 				log.warn('needToSendBack, not enough ' + outCurrency + ' balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
@@ -51,7 +51,7 @@ module.exports = async () => {
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
 				value: outAmount, // TODO: add fee exchange
-				comment: 'Done! Note, some amount spent to cover blockchain fees. Try me again!' // if ADM
+				comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
 			});
 			console.log('Exchange payment result', {
 				result
@@ -64,6 +64,10 @@ module.exports = async () => {
 				Store.user[outCurrency].balance -= outAmount; // TODO: count fee if needed
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction. TODO: check tryCounter and try again 20 times
+				if (pay.counterSendExchange++ < 20){
+					pay.save();
+					return;
+				};
 				pay.update({
 					error: 16,
 					needToSendBack: true,

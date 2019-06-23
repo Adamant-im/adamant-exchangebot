@@ -58,10 +58,10 @@ module.exports = {
 		try {
 			from = from.toUpperCase();
 			to = to.toUpperCase();
-			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || null).toFixed(8);
+			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(8);
 		} catch (e){
 			console.log('Error while calculating getPrice(): ', e);
-			return null;
+			return 0;
 		}
 	},
 	mathEqual(from, to, amount){

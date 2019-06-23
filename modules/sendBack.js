@@ -1,7 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
 const $u = require('../helpers/utils');
-const api = require('./api');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
@@ -23,6 +22,7 @@ module.exports = async () => {
 	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency]);
 
 	for (const pay of pays){
+		pay.counterSendBack = pay.counterSendBack || 0;
 		const {
 			inAmountReal,
 			inCurrency,
@@ -68,6 +68,11 @@ module.exports = async () => {
 				Store.user[inCurrency].balance -= inAmountReal; // TODO: count fee if needed
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction. TODO: check tryCounter and try again 20 times
+				if (pay.counterSendBack++ < 20){
+					pay.save();
+					return;
+				};
+
 				pay.update({
 					errorSendBack: 19,
 					needHumanCheck: true,
@@ -88,7 +93,9 @@ module.exports = async () => {
 			sentBackAmountUsd
 		});
 		pay.save();
-		notify(msgNotify, 'error');
+		if (msgNotify){
+			notify(msgNotify, 'error');
+		}
 		if (msgSendBack){
 			$u.sendAdmMsg(pay.senderId, msgSendBack);
 		}

@@ -6,8 +6,7 @@ const Store = require('./Store');
 const config = require('./configReader');
 
 module.exports = async (pay, tx) => {
-	pay.tryCounter++;
-
+	pay.counterTxDeepValidator = pay.counterTxDeepValidator || 0;
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
@@ -46,6 +45,10 @@ module.exports = async (pay, tx) => {
 		try {
 			const in_tx = await $u[pay.inCurrency].syncGetTransaction(pay.inTxid, tx);
 			if (!in_tx) { // TODO: ?????????? Add counter and error message
+				if (pay.counterTxDeepValidator++ < 20){
+					pay.save();
+					return;
+				}
 				pay.update({
 					needHumanCheck: true,
 					isFinished: true,

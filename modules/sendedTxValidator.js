@@ -58,7 +58,13 @@ module.exports = async () => {
 				log.warn('Cannot get lastBlockNumber for ' + sendCurrency + '. Waiting for next try.');
 				return;
 			}
-			const {status, blockNumber} = (await $u[sendCurrency].getTransactionStatus(sendTxId));
+			
+			const txData = (await $u[sendCurrency].getTransactionStatus(sendTxId));
+			if (!txData || !txData.blockNumber){
+				return;
+			}
+			const {status, blockNumber} = txData;
+			
 			if (!blockNumber) {
 				return;
 			}
@@ -67,7 +73,7 @@ module.exports = async () => {
 				outTxStatus: status,
 				outConfirmations: lastBlockNumber[sendCurrency] - blockNumber
 			});
-			
+			console.log({sendCurrency, status, outConfirmations: pay.outConfirmations});
 			if (status === false) {
 				if (type === 'exchange') {
 					pay.update({
@@ -90,16 +96,18 @@ module.exports = async () => {
 
 				$u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 
-			} else if (status && pay.outConfirmations >= config['min_confirmations_' + pay.outCurrency]){
+			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
 
 				if (type === 'exchange') {
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
-					msgSendBack = 'Done! Note, some amount spent to cover blockchain fees. Try me again!';
+					msgSendBack = 'Done! Thank you for business. Hope to see you again.';
 
 				} else { // type === 'back'
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
 					msgSendBack = 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!';
 				}
+				
+				
 				if (sendCurrency !== 'ADM'){
 					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
 					pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');

@@ -38,10 +38,12 @@ module.exports = async () => {
 				log.warn('Cannot get lastBlockNumber for ' + inCurrency + '. Waiting for next try.');
 				return;
 			}
-			const {status, blockNumber} = (await $u[inCurrency].getTransactionStatus(inTxid));
-			if (!blockNumber){
+			const txData = (await $u[inCurrency].getTransactionStatus(inTxid));
+			if (!txData || !txData.blockNumber){
 				return;
 			}
+			const {status, blockNumber} = txData;
+			
 			pay.update({
 				inTxStatus: status,
 				inConfirmations: lastBlockNumber[inCurrency] - blockNumber
