@@ -94,7 +94,7 @@ module.exports = async () => {
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 				}
 
-				$u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
+				$u.sendAdmMsg(pay.senderId, msgSendBack);
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
 
