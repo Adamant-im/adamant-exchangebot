@@ -62,6 +62,7 @@ module.exports = async () => {
 				value: sentBackAmount, // TODO: add fee
 				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!' // if ADM
 			});
+			
 			if (result.success) {
 				pay.sentBackTx = result.hash;
 				Store.user[inCurrency].balance -= inAmountReal; // TODO: count fee if needed
