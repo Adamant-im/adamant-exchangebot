@@ -47,7 +47,13 @@ module.exports = {
 				comment
 			} = params;
 			console.log(`Send ${value} ADM: `, comment);
-			const res = api.send(User.passPhrase, address, value); // TODO: Send whith comment
+			let res;
+			if (comment){
+				res = api.send(User.passPhrase, address, comment, 'message', null, value);
+			} else {
+				res = api.send(User.passPhrase, address, value, null, comment);
+			}
+
 			if (!res) {
 				return {
 					success: false

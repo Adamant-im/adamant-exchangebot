@@ -7,10 +7,10 @@ module.exports = {
 	unix() {
 		return new Date().getTime();
 	},
-	sendAdmMsg(address, msg) {
+	sendAdmMsg(address, msg, type = 'message') {
 		if (msg && !config.isDev || true) {
 			try {
-				return api.send(config.passPhrase, address, msg, 'message').success || false;
+				return api.send(config.passPhrase, address, msg, type).success || false;
 			} catch (e) {
 				return false;
 			}

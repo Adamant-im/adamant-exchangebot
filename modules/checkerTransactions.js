@@ -16,6 +16,7 @@ async function check() {
 			if (t.type !== 8) {
 				return;
 			}
+			console.log(t)
 			txParser(t);
 		});
 		Store.updateLastBlock();

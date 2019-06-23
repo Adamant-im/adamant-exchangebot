@@ -110,11 +110,29 @@ module.exports = async (itx, tx) => {
 		msgSendBack = `I don’t accept exchange crypto below minimum value of _${min_value_usd}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
 
-	// TODO: Daily_limit_usd
+	//Daily_limit_usd
+	const userDailiValue = (await db.paymentsDb.find({
+		transactionIsValid: true,
+		senderId: tx.senderId,
+		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
+	} 
+	)).reduce((r, c) => {
+		return r + c.inAmountMessageUsd;
+	}, 0);
+
+	if (userDailiValue + pay.inAmountMessageUsd >= config.daily_limit_usd){
+		pay.update({
+			error: 23,
+			needToSendBack: true
+		});
+		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ with transfer of _${inAmountMessage} ${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
+		msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;		
+	}
+
 	let notifyType = 'info';
 	if (pay.isFinished){
 		notifyType = 'error';
-	} else if (pay.needToSendBack){ // Error validate
+	} else if (pay.needToSendBack){ // Error validate or limits
 		notifyType = 'warn';
 	} else {
 		pay.update(Store.mathEqual(inCurrency, outCurrency, inAmountMessage));
@@ -141,3 +159,9 @@ module.exports = async (itx, tx) => {
 	}
 };
 
+if (config.isDev){
+	setTimeout(()=>{
+		// db.incomingTxsDb.db.drop();
+		// db.paymentsDb.db.drop();
+	}, 2000);
+}

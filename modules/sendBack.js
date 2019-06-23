@@ -34,7 +34,7 @@ module.exports = async () => {
 		let etherString = '';
 
 		const outFee = $u[inCurrency].FEE;
-		const sentBackAmount = inAmountReal - outFee;
+		const sentBackAmount = +(inAmountReal - outFee).toFixed(8);
 		const sentBackAmountUsd = Store.mathEqual(inCurrency, 'USD', sentBackAmount).outAmount;
 		pay.update({
 			outFee,

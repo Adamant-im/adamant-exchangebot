@@ -30,6 +30,7 @@ module.exports = async (tx) => {
 	} else if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
 	}
+	console.log({msg})
 	const itx = new incomingTxsDb({
 		txid: tx.id,
 		date: $u.unix(),
@@ -55,10 +56,5 @@ module.exports = async (tx) => {
 	}
 };
 
-if (config.isDev){
-	setTimeout(()=>{
-		db.incomingTxsDb.db.drop();
-		db.paymentsDb.db.drop();
-	}, 2000);
-}
+
 // {"type":"ETH_transaction","amount":0.1,"hash":"0x96075435aa404a9cdda0edf40c07e2098435b28547c135278f5864f8398c5d7d","comments":"Testing purposes "}

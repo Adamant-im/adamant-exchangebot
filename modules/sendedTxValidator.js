@@ -75,7 +75,7 @@ module.exports = async () => {
 						outTxid: null
 					});
 
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies that exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;				
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies that exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
 					msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 
 				} else {
@@ -84,22 +84,26 @@ module.exports = async () => {
 						sentBackTx: null
 					});
 
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} sent back of _${inAmountMessage}_ _${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} sent back of _${inAmountMessage} ${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 				}
 
-				$u.sendAdmMsg(pay.senderId, msgSendBack);
+				$u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + pay.outCurrency]){
 
 				if (type === 'exchange') {
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
-					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Done! Note, some amount spent to cover blockchain fees. Try me again!"}`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgSendBack = 'Done! Note, some amount spent to cover blockchain fees. Try me again!';
+
 				} else { // type === 'back'
-					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent back _${inAmountMessage}_ _${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
-					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!"}`;
+					msgNotify = `Exchange Bot ${Store.user.ADM.address} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${admTxId}_.`;
+					msgSendBack = 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!';
 				}
-				pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack);
+				if (sendCurrency !== 'ADM'){
+					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
+				}
+				pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 			}
 
 			await pay.save();
