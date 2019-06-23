@@ -102,8 +102,8 @@ module.exports = async () => {
 				}
 				if (sendCurrency !== 'ADM'){
 					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
+					pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 				}
-				pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 			}
 
 			await pay.save();
