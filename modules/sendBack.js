@@ -46,8 +46,8 @@ module.exports = async () => {
 				errorSendBack: 17,
 				isFinished: true
 			});
-			msgNotify = `Exchange Bot ${Store.user.ADM.address} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.';
-			msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.`;
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`;
+			msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
 		} else if (sentBackAmount > Store.user[inCurrency].balance){
 			msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. Balance of _${inCurrency}_ is _${Store.user[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_. Attention needed.`;
 			msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
@@ -62,7 +62,7 @@ module.exports = async () => {
 				value: sentBackAmount, // TODO: add fee
 				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!' // if ADM
 			});
-			
+
 			if (result.success) {
 				pay.sentBackTx = result.hash;
 				Store.user[inCurrency].balance -= inAmountReal; // TODO: count fee if needed
