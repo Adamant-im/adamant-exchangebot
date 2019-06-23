@@ -72,7 +72,7 @@ module.exports = async (itx, tx) => {
 		pay.needHumanCheck = true;
 		pay.isFinished = true;
 		msgNotify = `Exchange Bot ${Store.user.ADM.address} notifies about incoming transfer of unknown crypto: _${inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`;
-		msgSendBack = 'I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.';
+		msgSendBack = `I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.`;
 	}
 	else if (!config.known_crypto.includes(outCurrency)){
 		pay.error = 3;
