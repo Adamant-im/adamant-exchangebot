@@ -13,7 +13,6 @@ module.exports = async (tx) => {
 	if (historyTxs[tx.id]){
 		return;
 	}
-	historyTxs[tx.id] = $u.unix();
 
 	const {incomingTxsDb} = db;
 	const checkedTx = await incomingTxsDb.findOne({txid: tx.id});
@@ -30,7 +29,7 @@ module.exports = async (tx) => {
 	} else if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
 	}
-	console.log({msg})
+
 	const itx = new incomingTxsDb({
 		txid: tx.id,
 		date: $u.unix(),
@@ -43,6 +42,8 @@ module.exports = async (tx) => {
 	});
 
 	await itx.save();
+	historyTxs[tx.id] = $u.unix();
+
 	switch (type){
 	case ('exchange'):
 		exchangeTxs(itx, tx);

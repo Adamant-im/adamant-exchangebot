@@ -10,7 +10,7 @@ async function check() {
 		if (config.isDev && false) {
 			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
 		} else {
-			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + Store.lastHeight)).transactions;
+			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
 		}
 		tx.forEach(t => {
 			if (t.type !== 8) {
