@@ -2,6 +2,7 @@ const api = require('../../modules/api');
 const config = require('../../modules/configReader');
 const eth_utils = require('./eth_utils');
 const adm_utils = require('./adm_utils');
+const log = require('../log');
 
 module.exports = {
 	unix() {
@@ -20,12 +21,14 @@ module.exports = {
 		try {
 			const resp = await api.syncGet(`/api/states/get?senderId=${admAddress}&key=${coin.toLowerCase()}:address`);
 			if (resp && resp.success) {
-				return resp.transactions[0].asset.state.value;
-			} else {
-				return null;
-			}
+				if (resp.transactions.length) {
+					return resp.transactions[0].asset.state.value;
+				} else {
+					return 'none';
+				};
+			};
 		} catch (e) {
-			console.log('Error in getAddressCryptoFromAdmAddressADM(): ' + e);
+			log.error(' in getAddressCryptoFromAdmAddressADM(): ' + e);
 			return null;
 		}
 	},

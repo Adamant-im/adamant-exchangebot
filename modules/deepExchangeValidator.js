@@ -1,4 +1,3 @@
-const api = require('./api');
 const log = require('../helpers/log');
 const $u = require('../helpers/utils');
 const notify = require('../helpers/notify');
@@ -14,12 +13,17 @@ module.exports = async (pay, tx) => {
 		let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
 			await $u.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
 
+		if (!senderKvsInAddress || !senderKvsInAddress){
+			log.error(`Cant get adress in KVS ${senderKvsInAddress} ${senderKvsInAddress}`);
+			pay.save();
+			return;
+		}
 		pay.update({
 			senderKvsInAddress,
 			senderKvsOutAddress
 		});
 
-		if (!senderKvsInAddress) {
+		if (senderKvsInAddress === 'none') {
 			pay.update({
 				error: 8,
 				isFinished: true,
@@ -32,7 +36,7 @@ module.exports = async (pay, tx) => {
 
 		let msgSendBack = false;
 		let msgNotify = false;
-		if (!senderKvsOutAddress && !pay.needToSendBack) {
+		if (senderKvsOutAddress === 'none' && !pay.needToSendBack) {
 			pay.update({
 				needToSendBack: true,
 				error: 9
