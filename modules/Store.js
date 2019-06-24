@@ -65,7 +65,7 @@ module.exports = {
 		}
 	},
 	mathEqual(from, to, amount){
-		const price = this.getPrice(from, to);
+		const price = this.getPrice(from, to) * (100 - config['exchange_fee_' + from]) / 100;
 		if (!price){
 			return {
 				outAmount: 0,
@@ -73,7 +73,7 @@ module.exports = {
 			};
 		}
 		return {
-			outAmount: +(price * amount * (100 - config['exchange_fee_' + from]) / 100).toFixed(8),
+			outAmount: +(price * amount).toFixed(8),
 			exchangePrice: price
 		};
 	}

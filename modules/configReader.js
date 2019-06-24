@@ -32,7 +32,7 @@ const fields = {
 	known_crypto: {
 		type: Array,
 		isRequired: true
-	},	
+	},
 	infoservice: {
 		type: Array,
 		default: ['https://info.adamant.im']
@@ -72,7 +72,7 @@ try {
 	} else {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
 	}
-	
+
 	let keysPair;
 	try {
 		keysPair = keys.createKeypairFromPassPhrase(config.passphrase);
@@ -82,14 +82,14 @@ try {
 	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
 	config.publicKey = keysPair.publicKey;
 	config.address = address;
-	
+
 
 	['min_confirmations', 'exchange_fee', 'min_value_usd'].forEach(param => {
 		config.known_crypto.forEach(coin => {
 			const field = param + '_' + coin;
 			config[field] = config[field] || config[param] || fields[param].default;
 			if (fields[param].type !== config[field].__proto__.constructor) {
-				exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[f].type.name}_. Cannot start Bot.`);
+				exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[field].type.name}_. Cannot start Bot.`);
 			}
 		});
 	});
