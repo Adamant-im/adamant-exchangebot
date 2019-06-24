@@ -51,7 +51,7 @@ module.exports = async (tx) => {
 		commandTxs(msg);
 		break;
 	default:
-		unknounTxs(itx, tx);
+		unknounTxs(tx);
 		break;
 	}
 };
