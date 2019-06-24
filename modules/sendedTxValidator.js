@@ -74,7 +74,7 @@ module.exports = async () => {
 				outTxStatus: status,
 				outConfirmations: lastBlockNumber[sendCurrency] - blockNumber
 			});
-			console.log({sendCurrency, status, outConfirmations: pay.outConfirmations});
+
 			if (status === false) {
 				notifyType = 'error';
 				if (type === 'exchange') {
