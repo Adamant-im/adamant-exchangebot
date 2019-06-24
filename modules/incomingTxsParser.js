@@ -31,6 +31,7 @@ module.exports = async (tx) => {
 	}
 
 	const itx = new incomingTxsDb({
+		_id: tx.id,
 		txid: tx.id,
 		date: $u.unix(),
 		block_id: tx.blockId,
@@ -42,8 +43,10 @@ module.exports = async (tx) => {
 	});
 
 	await itx.save();
+	if (historyTxs[tx.id]){
+		return;
+	}
 	historyTxs[tx.id] = $u.unix();
-
 	switch (type){
 	case ('exchange'):
 		exchangeTxs(itx, tx);
