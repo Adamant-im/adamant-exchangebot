@@ -37,6 +37,7 @@ module.exports = async (itx, tx) => {
 	inCurrency = String(inCurrency).toUpperCase().trim();
 
 	const pay = new paymentsDb({
+		_id: tx.id,
 		date: $u.unix(),
 		admTxId: tx.id,
 		itxId: itx._id,

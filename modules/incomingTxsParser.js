@@ -42,11 +42,29 @@ module.exports = async (tx) => {
 		isProcessed: false
 	});
 
+	const countRequestsUser = (await db.incomingTxsDb.find({
+		senderId: tx.senderId,
+		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
+	}));
+
+	console.log({countRequestsUser});
+	if (countRequestsUser > 100){
+		itx.update({
+			isProcessed: true,
+			isSpam: true
+		});
+	}
+
 	await itx.save();
 	if (historyTxs[tx.id]){
 		return;
 	}
 	historyTxs[tx.id] = $u.unix();
+
+	if (itx.isSpam){
+		return;
+	}
+
 	switch (type){
 	case ('exchange'):
 		exchangeTxs(itx, tx);
