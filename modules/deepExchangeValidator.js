@@ -13,15 +13,16 @@ module.exports = async (pay, tx) => {
 		let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
 			await $u.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
 
+		pay.update({
+			senderKvsInAddress,
+			senderKvsOutAddress
+		});
+
 		if (!senderKvsInAddress || !senderKvsInAddress){
 			log.error(`Cant get adress in KVS ${senderKvsInAddress} ${senderKvsInAddress}`);
 			pay.save();
 			return;
 		}
-		pay.update({
-			senderKvsInAddress,
-			senderKvsOutAddress
-		});
 
 		if (senderKvsInAddress === 'none') {
 			pay.update({

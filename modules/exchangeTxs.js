@@ -139,7 +139,7 @@ module.exports = async (itx, tx) => {
 
 	}
 
-	if (!pay.isFinished && pay.needToSendBack){// if Ok checks tx
+	if (!pay.isFinished && !pay.needToSendBack){// if Ok checks tx
 		pay.update(Store.mathEqual(inCurrency, outCurrency, inAmountMessage));
 		if (!pay.outAmount){ // Error while calculating outAmount
 			pay.update({
