@@ -81,7 +81,7 @@ module.exports = {
 
 module.exports.updateCurrencies();
 
-setTimeout(() => {
+setInterval(() => {
 	module.exports.updateCurrencies();
 }, 60 * 1000);
 

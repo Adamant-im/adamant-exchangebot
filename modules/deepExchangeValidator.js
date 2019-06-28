@@ -3,9 +3,11 @@ const $u = require('../helpers/utils');
 const notify = require('../helpers/notify');
 const Store = require('./Store');
 const config = require('./configReader');
+const db = require('./DB');
+const api = require('./api');
 
 module.exports = async (pay, tx) => {
-	pay.counterTxDeepValidator = pay.counterTxDeepValidator || 0;
+	pay.counterTxDeepValidator = pay.counterTxDeepValidator++ || 0;
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
@@ -110,3 +112,14 @@ module.exports = async (pay, tx) => {
 		log.error('Error in deepExchangeValidator module: ' + e);
 	}
 };
+
+setInterval(async ()=>{
+	const {paymentsDb} = db;
+	(await paymentsDb.find({
+		transactionIsValid: null,
+		isFinished: false
+	})).forEach(async pay => {
+		const tx = await api.get('transaction', pay.admTxId);
+		module.exports(pay, tx);
+	});
+}, 60 * 1000);
