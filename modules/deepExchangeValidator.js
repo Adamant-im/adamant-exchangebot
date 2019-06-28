@@ -61,6 +61,9 @@ module.exports = async (pay, tx) => {
 					isFinished: true,
 					error: 10
 				});
+
+				msgNotify = `Exchange Bot ${Store.user.ADM.address} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_. Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.admTxId}.`;
+				msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _ ${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
 			} else {
 				pay.update({
 					sender: in_tx.sender,

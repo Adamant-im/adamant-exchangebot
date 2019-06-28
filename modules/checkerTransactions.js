@@ -6,12 +6,12 @@ const config = require('./configReader');
 
 async function check() {
 	try {
-		let tx;
-		if (config.isDev && false) {
-			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
-		} else {
-			tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
-		}
+		// let tx;
+		// if (config.isDev && false) {
+		// 	tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&limit=10')).transactions;
+		// } else {
+		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
+		// }
 		tx.forEach(t => {
 			if (t.type !== 8) {
 				return;

@@ -21,7 +21,7 @@ module.exports = async (tx) => {
 	};
 	log.info(`New incoming transaction: ${tx.id}`);
 	const chat = tx.asset.chat;
-	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message);
+	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 
 	let type = 'unknown';
 	if (msg.startsWith('/')){
@@ -43,9 +43,9 @@ module.exports = async (tx) => {
 	});
 
 	const countRequestsUser = (await db.incomingTxsDb.find({
-		senderId: tx.senderId,
+		sender: tx.senderId,
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
-	}));
+	})).length;
 
 	console.log({countRequestsUser});
 	if (countRequestsUser > 100){
@@ -70,7 +70,7 @@ module.exports = async (tx) => {
 		exchangeTxs(itx, tx);
 		break;
 	case ('command'):
-		commandTxs(msg);
+		commandTxs(msg, tx);
 		break;
 	default:
 		unknounTxs(tx);
