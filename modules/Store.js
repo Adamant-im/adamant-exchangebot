@@ -64,8 +64,11 @@ module.exports = {
 			return 0;
 		}
 	},
-	mathEqual(from, to, amount){
-		const price = this.getPrice(from, to) * (100 - config['exchange_fee_' + from]) / 100;
+	mathEqual(from, to, amount, isNotFee){
+		let price = this.getPrice(from, to);
+		if (!isNotFee){
+			price *= (100 - config['exchange_fee_' + from]) / 100;
+		};
 		if (!price){
 			return {
 				outAmount: 0,

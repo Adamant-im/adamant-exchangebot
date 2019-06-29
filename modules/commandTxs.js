@@ -29,7 +29,7 @@ I understand commands:
 */calc* — I will calculate one coin value in another using Coinmarketcap exchange rates. Works like this: /calc 2.05 BTC in USD.
 */balances* — I will show my crypto balances. Don’t request exchange if I don’t have enough balance for coin you need.
 */test* — I will estimate information on exchange request. Do it before each exchange. Works like this: /test 0.35 ETH to ADM. So you’ll know how much you’ll receive in return. Note, real value may differ because of rates update. I will pay blockchain fees by myself.
-To make an exchange, just send me crypto here in chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send In-Chat payment of 0.35 ETH to me with “ADM” comment. 
+To make an exchange, just send me crypto here in chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send In-Chat payment of 0.35 ETH to me with “ADM” comment.
 *Important! Don’t write anything else in comment, otherwise I will send your transfer back to you.*
 `;
 }
@@ -46,8 +46,7 @@ async function rates(arr) {
 	const res = tickers.result;
 	return `What I’ve got:
 	` + Object.keys(res).map(t => `${t} ${res[t]}`)
-		.toString()
-		.replace(/\,/g, ', ');
+		.join(', ');
 }
 
 function calc(arr) {
@@ -66,7 +65,7 @@ function calc(arr) {
 	if (!known_crypto.includes(outCurrency)) {
 		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
 	}
-	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+	const result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
 	if (result <= 0 || !result) {
 		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
