@@ -18,6 +18,7 @@ function init() {
 				Store.updateLastBlock();
 			}
 			checker();
+			notify(`*Exchange Bot ${Store.botName} started* for address _${Store.user.ADM.address}_.`, 'info');
 		});
 	} catch (e) {
 		notify('Exchange Bot is not started. Error: ' + e, 'error');

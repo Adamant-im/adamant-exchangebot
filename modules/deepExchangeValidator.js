@@ -34,7 +34,7 @@ module.exports = async (pay, tx) => {
 				needHumanCheck: true
 			}, true);
 			notifyType = 'error';
-			notify(`Exchange Bot ${Store.botName}cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}. Attention needed.`, 'error');
+			notify(`Exchange Bot ${Store.botName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}. Attention needed.`, 'error');
 			$u.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
 			return;
 		};
@@ -47,7 +47,7 @@ module.exports = async (pay, tx) => {
 				error: 9
 			});
 			notifyType = 'warn';
-			msgNotify = `Exchange Bot ${Store.botName}cannot fetch address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
+			msgNotify = `Exchange Bot ${Store.botName} cannot fetch address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
 			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.inCurrency]}_ block confirmations. It can take a time, please be patient.`;
 		}
 
@@ -65,7 +65,7 @@ module.exports = async (pay, tx) => {
 					error: 10
 				});
 				notifyType = 'warn';
-				msgNotify = `Exchange Bot ${Store.botName}can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_.`;
+				msgNotify = `Exchange Bot ${Store.botName} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_.`;
 				msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
 			} else {
 				pay.update({
@@ -81,7 +81,7 @@ module.exports = async (pay, tx) => {
 						error: 11
 					});
 					notifyType = 'warn';
-					msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
+					msgNotify = `Exchange Bot ${Store.botName}  thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (pay.recipient.toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 					pay.update({
@@ -90,7 +90,7 @@ module.exports = async (pay, tx) => {
 						error: 12
 					});
 					notifyType = 'warn';
-					msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
+					msgNotify = `Exchange Bot ${Store.botName}  thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
@@ -99,7 +99,7 @@ module.exports = async (pay, tx) => {
 						error: 13
 					});
 					notifyType = 'warn';
-					msgNotify = `Exchange Bot ${Store.botName}thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
+					msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else { // Transaction is valid
 					pay.update({
