@@ -50,7 +50,7 @@ module.exports = async () => {
 		
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
-				value: outAmount, // TODO: add fee exchange
+				value: outAmount,
 				comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
 			});
 			console.log('Exchange payment result', {
@@ -61,9 +61,9 @@ module.exports = async () => {
 				pay.update({
 					outTxid: result.hash
 				}, true);
-				Store.user[outCurrency].balance -= outAmount; // TODO: count fee if needed
+				Store.user[outCurrency].balance -= (outAmount + $u[outCurrency].FEE);
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
-			} else { // Can't make a transaction. TODO: check tryCounter and try again 20 times
+			} else {
 				if (pay.counterSendExchange++ < 20){
 					pay.save();
 					return;
@@ -73,8 +73,8 @@ module.exports = async () => {
 					needToSendBack: true,
 				}, true);
 				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
-				notify(`Exchange Bot ${Store.user.ADM.address} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'error');
-				$u.sendAdmMsg(pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send transfer back to you.`);
+				notify(`Exchange Bot ${Store.user.ADM.address} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'error');
+				$u.sendAdmMsg(pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send payment back to you.`);
 			}
 		});
 };
