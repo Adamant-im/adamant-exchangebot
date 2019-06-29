@@ -6,6 +6,8 @@ const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknounTxs = require('./unknounTxs');
+const notify = require('../helpers/notify');
+const Store = require('./Store');
 
 const historyTxs = {}; // catch saved txs. Defender dublicated TODO: clear uptime
 
@@ -47,7 +49,6 @@ module.exports = async (tx) => {
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
-	console.log({countRequestsUser});
 	if (countRequestsUser > 100){
 		itx.update({
 			isProcessed: true,
@@ -62,6 +63,9 @@ module.exports = async (tx) => {
 	historyTxs[tx.id] = $u.unix();
 
 	if (itx.isSpam){
+		notify(`Exchange Bot ${Store.user.ADM.address} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`);
+		$u.sendAdmMsg(tx.senderId, `I’ve *banned* you. No, really. *Don’t send any transfers as they will not be processed*.
+		 Come back tomorrow but less talk, more deal.`);
 		return;
 	}
 
@@ -77,6 +81,3 @@ module.exports = async (tx) => {
 		break;
 	}
 };
-
-
-// {"type":"ETH_transaction","amount":0.1,"hash":"0x96075435aa404a9cdda0edf40c07e2098435b28547c135278f5864f8398c5d7d","comments":"Testing purposes "}

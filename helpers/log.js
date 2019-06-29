@@ -4,7 +4,7 @@ if (!fs.existsSync('./logs')) {
 }
 
 let infoStr = fs.createWriteStream('./logs/' + date() + '.log', {
-	flags: "a"
+	flags: 'a'
 });
 
 infoStr.write(`
@@ -15,20 +15,26 @@ module.exports = {
 	error(str) {
 		infoStr.write(`
 		` + 'ExBot error|' + time() + '|' + str);
-		console.log('\x1b[31m', 'error|' + time(), "\x1b[0m", str);
+		console.log('\x1b[31m', 'error|' + time(), '\x1b[0m', str);
 	},
 	info(str) {
-		console.log('\x1b[32m', 'info|' + time(), "\x1b[0m", str);
+		console.log('\x1b[32m', 'info|' + time(), '\x1b[0m', str);
 
 		infoStr.write(`
 		` + 'ExBot info|' + time() + '|' + str);
 	},
 	warn(str) {
-		console.log('\x1b[33m', 'warn|' + time(), "\x1b[0m", str);
+		console.log('\x1b[33m', 'warn|' + time(), '\x1b[0m', str);
 
 		infoStr.write(`
 		` + 'ExBot warn|' + time() + '|' + str);
 	},
+	log(str) {
+		console.log('\x1b[34m', 'log|' + time(), '\x1b[0m', str);
+
+		infoStr.write(`
+		` + 'ExBot log|[' + time() + '|' + str);
+	}
 };
 
 function time() {
@@ -38,7 +44,7 @@ function time() {
 		second: 'numeric'
 	};
 
-	return new Date().toLocaleString("en", options);
+	return new Date().toLocaleString('en', options);
 }
 
 function date() {
@@ -47,7 +53,7 @@ function date() {
 		month: 'numeric',
 		year: 'numeric'
 	};
-	return (new Date().toLocaleString("en", options)).replace(/\//g, '-');
+	return (new Date().toLocaleString('en', options)).replace(/\//g, '-');
 }
 
 function fullTime() {

@@ -24,7 +24,7 @@ module.exports = {
 		LSK: 0.1,
 		DASH: 0.0001,
 		ADM: 0.5,
-		ETH: 0.0001, // TODO: get fee!
+		ETH: 0.0001
 	},
 	lastBlock: null,
 	get lastHeight() {

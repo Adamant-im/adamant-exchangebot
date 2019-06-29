@@ -28,6 +28,9 @@ module.exports = (message, type) => {
 		case ('info'):
 			color = '#00FF00';
 			break;
+		case ('log'):
+			color = '#fffff';
+			break;
 		}
 
 		const opts = {
