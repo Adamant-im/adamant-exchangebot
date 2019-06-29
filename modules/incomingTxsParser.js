@@ -5,7 +5,7 @@ const api = require('./api');
 const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
-const unknounTxs = require('./unknounTxs');
+const unknownTxs = require('./unknownTxs');
 const notify = require('../helpers/notify');
 const Store = require('./Store');
 
@@ -77,7 +77,7 @@ module.exports = async (tx) => {
 		commandTxs(msg, tx, itx);
 		break;
 	default:
-		unknounTxs(tx, itx);
+		unknownTxs(tx, itx);
 		break;
 	}
 };
