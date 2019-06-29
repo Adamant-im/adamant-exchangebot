@@ -74,7 +74,7 @@ module.exports = async (tx) => {
 		exchangeTxs(itx, tx);
 		break;
 	case ('command'):
-		commandTxs(msg, tx);
+		commandTxs(msg, tx, itx);
 		break;
 	default:
 		unknounTxs(tx);

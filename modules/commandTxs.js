@@ -4,7 +4,7 @@ const config = require('./configReader');
 const api = require('./api');
 const db = require('./DB');
 
-module.exports = async (cmd, tx) => {
+module.exports = async (cmd, tx, itx) => {
 	console.log('Command TX!', cmd);
 	try {
 		let msg = '';
@@ -15,9 +15,14 @@ module.exports = async (cmd, tx) => {
 			.replace(/  /g, ' ')
 			.split(' ');
 		const methodName = group.shift().trim().replace('\/', '');
-		msg = await commands[methodName](group, tx);
-		console.log(msg);
+		const m = commands[methodName];
+		if (m){
+			msg = await m(group, tx);
+		} else {
+			msg = `I don’t know /${methodName} command. Let’s start with /help.`;
+		}
 		$u.sendAdmMsg(tx.senderId, msg);
+		itx.update({isProcessed: true}, true);
 	} catch (e){
 		$u.sendAdmMsg(tx.senderId, 'Error command...'); // TODO: need msg
 	}
@@ -77,13 +82,6 @@ function calc(arr) {
 	return `${$u.thousandSeparator(amount)} ${inCurrency} equals __${$u.thousandSeparator(result)} ${outCurrency}__`;
 }
 
-function balances() {
-	return config.exchange_crypto.reduce((str, c) => {
-		return str + `
-		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
-	}, 'My crypto balances:');
-}
-
 async function test(arr, tx) {
 	if (arr.length !== 4) { // error request
 		return 'U command is not valid! Command works like this: /calc 2.05 BTC in USD.';
@@ -122,12 +120,21 @@ async function test(arr, tx) {
 	}
 
 	const userDailiValue = await $u.userDailiValue(tx.senderId);
+
 	if (userDailiValue + usdEqual >= daily_limit_usd){
 		return `You have exceeded maximum daily volume of ${daily_limit_usd}. Come back tomorrow`;
 	}
 	return `Ok. Let's make a bargain. I’ll give you ${result} ${outCurrency}. To proceed, send me ${amount} ${inCurrency} here in chat with comment ${outCurrency}. Don’t write anything else in comment, otherwise I will send your transfer back to you. And hurry up, while exchange rate is so good!
 	`;
 }
+
+function balances() {
+	return config.exchange_crypto.reduce((str, c) => {
+		return str + `
+		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
+	}, 'My crypto balances:');
+}
+
 
 const commands = {
 	help,
