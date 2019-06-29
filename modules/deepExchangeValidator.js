@@ -20,11 +20,12 @@ module.exports = async (pay, tx) => {
 			senderKvsOutAddress
 		});
 
-		if (!senderKvsInAddress || !senderKvsInAddress){
-			log.error(`Cant get adress in KVS ${senderKvsInAddress} ${senderKvsInAddress}`);
+		if (!senderKvsInAddress || !senderKvsOutAddress){
+			log.error(`Can't get address from KVS. In address: ${senderKvsInAddress}, out address: ${senderKvsOutAddress}. Will try next time.`);
 			pay.save();
 			return;
 		}
+		
 		let notifyType = 'log';
 		if (senderKvsInAddress === 'none') {
 			pay.update({
@@ -32,8 +33,8 @@ module.exports = async (pay, tx) => {
 				isFinished: true,
 				needHumanCheck: true
 			}, true);
-			notifyType = 'warn';
-			notify(`Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`, 'error');
+			notifyType = 'error';
+			notify(`Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}. Attention needed.`, 'error');
 			$u.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
 			return;
 		};
@@ -46,8 +47,8 @@ module.exports = async (pay, tx) => {
 				error: 9
 			});
 			notifyType = 'warn';
-			msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.outCurrency}_.`;
-			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.outCurrency]}_ block confirmations. It can take a time, please be patient.`;
+			msgNotify = `Exchange Bot ${Store.user.ADM.address} cannot fetch address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
+			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.inCurrency]}_ block confirmations. It can take a time, please be patient.`;
 		}
 
 		// Validating incoming TX in blockchain of inCurrency
@@ -64,8 +65,8 @@ module.exports = async (pay, tx) => {
 					error: 10
 				});
 				notifyType = 'warn';
-				msgNotify = `Exchange Bot ${Store.user.ADM.address} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_. Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.admTxId}.`;
-				msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _ ${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
+				msgNotify = `Exchange Bot ${Store.user.ADM.address} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_.`;
+				msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
 			} else {
 				pay.update({
 					sender: in_tx.sender,
@@ -97,7 +98,7 @@ module.exports = async (pay, tx) => {
 						isFinished: true,
 						error: 13
 					});
-					notifyType = 'info';
+					notifyType = 'warn';
 					msgNotify = `Exchange Bot ${Store.user.ADM.address} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else { // Transaction is valid
@@ -113,7 +114,7 @@ module.exports = async (pay, tx) => {
 
 		await pay.save();
 		if (msgSendBack) {
-			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`, notifyType);
+			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, notifyType);
 			$u.sendAdmMsg(tx.senderId, msgSendBack);
 		}
 	} catch (e) {
