@@ -29,7 +29,7 @@ module.exports = (message, type) => {
 			color = '#00FF00';
 			break;
 		case ('log'):
-			color = '#fffff';
+			color = '#ffffff';
 			break;
 		}
 
