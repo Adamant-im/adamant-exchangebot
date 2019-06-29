@@ -27,7 +27,7 @@ module.exports = async () => {
 				senderKvsOutAddress,
 				inAmountMessage
 			} = pay;
-			
+
 			let etherString = '';
 			if (outAmount + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
 				log.warn('needToSendBack, not enough ' + outCurrency + ' balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
@@ -35,11 +35,11 @@ module.exports = async () => {
 					error: 15,
 					needToSendBack: true
 				}, true);
-				notify(`Exchange Bot ${Store.user.ADM.address} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'warn');
+				notify(`Exchange Bot ${Store.botName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'warn');
 				$u.sendAdmMsg(pay.senderId, `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with */balances* command. I will try to send transfer back to you.`);
 				return;
 			}
-		
+
 			console.log('Attempt to send exchange payment', {
 				outCurrency,
 				address: senderKvsOutAddress,
@@ -47,7 +47,7 @@ module.exports = async () => {
 				balance: Store.user[outCurrency].balance
 			});
 
-		
+
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
 				value: outAmount, // TODO: add fee exchange
@@ -56,7 +56,7 @@ module.exports = async () => {
 			console.log('Exchange payment result', {
 				result
 			});
-			
+
 			if (result.success) {
 				pay.update({
 					outTxid: result.hash
@@ -73,7 +73,7 @@ module.exports = async () => {
 					needToSendBack: true,
 				}, true);
 				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
-				notify(`Exchange Bot ${Store.user.ADM.address} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'error');
+				notify(`Exchange Bot ${Store.botName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: _https://explorer.adamant.im/tx/${pay.itxId}_.`, 'error');
 				$u.sendAdmMsg(pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send transfer back to you.`);
 			}
 		});
