@@ -32,7 +32,6 @@ module.exports = (message, type) => {
 			color = '#ffffff';
 			break;
 		}
-
 		const opts = {
 			uri: slack,
 			method: 'POST',
