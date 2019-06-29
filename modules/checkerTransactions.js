@@ -5,7 +5,6 @@ const log = require('../helpers/log');
 
 async function check() {
 	try {
-		console.log(Store.lastHeight)
 		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
 
 		tx.forEach(t => {
