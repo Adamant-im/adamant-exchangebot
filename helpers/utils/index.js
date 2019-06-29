@@ -3,6 +3,7 @@ const config = require('../../modules/configReader');
 const eth_utils = require('./eth_utils');
 const adm_utils = require('./adm_utils');
 const log = require('../log');
+const db = require('../../modules/DB');
 
 module.exports = {
 	unix() {
@@ -51,6 +52,15 @@ module.exports = {
 			log.error(' in getAddressCryptoFromAdmAddressADM(): ' + e);
 			return null;
 		}
+	},
+	async userDailiValue(senderId){
+		return (await db.paymentsDb.find({
+			transactionIsValid: true,
+			senderId: senderId,
+			date: {$gt: (this.unix() - 24 * 3600 * 1000)} // last 24h
+		})).reduce((r, c) => {
+			return r + c.inAmountMessageUsd;
+		}, 0);
 	},
 	ETH: eth_utils,
 	ADM: adm_utils

@@ -2,6 +2,7 @@ const Store = require('../modules/Store');
 const $u = require('../helpers/utils');
 const config = require('./configReader');
 const api = require('./api');
+const db = require('./DB');
 
 module.exports = async (cmd, tx) => {
 	console.log('Command TX!', cmd);
@@ -14,7 +15,7 @@ module.exports = async (cmd, tx) => {
 			.replace(/  /g, ' ')
 			.split(' ');
 		const methodName = group.shift().trim().replace('\/', '');
-		msg = await commands[methodName](group);
+		msg = await commands[methodName](group, tx);
 		console.log(msg);
 		$u.sendAdmMsg(tx.senderId, msg);
 	} catch (e){
@@ -70,7 +71,7 @@ function calc(arr) {
 	if (result <= 0 || !result) {
 		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
 	}
-	if (['USD', 'RUB'].includes(outCurrency)) {
+	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
 		result = +result.toFixed(2);
 	}
 	return `${$u.thousandSeparator(amount)} ${inCurrency} equals __${$u.thousandSeparator(result)} ${outCurrency}__`;
@@ -83,8 +84,49 @@ function balances() {
 	}, 'My crypto balances:');
 }
 
-function test() {
-	return 'test!';
+async function test(arr, tx) {
+	if (arr.length !== 4) { // error request
+		return 'U command is not valid! Command works like this: /calc 2.05 BTC in USD.';
+	}
+
+	const amount = +arr[0];
+	const inCurrency = arr[1].toUpperCase().trim();
+	const outCurrency = arr[3].toUpperCase().trim();
+	const {known_crypto, accepted_crypto, exchange_crypto, daily_limit_usd} = config;
+
+	if (!known_crypto.includes(inCurrency)) {
+		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+	}
+	if (!known_crypto.includes(outCurrency)) {
+		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+	}
+	if (!exchange_crypto.includes(inCurrency)) {
+		return `I don’t accept exchange to ${inCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+	}
+	if (!accepted_crypto.includes(outCurrency)) {
+		return `I don’t accept exchange to ${outCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+	}
+	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+
+	if (result <= 0 || !result) {
+		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
+	}
+
+	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount).outAmount;
+	if (usdEqual < config['min_value_usd_' + inCurrency]) {
+		return `I don’t accept exchange of crypto below minimum value of ${config['min_value_usd_' + inCurrency]}. Exchange more coins.`;
+	}
+
+	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
+		result = +result.toFixed(2);
+	}
+
+	const userDailiValue = await $u.userDailiValue(tx.senderId);
+	if (userDailiValue + usdEqual >= daily_limit_usd){
+		return `You have exceeded maximum daily volume of ${daily_limit_usd}. Come back tomorrow`;
+	}
+	return `Ok. Let's make a bargain. I’ll give you ${result} ${outCurrency}. To proceed, send me ${amount} ${inCurrency} here in chat with comment ${outCurrency}. Don’t write anything else in comment, otherwise I will send your transfer back to you. And hurry up, while exchange rate is so good!
+	`;
 }
 
 const commands = {

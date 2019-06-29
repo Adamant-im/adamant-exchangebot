@@ -75,6 +75,7 @@ module.exports = {
 				exchangePrice: 0
 			};
 		}
+		price = +price.toFixed(8);
 		return {
 			outAmount: +(price * amount).toFixed(8),
 			exchangePrice: price
