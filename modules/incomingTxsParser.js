@@ -63,8 +63,8 @@ module.exports = async (tx) => {
 	historyTxs[tx.id] = $u.unix();
 
 	if (itx.isSpam){
-		notify(`Exchange Bot ${Store.user.ADM.address} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: _https://explorer.adamant.im/tx/${tx.id}_.`);
-		$u.sendAdmMsg(tx.senderId, `I’ve *banned* you. No, really. *Don’t send any transfers as they will not be processed*.
+		notify(`Exchange Bot ${Store.user.ADM.address} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
+		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
 		 Come back tomorrow but less talk, more deal.`);
 		return;
 	}
