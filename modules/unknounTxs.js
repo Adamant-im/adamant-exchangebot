@@ -10,7 +10,7 @@ module.exports = async (tx, itx) => {
 			type: 'unknown',
 			date: {$gt: ($u.unix() - 2 * 3600 * 1000)}, // last 2h
 		}).sort({date: -1}).toArray((err, docs) => {
-			const countMsgs = docs.length + 1;
+			const countMsgs = docs.length;
 			let msg = '';
 			if (countMsgs === 1) {
 				msg = config.welcome_string;
