@@ -37,7 +37,7 @@ module.exports = async (tx) => {
 	} else if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
 	}
-	const checkSpam = await incomingTxsDb.find({
+	const checkSpam = await incomingTxsDb.findOne({
 		sender: tx.senderId,
 		isSpam: true
 	});
