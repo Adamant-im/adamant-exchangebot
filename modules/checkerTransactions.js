@@ -8,13 +8,13 @@ async function check() {
 		if (!Store.lastHeight){
 			return;
 		}
-		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
-		tx.forEach(t => {
-			if (t.type === 8) {
-				txParser(t);
-			}
-		});
+		const txChat = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
 
+		const txTrx = (await api.get('transactions', 'fromHeight=' + (Store.lastHeight - 5) + '&and:recipientId=' + Store.user.ADM.address + '&and:type=0')).transactions;
+
+		txChat.concat(txTrx).forEach(t => {
+			txParser(t);
+		});
 		Store.updateLastBlock();
 	} catch (e) {
 		log.error('Error while checking new transactions: ' + e);
@@ -23,12 +23,3 @@ async function check() {
 module.exports = () => {
 	setInterval(check, 1500);
 };
-
-setInterval(async ()=>{ // FIXME: legasy
-	const tx = (await api.get('transactions', 'recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc')).transactions;
-	tx.forEach(t => {
-		if (t.height >= Store.lastHeight && t.type === 0) {
-			txParser(t);
-		}
-	});
-}, 20 * 1000);
