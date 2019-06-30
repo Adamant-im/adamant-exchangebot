@@ -43,7 +43,7 @@ module.exports = async (tx) => {
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
 		sender: tx.senderId,
 		isSpam: true,
-		date: {$gt: ($u.unix() - 2 * 3600 * 1000)} // last 2h
+		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	});
 	const itx = new incomingTxsDb({
 		_id: tx.id,
@@ -62,7 +62,7 @@ module.exports = async (tx) => {
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
-	if (countRequestsUser > 100){
+	if (countRequestsUser > 100 || spamerIsNotyfy){
 		itx.update({
 			isProcessed: true,
 			isSpam: true
