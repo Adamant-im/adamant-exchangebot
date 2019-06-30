@@ -27,9 +27,11 @@ module.exports = async (tx) => {
 	if (chat){
 		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 	}
+	console.log({chat, msg});
 	if (msg === ''){
 		msg = 'NONE';
 	}
+
 
 	let type = 'unknown';
 	if (msg.includes('_transaction') || tx.amount > 0){
