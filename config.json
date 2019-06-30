@@ -69,7 +69,7 @@
 	/** Pecentage you take as fee, if receiving payment is in specific currency. 
 	If set, this value will override general exchange_fee 
 	**/
-    "exchange_fee_ADM_in": false,
+    "exchange_fee_ADM": false,
 
     /** Minimum payment equivalent in USD accepted. **/
     "min_value_usd": "1",
