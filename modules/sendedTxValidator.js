@@ -74,12 +74,12 @@ module.exports = async () => {
 				if (type === 'exchange') {
 					notifyType = 'error';
 					msgNotify = `Exchange Bot ${Store.botName} unable to verify exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
-					msgSendBack = 'I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+					msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 
 				} else { // type === 'back'
 					notifyType = 'error';
 					msgNotify = `Exchange Bot ${Store.botName} unable to verify sent back of _${inAmountMessage} ${inCurrency}_ failed. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
-					msgSendBack = 'I’ve tried to make send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+					msgSendBack = `I’ve tried to make send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 				}
 				
 				notify(msgNotify, notifyType);
