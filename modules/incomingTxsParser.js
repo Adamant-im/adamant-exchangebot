@@ -32,13 +32,12 @@ module.exports = async (tx) => {
 	}
 
 	let type = 'unknown';
-	if (msg.startsWith('/')){
-		type = 'command';
-	} else if (msg.includes('_transaction') || tx.amount > 0){
+	if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
+	} else if (msg.startsWith('/')){
+		type = 'command';
 	}
 
-	
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
 		sender: tx.senderId,
 		isSpam: true,
