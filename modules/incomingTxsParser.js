@@ -37,14 +37,13 @@ module.exports = async (tx) => {
 	} else if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
 	}
-	const checkSpam = await incomingTxsDb.findOne({
+
+	
+	const spamerIsNotyfy = await incomingTxsDb.findOne({
 		sender: tx.senderId,
-		isSpam: true
+		isSpam: true,
+		date: {$gt: (this.unix() - 2 * 3600 * 1000)} // last 2h
 	});
-	if (checkSpam){
-		historyTxs[tx.id] = $u.unix();
-		return;
-	}
 	const itx = new incomingTxsDb({
 		_id: tx.id,
 		txid: tx.id,
@@ -75,7 +74,7 @@ module.exports = async (tx) => {
 	}
 	historyTxs[tx.id] = $u.unix();
 
-	if (itx.isSpam){
+	if (itx.isSpam && !spamerIsNotyfy){
 		notify(`Exchange Bot ${Store.botName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
 		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
 		 Come back tomorrow but less talk, more deal.`);
