@@ -72,7 +72,7 @@ module.exports = async () => {
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
 				
-				if (pay.counterSendBack++ < 50){
+				if (++pay.counterSendBack < 50){
 					pay.save();
 					return;
 				};

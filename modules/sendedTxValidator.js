@@ -30,7 +30,7 @@ module.exports = async () => {
 			sentBackAmount
 		} = pay;
 
-		pay.tryCounterCheckOutTX = pay.tryCounterCheckOutTX++ || 0;
+		pay.tryCounterCheckOutTX = ++pay.tryCounterCheckOutTX || 0;
 		
 		let type,
 			sendCurrency,
