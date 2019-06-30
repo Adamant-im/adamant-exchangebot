@@ -30,6 +30,8 @@ module.exports = async () => {
 			sentBackAmount
 		} = pay;
 
+		pay.tryCounterCheckOutTX = pay.tryCounterCheckOutTX++ || 0;
+		
 		let type,
 			sendCurrency,
 			sendTxId,
@@ -60,6 +62,14 @@ module.exports = async () => {
 
 			const txData = (await $u[sendCurrency].getTransactionStatus(sendTxId));
 			if (!txData || !txData.blockNumber){
+				if (pay.tryCounterCheckOutTX > 50){
+					console.log(pay.tryCounterCheckOutTX);
+					pay.update({
+						errorCheckOuterTX: 24,
+						isFinished: true,
+						needHumanCheck: true
+					}, true);
+				}
 				return;
 			}
 			const {status, blockNumber} = txData;

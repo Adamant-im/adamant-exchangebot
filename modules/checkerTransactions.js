@@ -12,9 +12,11 @@ async function check() {
 
 		const txTrx = (await api.get('transactions', 'fromHeight=' + (Store.lastHeight - 5) + '&and:recipientId=' + Store.user.ADM.address + '&and:type=0')).transactions;
 
-		txChat.concat(txTrx).forEach(t => {
-			txParser(t);
-		});
+		txChat
+			.concat(txTrx)
+			.forEach(t => {
+				txParser(t);
+			});
 		Store.updateLastBlock();
 	} catch (e) {
 		log.error('Error while checking new transactions: ' + e);
