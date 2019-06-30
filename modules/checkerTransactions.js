@@ -21,5 +21,5 @@ async function check() {
 	}
 }
 module.exports = () => {
-	setInterval(check, 4500);
+	setInterval(check, 1500);
 };
