@@ -22,8 +22,14 @@ module.exports = async (tx) => {
 		return;
 	};
 	log.info(`New incoming transaction: ${tx.id}`);
+	let msg = '';
 	const chat = tx.asset.chat;
-	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
+	if (chat){
+		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
+	}
+	if (msg === ''){
+		msg = 'NONE';
+	}
 
 	let type = 'unknown';
 	if (msg.startsWith('/')){
@@ -31,7 +37,14 @@ module.exports = async (tx) => {
 	} else if (msg.includes('_transaction') || tx.amount > 0){
 		type = 'exchange';
 	}
-
+	const checkSpam = await incomingTxsDb.find({
+		sender: tx.senderId,
+		isSpam: true
+	});
+	if (checkSpam){
+		historyTxs[tx.id] = $u.unix();
+		return;
+	}
 	const itx = new incomingTxsDb({
 		_id: tx.id,
 		txid: tx.id,
@@ -44,7 +57,7 @@ module.exports = async (tx) => {
 		isProcessed: false
 	});
 
-	const countRequestsUser = (await db.incomingTxsDb.find({
+	const countRequestsUser = (await incomingTxsDb.find({
 		sender: tx.senderId,
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;

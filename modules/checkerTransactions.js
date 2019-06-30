@@ -5,13 +5,15 @@ const log = require('../helpers/log');
 
 async function check() {
 	try {
-		const tx = (await api.get('uri', 'chats/get/?recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc&fromHeight=' + (Store.lastHeight - 5))).transactions;
-
+		if (!Store.lastHeight){
+			return;
+		}
+		const tx = (await api.get('transactions', 'recipientId=' + Store.user.ADM.address + '&orderBy=timestamp:desc')).transactions;
 		tx.forEach(t => {
-			if (t.type !== 8) {
-				return;
+			if (t.height >= Store.lastHeight && (t.type === 8 || t.type === 0)) {
+				txParser(t);
 			}
-			txParser(t);
+			
 		});
 		Store.updateLastBlock();
 	} catch (e) {
@@ -19,5 +21,5 @@ async function check() {
 	}
 }
 module.exports = () => {
-	setInterval(check, 1000);
+	setInterval(check, 4500);
 };
