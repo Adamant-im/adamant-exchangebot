@@ -97,12 +97,14 @@ module.exports = async () => {
 				$u.sendAdmMsg(pay.senderId, msgSendBack);
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
-				notifyType = 'info';
+
 				if (type === 'exchange') {
+					notifyType = 'info';
 					msgNotify = `Exchange Bot ${Store.botName} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 					msgSendBack = 'Done! Thank you for business. Hope to see you again.';
 
 				} else { // type === 'back'
+					notifyType = 'log';
 					msgNotify = `Exchange Bot ${Store.botName} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 					msgSendBack = 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!';
 				}
