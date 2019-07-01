@@ -113,6 +113,7 @@ const collection = [
 		'I am tired of you.. ',
 		'Booooooring! 💤',
 		'💱 Stop talking, go working?',
+		'To ADAMANT! 🥂',
 		'Ща бы пивка и дернуть кого-нибудь 👯',
 		'Да ну эту крипту! Пойдем гульнем лучше! 🕺🏻',
 		'Хорошо, что тып арускин епо немаишь 😁 гыгыггыгыггы',
@@ -136,5 +137,21 @@ const collection = [
 		'Ban-ban-ban.. 🚫',
 		'АСТАНАВИТЕСЬ!',
 		'Ё и Е — разные буквы. Не путай, инглишь-спикер!'
+	],
+	// 5 collection
+	[
+		'🐻 and 🐂 are those who make the market.',
+		'I am hungry 🍲 now. Are you with me?',
+		'To ADAMANT! 🥂',
+		'🍾 Happy trading!',
+		'Who is it behind you? A real Satoshi!? 😮',
+		'Can with you that the not so?',
+		'Can you play 🎹? I do. No, I will not play for free.',
+		'I would like to live in 🏝️. But reality is so cruel.',
+		'Look! ADM is pumping! 🎉',
+		'Do you know at my times computers were big and use floppy? 💾',
+		'Hurry up! ADAMANT pump! 📈',
+		'Bed time? 🛏️',
+		'Не, ну это слишком. 🤩'
 	]
 ];
