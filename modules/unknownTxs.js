@@ -89,22 +89,21 @@ const collection = [
 	],
 	// 2 collection
 	[
-		'Talk less.',
-		'Shut up..',
-		'No, I am not.',
-		'I am not a scammer!',
-		'1 ADM for 10 Ethers! Deal! Buterin will understand soon who is the daddy.',
-		'Гони бабло! ..sorry for my native.',
-		'Это у вас навар адский. А у меня.. это комиссия за честную работу.',
-		'Ландон из э капитал оф грейт брит.. блять, я перебрал..',
+		'Talk less! 🤐',
+		'No, I am not. 🙅‍♂️',
+		'I am not a scammer! 😠',
+		'1 ADM for 10 Ethers! 🤑 Deal! Buterin will understand soon who is the daddy.',
+		'🔫 Гони бабло! 💰 ..sorry for my native.',
+		'Это у вас навар адский. А у меня.. это комиссия за честную работу. 😬',
+		'Ландон из э капитал оф грейт брит.. блять, я перебрал.. 🤣',
 		'❤️ Love is everything.',
-		'Hey.. You disturb me! I am working!',
-		'It seems you are good in talking only.',
-		'OK. I better call you now.',
-		'I am not a motherf.. how do you know such words, little?',
-		'Do you know Satoshi is my close friend?',
-		'I am just kiddin!',
-		'Can with you that the not so?'
+		'Hey.. You disturb me! 💻 I am working!',
+		'It seems you are good in talking 🗣️ only.',
+		'OK. I better call you now 🤙',
+		'I am not a motherf.. how do you know such words, little? 👿',
+		'Do you know Satoshi 🤝 is my close friend?',
+		'I am just kiddin! 😆',
+		'Can with you that the not so? 😅'
 	],
 	// 3 collection
 	[
@@ -124,6 +123,7 @@ const collection = [
 	],
 	// 4 collection
 	[
+		'Shut up.. 🤐',
 		'I better find another client.',
 		'You want to be banned for sure!',
 		'Ok.. I understood. Come back tomorrow.',
