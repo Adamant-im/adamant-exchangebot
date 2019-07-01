@@ -29,7 +29,20 @@ module.exports = async (cmd, tx, itx) => {
 };
 
 function help() {
-	return `
+	let personalFee = [];
+	config.known_crypto.forEach(c=>{
+		if (config['exchange_fee_' + c] !== config.exchange_fee){
+			personalFee.push(`${c}: ${config['exchange_fee_' + c]}%`);
+		};
+	});
+
+	if (personalFee.length){
+		personalFee = 'fees differ — ' + personalFee.join(', ');
+	}
+	let str = `I am online and ready for exchange. I accept ${config.accepted_crypto.join(', ')} for exchange to  ${config.exchange_crypto.join(', ')}. In general, I take ${config.exchange_fee}% for my work. But due to the rates fluctuation, if you send me these coins, ${personalFee}. I accept minimal equivalent of ${config.min_value_usd} USD. Your daily limit is ${config.daily_limit_usd} USD. Usually I wait for ${config.min_confirmations} block confirmations for income transactions, but some coins may have different value.`;
+
+	return str + `
+
 I understand commands:
 */rates* — I will provide Coinmarketcap exchange rates for specific coin. Add coin ticker after space. F. e., /rates ADM or /rates USD.
 */calc* — I will calculate one coin value in another using Coinmarketcap exchange rates. Works like this: /calc 2.05 BTC in USD.
