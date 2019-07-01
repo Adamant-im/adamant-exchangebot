@@ -12,7 +12,7 @@ module.exports = async (tx, itx) => {
 		}).sort({date: -1}).toArray((err, docs) => {
 			const twoHoursAgo = $u.unix() - 2 * 3600 * 1000;
 			let countMsgs = docs.length;
-			if (!docs.length || twoHoursAgo < docs[0].date){
+			if (!docs.length || twoHoursAgo < docs[1].date){
 				countMsgs = 1;
 			}
 
