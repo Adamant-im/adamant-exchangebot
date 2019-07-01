@@ -62,7 +62,7 @@ module.exports = async (tx) => {
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
-	if (countRequestsUser > 100 || spamerIsNotyfy){
+	if (countRequestsUser > 65 || spamerIsNotyfy){
 		itx.update({
 			isProcessed: true,
 			isSpam: true
