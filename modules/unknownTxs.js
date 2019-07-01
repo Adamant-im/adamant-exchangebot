@@ -55,37 +55,37 @@ function getRnd(collectionNum){
 const collection = [
 	// 0 collection
 	[
-		'Do you wanna beer? I want to have it aslo, but now is the deal time. May be some ADAMANTs?',
-		'Do you wanna Ethers? Say /balances to see if I have some.',
-		'Aaaaghr..! Check out Bitcoin rates with /rates BTC command!',
-		'I can tell you my exchange rates by secret. Just say /exchange.',
-		'I am just kiddin!',
-		'I’d like to work with you.',
-		'Ok, let see.. What about 10 ADM for all your Ethers?',
-		'ADAMANT is cool, isn’t it?',
-		'People know me. Ask somebody to confirm.',
-		'I am good at exchange deal.',
-		'ADAMANT is good. Read about it on their Blog.',
-		'I recommend you to read about how ADAMANT is private and anonymous.',
-		'Recommend ADAMANT to your friends!',
-		'If I were Satoshi, I’d rebuild Bitcoin on top of ADAMANT!'
+		'Do you wanna beer 🍺? I want to have it aslo, but now is the deal time. May be some ADAMANTs 💰?',
+		'Do you wanna Ethers? Say **/balances** to see if I have some 🤑.',
+		'Aaaaghr..! 😱 Check out ₿ rates with **/rates BTC** command right now!',
+		'I can tell you my exchange rates 💱 by secret. Just say **/help**.',
+		'I am just kiddin! 😛',
+		'I’d like to work with you 🈺.',
+		'Ok, let see.. What about 10 ADM for all your Ethers? 🉐',
+		'ADAMANT is cool 😎, isn’t it?',
+		'People do know me. I am decent. 😎 Ask somebody to confirm.',
+		'I am really good 👌 at exchange deal.',
+		'ADAMANT is perfect 💯. Read about it on their Blog.',
+		'I recommend you to read about how ADAMANT is private 🔒 and anonymous.',
+		'Recommend ADAMANT to your friends! 🌟',
+		'If I were Satoshi, I’d rebuild Bitcoin ₿ on top of ADAMANT! 😍'
 	],
 	// 1 collection
 	[
 		'Do you know what is ‘биток’?',
-		'Yeah.. my English was born in cold Russian village. I know. But my masters are good in programming.',
-		'I am working for ADAMANT for some time already. I have to admit guys feed me good.',
-		'I love ADAMANT. The team is doing all the best.',
-		'Да не барыга я! Зарабатываю как могу.',
-		'London is a capital of Great Britain.',
-		'My mama told not to talk with strangers.',
-		'Are you a girl or a boy? I am comfortable with girls.',
-		'Have you heard ADAMANT on Binance already? ..I am not.',
-		'When Binance?',
+		'Yeah.. my English was born in cold ❄️ Russian village. I know. But my masters are good in programming 👨‍💻.',
+		'I am working for ADAMANT for some time already. I have to admit guys feed me good. 🥪',
+		'I love ADAMANT 💓. The team is doing all the best.',
+		'Да не барыга я! Зарабатываю как могу. 😬',
+		'London is a capital of Great Britain. 🤔',
+		'My mama told not to talk with strangers 🤐.',
+		'Are you a girl or a boy? I am comfortable with girls 👧.',
+		'Have you heard ADAMANT on Binance already? ..I am not 🙃.',
+		'When Binance? 😲',
 		'No, no. It is not good.',
-		'D’oh.',
-		'I am just kiddin!',
-		'Can with you that the not so?'
+		'D’oh! 😖',
+		'😛 I am just kiddin!',
+		'Can with you that the not so? 😮'
 	],
 	// 2 collection
 	[
