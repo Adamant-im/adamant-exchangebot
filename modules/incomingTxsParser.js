@@ -60,6 +60,7 @@ module.exports = async (tx) => {
 	if (msg.toLowerCase().trim() === 'deposit'){
 		itx.update({isProcessed: true}, true);
 		historyTxs[tx.id] = $u.unix();
+		return;
 	}
 
 	const countRequestsUser = (await incomingTxsDb.find({
