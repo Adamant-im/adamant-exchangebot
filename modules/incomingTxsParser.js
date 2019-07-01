@@ -57,6 +57,11 @@ module.exports = async (tx) => {
 		isProcessed: false
 	});
 
+	if (msg.toLowerCase().trim() === 'deposit'){
+		itx.update({isProcessed: true}, true);
+		historyTxs[tx.id] = $u.unix();
+	}
+
 	const countRequestsUser = (await incomingTxsDb.find({
 		sender: tx.senderId,
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h

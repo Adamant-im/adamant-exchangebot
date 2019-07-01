@@ -37,9 +37,9 @@ function help() {
 	});
 
 	if (personalFee.length){
-		personalFee = 'fees differ — ' + personalFee.join(', ');
+		personalFee = 'But due to the rates fluctuation, fees differ — ' + personalFee.join(', ');
 	}
-	let str = `I am online and ready for exchange. I accept ${config.accepted_crypto.join(', ')} for exchange to  ${config.exchange_crypto.join(', ')}. In general, I take ${config.exchange_fee}% for my work. But due to the rates fluctuation, if you send me these coins, ${personalFee}. I accept minimal equivalent of ${config.min_value_usd} USD. Your daily limit is ${config.daily_limit_usd} USD. Usually I wait for ${config.min_confirmations} block confirmations for income transactions, but some coins may have different value.`;
+	let str = `I am online and ready for exchange. I accept ${config.accepted_crypto.join(', ')} for exchange to  ${config.exchange_crypto.join(', ')}. In general, I take ${config.exchange_fee}% for my work. if you send me these coins, ${personalFee}. I accept minimal equivalent of ${config.min_value_usd} USD. Your daily limit is ${config.daily_limit_usd} USD. Usually I wait for ${config.min_confirmations} block confirmations for income transactions, but some coins may have different value.`;
 
 	return str + `
 
