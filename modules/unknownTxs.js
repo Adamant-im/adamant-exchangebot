@@ -36,8 +36,11 @@ module.exports = async (tx, itx) => {
 			else if (countMsgs < 40) {
 				msg = getRnd(3);
 			}
-			else {
+			else if (countMsgs < 50) {
 				msg = getRnd(4);
+			}
+			else {
+				msg = getRnd(5);
 			}
 			console.log(msg);
 			$u.sendAdmMsg(tx.senderId, msg);
