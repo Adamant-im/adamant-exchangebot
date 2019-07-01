@@ -16,13 +16,13 @@ module.exports = async (tx, itx) => {
 				msg = config.welcome_string;
 			}
 			else if (countMsgs === 2) {
-				msg = 'OK. It seems you don’t speak English. Contact my master and ask me to learn your native language. But note, it will take some time because I am not a genius.';
+				msg = 'OK. It seems you don’t speak English󠁧󠁢󠁥󠁮. Contact my master and ask him to teach me 🎓 your native language. But note, it will take some time because I am not a genius 🤓.';
 			}
 			else if (countMsgs === 3) {
-				msg = 'Hm.. Contact not me, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous.';
+				msg = 'Hm.. Contact _not me_, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous 🤪.';
 			}
 			else if (countMsgs === 4) {
-				msg = 'I see.. You just wanna talk. I am not the best at talking.';
+				msg = 'I see.. You just wanna talk 🗣️. I am not the best at talking.';
 			}
 			else if (countMsgs < 10) {
 				msg = getRnd(0);
@@ -48,10 +48,12 @@ module.exports = async (tx, itx) => {
 
 function getRnd(collectionNum){
 	const phrases = collection[collectionNum];
-	const num = +(Math.random() * 100 / (phrases.length - 1)).toFixed(0);
+  	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive	
 	return phrases[num];
 }
+
 const collection = [
+	// 0 collection
 	[
 		'Do you wanna beer? I want to have it aslo, but now is the deal time. May be some ADAMANTs?',
 		'Do you wanna Ethers? Say /balances to see if I have some.',
@@ -68,6 +70,7 @@ const collection = [
 		'Recommend ADAMANT to your friends!',
 		'If I were Satoshi, I’d rebuild Bitcoin on top of ADAMANT!'
 	],
+	// 1 collection
 	[
 		'Do you know what is ‘биток’?',
 		'Yeah.. my English was born in cold Russian village. I know. But my masters are good in programming.',
@@ -84,6 +87,7 @@ const collection = [
 		'I am just kiddin!',
 		'Can with you that the not so?'
 	],
+	// 2 collection
 	[
 		'Talk less.',
 		'Shut up..',
@@ -102,6 +106,7 @@ const collection = [
 		'I am just kiddin!',
 		'Can with you that the not so?'
 	],
+	// 3 collection
 	[
 		'My patience is over.',
 		'You want ban I think.',
@@ -117,6 +122,7 @@ const collection = [
 		'Can with you that the not so?',
 		'I am just kiddin!'
 	],
+	// 4 collection
 	[
 		'I better find another client.',
 		'You want to be banned for sure!',
