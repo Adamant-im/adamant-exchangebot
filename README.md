@@ -39,7 +39,7 @@ Parameters:
 * `accepted_crypto` <string, array> List of crytpocurrencies you want to accept for exchange. If bot will receive payment in not-in-list crypto, it will try to return it. Obligatorily
 * `exchange_crypto` <string, array> List of crytpocurrencies you want to send in exchange. If bot will receive request for exchange of not-in-list crypto, it will try to return payment back. Obligatorily
 * `exchange_fee` <float> Pecentage you take as fee for bot's service. Default is 10.
-* `exchange_fee_ADM_in` <float> Pecentage you take as fee, if receiving payment is in specific currency. This value will override general `exchange_fee`
+* `exchange_fee_ADM` <float> Pecentage you take as fee, if receiving payment is in specific currency. This value will override general `exchange_fee`
 * `min_value_usd` <float> Minimum payment equivalent in USD accepted. Default is 1.
 * `daily_limit_usd` <float> Daily exchange limit for one user, equivalent in USD. Default is 1000.
 * `min_confirmations` <int> How many confirmations to wait before transaction counts accepted. Default is 3.

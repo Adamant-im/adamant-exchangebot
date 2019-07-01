@@ -18,7 +18,7 @@ module.exports = (message, type) => {
 		let color;
 		switch (type) {
 		case ('error'):
-			color = '#36a64f';
+			color = '#FF0000';
 			break;
 
 		case ('warn'):

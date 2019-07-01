@@ -63,8 +63,9 @@ module.exports = async () => {
 				}, true);
 				Store.user[outCurrency].balance -= (outAmount + $u[outCurrency].FEE);
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
-			} else {
-				if (pay.counterSendExchange++ < 20){
+			} else { // Can't make a transaction
+				
+				if (pay.counterSendExchange++ < 50){
 					pay.save();
 					return;
 				};

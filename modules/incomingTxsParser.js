@@ -22,16 +22,29 @@ module.exports = async (tx) => {
 		return;
 	};
 	log.info(`New incoming transaction: ${tx.id}`);
+	let msg = '';
 	const chat = tx.asset.chat;
-	const msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
-
-	let type = 'unknown';
-	if (msg.startsWith('/')){
-		type = 'command';
-	} else if (msg.includes('_transaction') || tx.amount > 0){
-		type = 'exchange';
+	if (chat){
+		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
+	}
+	console.log({chat, msg});
+	if (msg === ''){
+		msg = 'NONE';
 	}
 
+
+	let type = 'unknown';
+	if (msg.includes('_transaction') || tx.amount > 0){
+		type = 'exchange';
+	} else if (msg.startsWith('/')){
+		type = 'command';
+	}
+
+	const spamerIsNotyfy = await incomingTxsDb.findOne({
+		sender: tx.senderId,
+		isSpam: true,
+		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
+	});
 	const itx = new incomingTxsDb({
 		_id: tx.id,
 		txid: tx.id,
@@ -44,12 +57,12 @@ module.exports = async (tx) => {
 		isProcessed: false
 	});
 
-	const countRequestsUser = (await db.incomingTxsDb.find({
+	const countRequestsUser = (await incomingTxsDb.find({
 		sender: tx.senderId,
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
-	if (countRequestsUser > 100){
+	if (countRequestsUser > 65 || spamerIsNotyfy){
 		itx.update({
 			isProcessed: true,
 			isSpam: true
@@ -62,7 +75,7 @@ module.exports = async (tx) => {
 	}
 	historyTxs[tx.id] = $u.unix();
 
-	if (itx.isSpam){
+	if (itx.isSpam && !spamerIsNotyfy){
 		notify(`Exchange Bot ${Store.botName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
 		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
 		 Come back tomorrow but less talk, more deal.`);

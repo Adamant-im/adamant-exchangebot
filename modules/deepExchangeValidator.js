@@ -7,7 +7,7 @@ const db = require('./DB');
 const api = require('./api');
 
 module.exports = async (pay, tx) => {
-	pay.counterTxDeepValidator = pay.counterTxDeepValidator++ || 0;
+	pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
