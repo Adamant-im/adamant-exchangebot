@@ -21,17 +21,23 @@ module.exports = async (tx) => {
 	if (checkedTx !== null) {
 		return;
 	};
+	
 	log.info(`New incoming transaction: ${tx.id}`);
 	let msg = '';
 	const chat = tx.asset.chat;
 	if (chat){
 		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 	}
+	
 	console.log({chat, msg});
 	if (msg === ''){
 		msg = 'NONE';
 	}
 
+	let topUpTransaction = false;
+	if (msg.toUpperCase() === 'TOP_UP'){
+		topUpTransaction = true;
+	}
 
 	let type = 'unknown';
 	if (msg.includes('_transaction') || tx.amount > 0){
@@ -67,6 +73,13 @@ module.exports = async (tx) => {
 			isProcessed: true,
 			isSpam: true
 		});
+	}
+
+	if (topUpTransaction){
+		itx.update({
+			isProcessed: true
+		});
+		return;
 	}
 
 	await itx.save();
