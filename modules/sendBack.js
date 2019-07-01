@@ -6,9 +6,8 @@ const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
-	const {
-		paymentsDb
-	} = db;
+	const {paymentsDb} = db;
+	await $u.updateAllBalances();
 
 	const pays = (await paymentsDb.find({
 		transactionIsValid: true,

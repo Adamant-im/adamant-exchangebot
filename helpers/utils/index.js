@@ -63,5 +63,11 @@ module.exports = {
 		}, 0);
 	},
 	ETH: eth_utils,
-	ADM: adm_utils
+	ADM: adm_utils,
+	async updateAllBalances(){
+		await this.ETH.updateBalance();
+		await this.ADM.updateBalance();
+	}
 };
+
+module.exports.updateAllBalances();

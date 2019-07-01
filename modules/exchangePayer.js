@@ -1,13 +1,13 @@
 const db = require('./DB');
 const config = require('./configReader');
 const $u = require('../helpers/utils');
-const api = require('./api');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
+	await $u.updateAllBalances();
 
 	(await paymentsDb.find({
 		transactionIsValid: true,

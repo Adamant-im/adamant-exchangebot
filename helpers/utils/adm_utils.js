@@ -75,7 +75,3 @@ module.exports = {
 		}
 	}
 };
-module.exports.updateBalance();
-setInterval(() => {
-	module.exports.updateBalance();
-}, 1000 * 60);

@@ -57,10 +57,13 @@ module.exports = {
 		});
 	},
 	updateGasPrice() {
-		eth.getGasPrice().then(price => {
-			if (price) {
-				this.gasPrice = web3.utils.toHex(price);
-			}
+		return new Promise(resolve => {
+			eth.getGasPrice().then(price => {
+				if (price) {
+					this.gasPrice = web3.utils.toHex(price);
+				}
+				resolve();
+			});
 		});
 	},
 	updateBalance(){
