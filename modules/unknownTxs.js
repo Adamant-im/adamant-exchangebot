@@ -8,9 +8,14 @@ module.exports = async (tx, itx) => {
 		.find({
 			sender: tx.senderId,
 			type: 'unknown',
-			date: {$gt: ($u.unix() - 2 * 3600 * 1000)}, // last 2h
+			date: {$gt: ($u.unix() - 24 * 3600 * 1000)}, // last 24h
 		}).sort({date: -1}).toArray((err, docs) => {
-			const countMsgs = docs.length;
+			const twoHoursAgo = $u.unix() - 2 * 3600 * 1000;
+			let countMsgs = docs.length;
+			if (twoHoursAgo < docs[0].date){
+				countMsgs = 1;
+			}
+
 			let msg = '';
 			if (countMsgs === 1) {
 				msg = config.welcome_string;
@@ -51,7 +56,7 @@ module.exports = async (tx, itx) => {
 
 function getRnd(collectionNum){
 	const phrases = collection[collectionNum];
-  	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive	
+  	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive
 	return phrases[num];
 }
 
