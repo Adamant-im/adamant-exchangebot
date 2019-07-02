@@ -65,21 +65,23 @@ I understand commands:
 async function rates(arr) {
 	const [coin] = arr;
 	if (!coin){
-		return 'Please specify coin ticker you are interested in. F. e., /rates ADM.';
+		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
 	const tickers = await api.syncGet(config.infoservice + '/get?coin=' + coin, true);
 	if (!tickers || !tickers.success){
-		return `I can’t get rates for ${coin}. Made a typo? Try /rates ADM`;
+		return `I can’t get rates for *${coin}*. Made a typo? Try */rates ADM*.`;
 	}
 	const res = tickers.result;
-	return `What I’ve got:
+	return `Market rates:
+
 	` + Object.keys(res).map(t => `${t} ${res[t]}`)
-		.join(', ');
+		.join(', ')
+	+ `.`;
 }
 
 function calc(arr) {
 	if (arr.length !== 4) { // error request
-		return 'U command is not valid! Command works like this: /calc 2.05 BTC in USD.';
+		return 'Wrong arguments. Command works like this: */calc 2.05 BTC in USD*.';
 	}
 
 	const amount = +arr[0];
@@ -88,20 +90,20 @@ function calc(arr) {
 	const {known_crypto} = config;
 
 	if (!known_crypto.includes(inCurrency)) {
-		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t know crypto *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!known_crypto.includes(outCurrency)) {
-		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t know crypto *${outCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	const result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
-	if (result <= 0 || !result) {
-		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
+	if (amount <= 0 || result <= 0 || !result) {
+		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.';
 	}
 	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
 		result = +result.toFixed(2);
 	}
-	return `${$u.thousandSeparator(amount)} ${inCurrency} equals __${$u.thousandSeparator(result)} ${outCurrency}__`;
+	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**`;
 }
 
 async function test(arr, tx) {
