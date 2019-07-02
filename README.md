@@ -1,6 +1,3 @@
-
-**WORK IS IN PROCESS. NOT READY TO USE YET**
-
 ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
 Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
@@ -44,7 +41,7 @@ Parameters:
 * `daily_limit_usd` <float> Daily exchange limit for one user, equivalent in USD. Default is 1000.
 * `min_confirmations` <int> How many confirmations to wait before transaction counts accepted. Default is 3.
 * `min_confirmations_ADM` <int> To override `min_confirmations` for specific cryptocurrency.
-* `welcome_string` <string> How to reply user in-chat, if unknown command received. Default is “Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.”
+* `welcome_string` <string> How to reply user in-chat, if unknown command received. Default is “Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.”
 
 ## Launching
 You can start the Exchange Bot with the `node app` command, but it is recommended to use the process manager for this purpose.
@@ -62,4 +59,13 @@ Add string:
 @reboot cd /home/adamant/adamant-exchangebot && pm2 start --name exchangebot app.js
 ```
 
+## Updating
+```
+su - adamant
+cd ./adamant-exchangebot
+pm2 stop exchangebot
+mv config.json config_bup.json && git pull && mv config_bup.json config.json
+npm i
+pm2 start --name exchangebot app.js 
+```
 
