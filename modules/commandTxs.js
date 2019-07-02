@@ -14,7 +14,7 @@ module.exports = async (cmd, tx, itx) => {
 			.replace(/   /g, ' ')
 			.replace(/  /g, ' ')
 			.split(' ');
-		const methodName = group.shift().trim().replace('\/', '');
+		const methodName = group.shift().trim().toLowerCase().replace('\/', '');
 		const m = commands[methodName];
 		if (m){
 			msg = await m(group, tx);
