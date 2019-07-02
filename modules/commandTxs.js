@@ -108,7 +108,7 @@ function calc(arr) {
 
 async function test(arr, tx) {
 	if (arr.length !== 4) { // error request
-		return 'U command is not valid! Command works like this: */test 0.35 ETH to ADM*.';
+		return 'Wrong arguments. Command works like this: */test 0.35 ETH to ADM*.';
 	}
 
 	const amount = +arr[0];
@@ -123,7 +123,7 @@ async function test(arr, tx) {
 		return `I don’t work with crypto ${outCurrency}. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!exchange_crypto.includes(inCurrency)) {
-		return `I don’t accept exchange to ${inCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+		return `Crypto *${inCurrency}* . I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
 	}
 	if (!accepted_crypto.includes(outCurrency)) {
 		return `I don’t accept exchange to ${outCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
