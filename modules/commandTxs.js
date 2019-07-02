@@ -120,40 +120,38 @@ async function test(arr, tx) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!known_crypto.includes(outCurrency)) {
-		return `I don’t work with crypto ${outCurrency}. Command works like this: */test 0.35 ETH to ADM*.`;
+		return `I don’t work with crypto *${outCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!exchange_crypto.includes(inCurrency)) {
-		return `Crypto *${inCurrency}* . I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+		return `Crypto *${inCurrency}* is not accepted. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
 	if (!accepted_crypto.includes(outCurrency)) {
-		return `I don’t accept exchange to ${outCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
-	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
 
-	if (result <= 0 || !result) {
-		return 'I didn’t understand amount for <currency>. Command works like this: */test 0.35 ETH to ADM*.'; // TODO: <currency>??
+	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+	
+	if (amount <= 0 || result <= 0 || !result) {
+		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.';
 	}
 
 	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
-		return `I don’t accept exchange of crypto below minimum value of ${config['min_value_usd_' + inCurrency]}. Exchange more coins.`;
-	}
-
-	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
-		result = +result.toFixed(2);
+		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
 
 	const userDailiValue = await $u.userDailiValue(tx.senderId);
-
 	if (userDailiValue + usdEqual >= daily_limit_usd){
-		return `You have exceeded maximum daily volume of ${daily_limit_usd}. Come back tomorrow.`;
+		return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
 	}
+	
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
 }
 
 function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
+
 		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
 	}, 'My crypto balances:');
 }
