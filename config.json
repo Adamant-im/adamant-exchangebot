@@ -13,6 +13,9 @@
 		"http://localhost:36666",
 		"https://endless.adamant.im",
 		"https://clown.adamant.im",
+		"https://bid.adamant.im",
+		"https://unusual.adamant.im",
+		"https://debate.adamant.im",
 		"http://185.231.245.26:36666",
 		"http://80.211.177.181:36666",
 		"https://lake.adamant.im"
@@ -20,32 +23,32 @@
 	
     /** List of nodes for Ethereum API work **/
 	"node_ETH": [
-		"http://localhost",
+		"https://ethnode1.adamant.im"
 	],	
 	
     /** List of nodes for Lisk API work **/
 	"node_LSK": [
-		"http://localhost",
+		"https://lisknode1.adamant.im"
 	],	
 
     /** List of nodes for Doge API work **/
 	"node_DOGE": [
-		"http://localhost",
+		"https://dogenode1.adamant.im"
 	],	
 
     /** List of nodes for Bitcoin API work **/
 	"node_BTC": [
-		"http://localhost",
+		"https://btcnode1.adamant.im"
 	],	
 
     /** List of nodes for Dash API work **/
 	"node_DASH": [
-		"http://localhost",
+		"https://dashnode1.adamant.im"
 	],	
 	
     /** List of ADAMANT InfoServices for catching exchange rates **/
 	"infoservice": [
-		"http://localhost",
+		"https://info.adamant.im"
 	],	
 
 	/** List of crytpocurrencies you want to accept for exchange. 
@@ -84,7 +87,7 @@
     "min_confirmations_ADM": "2",
 
     /** How to reply user in-chat, if first unknown command received. **/
-    "welcome_string": "Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type /help to see what I can.",
+    "welcome_string": "Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
 
 	/** ADAMANT address for notifications and monitoring (if needed, recommended) **/
     "adamant_notify": "",
