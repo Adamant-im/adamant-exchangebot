@@ -77,7 +77,7 @@ module.exports = {
 		return config.exchange_crypto.includes(coin);
 	},
 	isFiat(coin){
-		return ['USD', 'EUR', 'RUB'].includes(coin); // TODO: update list
+		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
 	isHasTicker(coin){
 		const pairs = Object.keys(Store.currencies);
