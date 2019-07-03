@@ -3,7 +3,7 @@ const $u = require('../helpers/utils');
 const config = require('./configReader');
 
 module.exports = async (cmd, tx, itx) => {
-	console.log('Command TX!', cmd);
+	console.log('Got new Command Tx to process: ', cmd);
 	try {
 		let msg = '';
 		const group = cmd
@@ -12,22 +12,24 @@ module.exports = async (cmd, tx, itx) => {
 			.replace(/   /g, ' ')
 			.replace(/  /g, ' ')
 			.split(' ');
-		const methodName = group.shift().trim().replace('\/', '');
+		const methodName = group.shift().trim().toLowerCase().replace('\/', '');
 		const m = commands[methodName];
 		if (m){
 			msg = await m(group, tx);
 		} else {
-			msg = `I don’t know /${methodName} command. Let’s start with /help.`;
+			msg = `I don’t know */${methodName}* command. ℹ️ You can start with **/help**.`;
 		}
 		$u.sendAdmMsg(tx.senderId, msg);
 		itx.update({isProcessed: true}, true);
 	} catch (e){
-		$u.sendAdmMsg(tx.senderId, 'Error command...'); // TODO: need msg
+		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx);
 	}
 };
 
 function help() {
 	let personalFee = [];
+	let personalFeeString = '';
+
 	config.known_crypto.forEach(c=>{
 		if (config['exchange_fee_' + c] !== config.exchange_fee){
 			personalFee.push(`${c}: ${config['exchange_fee_' + c]}%`);
@@ -35,26 +37,33 @@ function help() {
 	});
 
 	if (personalFee.length){
-		personalFee = 'But due to the rates fluctuation, fees differ — ' + personalFee.join(', ');
+		personalFeeString = 'In general, I take *${config.exchange_fee}%* for my work. But due to the rates fluctuation, if you send me these coins, fees differ — ' + personalFee.join(', ');
+	} else {
+		personalFeeString = 'I take *${config.exchange_fee}%* for my work';
 	}
-	let str = `I am online and ready for exchange. I accept ${config.accepted_crypto.join(', ')} for exchange to  ${config.exchange_crypto.join(', ')}. In general, I take ${config.exchange_fee}% for my work. if you send me these coins, ${personalFee}. I accept minimal equivalent of ${config.min_value_usd} USD. Your daily limit is ${config.daily_limit_usd} USD. Usually I wait for ${config.min_confirmations} block confirmations for income transactions, but some coins may have different value.`;
+
+	let str = `I am **online** and ready for exchange. I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. ${personalFee}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
 
 	return str + `
 
 I understand commands:
-*/rates* — I will provide Coinmarketcap exchange rates for specific coin. Add coin ticker after space. F. e., /rates ADM or /rates USD.
-*/calc* — I will calculate one coin value in another using Coinmarketcap exchange rates. Works like this: /calc 2.05 BTC in USD.
-*/balances* — I will show my crypto balances. Don’t request exchange if I don’t have enough balance for coin you need.
-*/test* — I will estimate information on exchange request. Do it before each exchange. Works like this: /test 0.35 ETH to ADM. So you’ll know how much you’ll receive in return. Note, real value may differ because of rates update. I will pay blockchain fees by myself.
-To make an exchange, just send me crypto here in chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send In-Chat payment of 0.35 ETH to me with “ADM” comment.
-*Important! Don’t write anything else in comment, otherwise I will send your transfer back to you.*
+
+**/rates** — I will provide market exchange rates for specific coin. F. e., */rates ADM* or */rates USD*.
+
+**/calc** — I will calculate one coin value in another using market exchange rates. Works like this: */calc 2.05 BTC in USD*.
+
+**/balances** — I will show my crypto balances. Don’t request exchange if I don’t have enough balance for coin you need.
+
+**/test** — I will estimate and test exchange request. Do it before each exchange. Works like this: */test 0.35 ETH to ADM*. So you’ll know how much you’ll receive in return. I will pay blockchain fees by myself.
+
+**To make an exchange**, just send me crypto here in-Chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send in-Chat payment of 0.35 ETH to me with “ADM” comment. Important! Don’t write anything else in comment, otherwise I will send your transfer back to you.
 `;
 }
 
 async function rates(arr) {
 	const [coin] = arr;
 	if (!coin || !coin.length){
-		return 'Please specify coin ticker you are interested in. F. e., /rates ADM.';
+		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
 	const currencies = Store.currencies;
 	const res = Object
@@ -67,18 +76,15 @@ async function rates(arr) {
 		.join(', ');
 
 	if (!res.length){
-		return `I can’t get rates for ${coin}. Made a typo? Try /rates ADM`;
+		return `I can’t get rates for ${coin}. Made a typo? Try */rates ADM*`;
 	}
 	return `What I’ve got:
 	${res}`;
 }
-setInterval(async ()=>{
-	console.log(await rates(['USD']));
-}, 1000);
 
 function calc(arr) {
 	if (arr.length !== 4) { // error request
-		return 'U command is not valid! Command works like this: /calc 2.05 BTC in USD.';
+		return 'Wrong arguments. Command works like this: */calc 2.05 BTC in USD*.';
 	}
 
 	const amount = +arr[0];
@@ -86,25 +92,25 @@ function calc(arr) {
 	const outCurrency = arr[3].toUpperCase().trim();
 
 	if (!$u.isHasTicker(inCurrency)) {
-		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t know crypto ${inCurrency}. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!$u.isHasTicker(outCurrency)) {
-		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t know crypto ${outCurrency}. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	const result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
-	if (result <= 0 || !result) {
-		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
+	if (amount <= 0 || result <= 0 || !result) {
+		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.';
 	}
 	if ($u.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
 	}
-	return `${$u.thousandSeparator(amount)} ${inCurrency} equals __${$u.thousandSeparator(result)} ${outCurrency}__`;
+	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**`;
 }
 
 async function test(arr, tx) {
 	if (arr.length !== 4) { // error request
-		return 'U command is not valid! Command works like this: /calc 2.05 BTC in USD.';
+		return 'Wrong arguments. Command works like this: */test 0.35 ETH to ADM*.';
 	}
 
 	const amount = +arr[0];
@@ -113,44 +119,41 @@ async function test(arr, tx) {
 	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
 
 	if (!$u.isKnown(inCurrency)) {
-		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!$u.isKnown(outCurrency)) {
-		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
+		return `I don’t work with crypto *${outCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!$u.isExchanged(inCurrency)) {
-		return `I don’t accept exchange to ${inCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+		return `Crypto *${inCurrency}* is not accepted. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
 	if (!$u.isAccepted(outCurrency)) {
-		return `I don’t accept exchange to ${outCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
+		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
+
 	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
 
-	if (result <= 0 || !result) {
-		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
+	if (amount <= 0 || result <= 0 || !result) {
+		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.';
 	}
 
 	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
-		return `I don’t accept exchange of crypto below minimum value of ${config['min_value_usd_' + inCurrency]}. Exchange more coins.`;
-	}
-
-	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
-		result = +result.toFixed(2);
+		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
 
 	const userDailiValue = await $u.userDailiValue(tx.senderId);
-
 	if (userDailiValue + usdEqual >= daily_limit_usd){
-		return `You have exceeded maximum daily volume of ${daily_limit_usd}. Come back tomorrow`;
+		return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
 	}
-	return `Ok. Let's make a bargain. I’ll give you ${result} ${outCurrency}. To proceed, send me ${amount} ${inCurrency} here in chat with comment ${outCurrency}. Don’t write anything else in comment, otherwise I will send your transfer back to you. And hurry up, while exchange rate is so good!
-	`;
+
+	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
 }
 
 function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
+
 		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
 	}, 'My crypto balances:');
 }
