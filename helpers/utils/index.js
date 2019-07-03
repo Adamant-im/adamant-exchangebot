@@ -35,7 +35,7 @@ module.exports = {
 		}
 
 		if (parts.length > 1) {
-			output = `_${output}_.${parts[1]}`;
+			output = `**${output}**.${parts[1]}`;
 		}
 		return output;
 	},

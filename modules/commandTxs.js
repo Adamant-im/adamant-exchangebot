@@ -60,7 +60,10 @@ async function rates(arr) {
 	const res = Object
 		.keys(Store.currencies)
 		.filter(t => t.startsWith(coin + '/'))
-		.map(t => `${t}: ${currencies[t]}`)
+		.map(t => {
+			let pair = `${coin}/**${t.replace(coin + '/', '')}**`;
+			return `${pair}: ${currencies[t]}`;
+		})
 		.join(', ');
 
 	if (!res.length){
@@ -69,9 +72,9 @@ async function rates(arr) {
 	return `What I’ve got:
 	${res}`;
 }
-// setInterval(async ()=>{
-// 	console.log(await rates(['USD']));
-// }, 1000);
+setInterval(async ()=>{
+	console.log(await rates(['USD']));
+}, 1000);
 
 function calc(arr) {
 	if (arr.length !== 4) { // error request
