@@ -2,12 +2,14 @@ const db = require('./DB');
 const log = require('../helpers/log');
 const keys = require('adamant-api/helpers/keys');
 const api = require('./api');
+const {version} = require('../package.json');
 const config = require('./configReader');
 const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 const AdmAddress = keys.createAddressFromPublicKey(AdmKeysPair.publicKey);
 const ethData = api.eth.keys(config.passPhrase);
 
 module.exports = {
+	version,
 	botName: AdmAddress,
 	user: {
 		ADM: {

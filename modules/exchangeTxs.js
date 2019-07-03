@@ -69,7 +69,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
 	}
-	else if (!config.known_crypto.includes(inCurrency)){
+	else if (!$u.isKnown(inCurrency)){
 		pay.error = 2;
 		pay.needHumanCheck = true;
 		pay.isFinished = true;
@@ -77,7 +77,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.botName} notifies about incoming transfer of unknown crypto: _${inCurrency}_. Attention needed. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.`;
 	}
-	else if (!config.known_crypto.includes(outCurrency)){
+	else if (!$u.isKnown(outCurrency)){
 		pay.error = 3;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -93,7 +93,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.botName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!config.accepted_crypto.includes(inCurrency)){
+	else if (!$u.isAccepted.includes(inCurrency)){
 		pay.error = 5;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -101,7 +101,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.botName} notifies about incoming transfer of unaccepted crypto: _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `Crypto _${inCurrency}_ is not accepted. I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!config.exchange_crypto.includes(outCurrency)){
+	else if (!$u.isExchanged(outCurrency)){
 		pay.error = 6;
 		pay.needToSendBack = true;
 		notifyType = 'warn';

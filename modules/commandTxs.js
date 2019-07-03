@@ -1,8 +1,6 @@
 const Store = require('../modules/Store');
 const $u = require('../helpers/utils');
 const config = require('./configReader');
-const api = require('./api');
-const db = require('./DB');
 
 module.exports = async (cmd, tx, itx) => {
 	console.log('Command TX!', cmd);
@@ -55,18 +53,25 @@ To make an exchange, just send me crypto here in chat and comment with crypto ti
 
 async function rates(arr) {
 	const [coin] = arr;
-	if (!coin){
+	if (!coin || !coin.length){
 		return 'Please specify coin ticker you are interested in. F. e., /rates ADM.';
 	}
-	const tickers = await api.syncGet(config.infoservice + '/get?coin=' + coin, true);
-	if (!tickers || !tickers.success){
+	const currencies = Store.currencies;
+	const res = Object
+		.keys(Store.currencies)
+		.filter(t => t.startsWith(coin + '/'))
+		.map(t => `${t}: ${currencies[t]}`)
+		.join(', ');
+
+	if (!res.length){
 		return `I can’t get rates for ${coin}. Made a typo? Try /rates ADM`;
 	}
-	const res = tickers.result;
 	return `What I’ve got:
-	` + Object.keys(res).map(t => `${t} ${res[t]}`)
-		.join(', ');
+	${res}`;
 }
+// setInterval(async ()=>{
+// 	console.log(await rates(['USD']));
+// }, 1000);
 
 function calc(arr) {
 	if (arr.length !== 4) { // error request
@@ -76,12 +81,11 @@ function calc(arr) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
-	const {known_crypto} = config;
 
-	if (!known_crypto.includes(inCurrency)) {
+	if (!$u.isHasTicker(inCurrency)) {
 		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
 	}
-	if (!known_crypto.includes(outCurrency)) {
+	if (!$u.isHasTicker(outCurrency)) {
 		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
 	}
 	const result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
@@ -89,7 +93,7 @@ function calc(arr) {
 	if (result <= 0 || !result) {
 		return 'I didn’t understand amount for <currency>. Command works like this: /calc 2.05 BTC in USD.'; // TODO: <currency>??
 	}
-	if (['USD', 'RUB'].includes(outCurrency)) { // TODO: add all fiats
+	if ($u.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
 	}
 	return `${$u.thousandSeparator(amount)} ${inCurrency} equals __${$u.thousandSeparator(result)} ${outCurrency}__`;
@@ -103,18 +107,18 @@ async function test(arr, tx) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
-	const {known_crypto, accepted_crypto, exchange_crypto, daily_limit_usd} = config;
+	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
 
-	if (!known_crypto.includes(inCurrency)) {
+	if (!$u.isKnown(inCurrency)) {
 		return `I don’t know crypto ${inCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
 	}
-	if (!known_crypto.includes(outCurrency)) {
+	if (!$u.isKnown(outCurrency)) {
 		return `I don’t know crypto ${outCurrency}. Command works like this: /calc 2.05 BTC in USD.`;
 	}
-	if (!exchange_crypto.includes(inCurrency)) {
+	if (!$u.isExchanged(inCurrency)) {
 		return `I don’t accept exchange to ${inCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
 	}
-	if (!accepted_crypto.includes(outCurrency)) {
+	if (!$u.isAccepted(outCurrency)) {
 		return `I don’t accept exchange to ${outCurrency}. I accept ${accepted_crypto.join(', ')} and exchange them to ${exchange_crypto.join(', ')} `;
 	}
 	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;

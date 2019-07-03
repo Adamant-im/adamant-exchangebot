@@ -4,6 +4,7 @@ const eth_utils = require('./eth_utils');
 const adm_utils = require('./adm_utils');
 const log = require('../log');
 const db = require('../../modules/DB');
+const Store = require('../../modules/Store');
 
 module.exports = {
 	unix() {
@@ -34,7 +35,7 @@ module.exports = {
 		}
 
 		if (parts.length > 1) {
-			output += '.' + parts[1];
+			output = `_${output}_.${parts[1]}`;
 		}
 		return output;
 	},
@@ -62,12 +63,28 @@ module.exports = {
 			return r + c.inAmountMessageUsd;
 		}, 0);
 	},
-	ETH: eth_utils,
-	ADM: adm_utils,
 	async updateAllBalances(){
 		await this.ETH.updateBalance();
 		await this.ADM.updateBalance();
-	}
+	},
+	isKnown(coin){
+		return config.known_crypto.includes(coin);
+	},
+	isAccepted(coin){
+		return config.accepted_crypto.includes(coin);
+	},
+	isExchanged(coin){
+		return config.exchange_crypto.includes(coin);
+	},
+	isFiat(coin){
+		return ['USD', 'EUR', 'RUB'].includes(coin); // TODO: update list
+	},
+	isHasTicker(coin){
+		const pairs = Object.keys(Store.currencies);
+		return pairs.startsWith(coin + '/') || pairs.endsWith('/' + coin);
+	},
+	ETH: eth_utils,
+	ADM: adm_utils,
 };
 
 module.exports.updateAllBalances();
