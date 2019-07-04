@@ -85,7 +85,7 @@ module.exports = async (pay, tx) => {
 						error: 11
 					});
 					notifyType = 'warn';
-					msgNotify = `Exchange Bot ${Store.botName}  thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
+					msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (String(pay.recipient).toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 					pay.update({
@@ -94,7 +94,7 @@ module.exports = async (pay, tx) => {
 						error: 12
 					});
 					notifyType = 'warn';
-					msgNotify = `Exchange Bot ${Store.botName}  thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
+					msgNotify = `Exchange Bot ${Store.botName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
