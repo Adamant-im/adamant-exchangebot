@@ -144,8 +144,10 @@ async function test(arr, tx) {
 	}
 
 	const userDailiValue = await $u.userDailiValue(tx.senderId);
-	if (userDailiValue + usdEqual >= daily_limit_usd){
+	if (userDailiValue >= daily_limit_usd){
 		return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
+	} else if (userDailiValue + usdEqual >= daily_limit_usd){
+		return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
 	}
 
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
