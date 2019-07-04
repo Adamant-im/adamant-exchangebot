@@ -80,8 +80,9 @@ module.exports = {
 		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
 	isHasTicker(coin){
-		const pairs = Object.keys(Store.currencies);
-		return pairs.startsWith(coin + '/') || pairs.endsWith('/' + coin);
+		const pairs = Object.keys(Store.currencies).toString();
+console.log(pairs)
+		return pairs.includes('"' + coin + '/') || pairs.includes('/' + coin +"'");
 	},
 	ETH: eth_utils,
 	ADM: adm_utils,
