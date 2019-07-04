@@ -80,7 +80,6 @@ async function rates(arr) {
 		return `I can’t get rates for *${coin}*. Made a typo? Try */rates ADM*.`;
 	}
 	return `Market rates:
-
 	${res}.`;
 }
 
@@ -155,7 +154,6 @@ async function test(arr, tx) {
 function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
-
 		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
 	}, 'My crypto balances:');
 }
