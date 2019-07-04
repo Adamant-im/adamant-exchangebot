@@ -149,6 +149,10 @@ async function test(arr, tx) {
 	} else if (userDailiValue + usdEqual >= daily_limit_usd){
 		return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
 	}
+	
+	if (result + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
+		return `I have not enough coins to send you *${result}* *${outCurrency}* for exchange. Check my balances with **/balances** command.`;
+	}	
 
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
 }
