@@ -87,7 +87,7 @@
     "min_confirmations_ADM": "2",
 
     /** How to reply user in-chat, if first unknown command received. **/
-    "welcome_string": "Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
+    "welcome_string": "Hello 😊. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
 
 	/** ADAMANT address for notifications and monitoring (if needed, recommended) **/
     "adamant_notify": "",
