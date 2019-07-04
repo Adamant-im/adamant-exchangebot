@@ -93,7 +93,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `Exchange Bot ${Store.botName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!$u.isAccepted.includes(inCurrency)){
+	else if (!$u.isAccepted(inCurrency)){
 		pay.error = 5;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
