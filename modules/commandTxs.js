@@ -131,7 +131,7 @@ async function test(arr, tx) {
 		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
 
-	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
 		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.';
