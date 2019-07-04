@@ -62,6 +62,7 @@ module.exports = {
 		return (await db.paymentsDb.find({
 			transactionIsValid: true,
 			senderId: senderId,
+			inAmountMessageUsd: {$ne: null},
 			date: {$gt: (this.unix() - 24 * 3600 * 1000)} // last 24h
 		})).reduce((r, c) => {
 			return r + c.inAmountMessageUsd;

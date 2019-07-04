@@ -8,6 +8,10 @@ const api = require('./api');
 
 module.exports = async (pay, tx) => {
 	pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
+	if (!tx){
+		pay.save();
+		return;
+	}
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
@@ -128,7 +132,11 @@ setInterval(async ()=>{
 		transactionIsValid: null,
 		isFinished: false
 	})).forEach(async pay => {
-		const tx = await api.get('transaction', pay.admTxId);
-		module.exports(pay, tx);
+		try {
+			const tx = (await api.get('transaction', pay.admTxId)).transaction;
+			module.exports(pay, tx);
+		} catch (e){
+			module.exports(pay, null);
+		}
 	});
 }, 60 * 1000);
