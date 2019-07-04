@@ -97,7 +97,7 @@ function calc(arr) {
 	if (!$u.isHasTicker(outCurrency)) {
 		return `I don’t know crypto ${outCurrency}. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
-	const result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
+	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
 		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.';
