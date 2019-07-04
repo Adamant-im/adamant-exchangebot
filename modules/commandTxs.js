@@ -22,7 +22,7 @@ module.exports = async (cmd, tx, itx) => {
 		$u.sendAdmMsg(tx.senderId, msg);
 		itx.update({isProcessed: true}, true);
 	} catch (e){
-		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx);
+		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
 	}
 };
 
