@@ -74,7 +74,7 @@ module.exports = async (pay, tx) => {
 					inAmountReal: in_tx.amount
 				});
 
-				if (pay.sender.toLowerCase() !== pay.senderKvsInAddress.toLowerCase()) {
+				if (pay.sender.toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
