@@ -20,7 +20,7 @@ module.exports = async (pay, tx) => {
 			senderKvsOutAddress
 		});
 
-		if (!senderKvsInAddress || !senderKvsOutAddress){
+		if (!senderKvsInAddress && pay.needToSendBack || !senderKvsOutAddress){
 			log.error(`Can't get address from KVS. In address: ${senderKvsInAddress}, out address: ${senderKvsOutAddress}. Will try next time.`);
 			pay.save();
 			return;
