@@ -106,7 +106,7 @@ function calc(arr) {
 	if ($u.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
 	}
-	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**`;
+	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**.`;
 }
 
 async function test(arr, tx) {
@@ -132,7 +132,7 @@ async function test(arr, tx) {
 		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
 
-	const result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
 		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.';
@@ -155,7 +155,7 @@ function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
 
-		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
+		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
 	}, 'My crypto balances:');
 }
 
