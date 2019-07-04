@@ -35,10 +35,11 @@ module.exports = {
 		}
 
 		if (parts.length > 1) {
-			if (doBold)
+			if (doBold) {
 				output = `**${output}**.${parts[1]}`;
-			else
+			} else {
 				output = `${output}.${parts[1]}`;
+			}
 		}
 		return output;
 	},
