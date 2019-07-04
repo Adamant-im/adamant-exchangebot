@@ -19,7 +19,7 @@ module.exports = {
 			}
 		}
 	},
-	thousandSeparator(num) {
+	thousandSeparator(num, doBold) {
 		var parts = (num + '').split('.'),
 			main = parts[0],
 			len = main.length,
@@ -35,7 +35,10 @@ module.exports = {
 		}
 
 		if (parts.length > 1) {
-			output = `**${output}**.${parts[1]}`;
+			if (doBold)
+				output = `**${output}**.${parts[1]}`;
+			else
+				output = `${output}.${parts[1]}`;
 		}
 		return output;
 	},
@@ -81,7 +84,6 @@ module.exports = {
 	},
 	isHasTicker(coin){
 		const pairs = Object.keys(Store.currencies).toString();
-console.log(pairs)
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin +",");
 	},
 	ETH: eth_utils,
