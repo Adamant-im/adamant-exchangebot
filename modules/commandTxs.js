@@ -19,6 +19,7 @@ module.exports = async (cmd, tx, itx) => {
 		} else {
 			msg = `I don’t know */${methodName}* command. ℹ️ You can start with **/help**.`;
 		}
+		console.log({msg});
 		$u.sendAdmMsg(tx.senderId, msg);
 		itx.update({isProcessed: true}, true);
 	} catch (e){
