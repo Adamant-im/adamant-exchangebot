@@ -74,7 +74,7 @@ module.exports = async (pay, tx) => {
 					inAmountReal: in_tx.amount
 				});
 
-				if (pay.sender.toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
+				if (String(pay.sender).toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
@@ -83,7 +83,7 @@ module.exports = async (pay, tx) => {
 					notifyType = 'warn';
 					msgNotify = `Exchange Bot ${Store.botName}  thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-				} else if (pay.recipient.toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
+				} else if (String(pay.recipient).toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
