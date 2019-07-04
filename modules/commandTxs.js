@@ -22,7 +22,7 @@ module.exports = async (cmd, tx, itx) => {
 		$u.sendAdmMsg(tx.senderId, msg);
 		itx.update({isProcessed: true}, true);
 	} catch (e){
-		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + ': ' +e);
+		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
 	}
 };
 
@@ -42,7 +42,7 @@ function help() {
 		personalFeeString = 'I take *${config.exchange_fee}%* for my work';
 	}
 
-	let str = `I am **online** and ready for exchange. I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. ${personalFee}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
+	let str = `I am **online** and ready for exchange. I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. ${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
 
 	return str + `
 
@@ -56,12 +56,12 @@ I understand commands:
 
 **/test** — I will estimate and test exchange request. Do it before each exchange. Works like this: */test 0.35 ETH to ADM*. So you’ll know how much you’ll receive in return. I will pay blockchain fees by myself.
 
-**To make an exchange**, just send me crypto here in-Chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send in-Chat payment of 0.35 ETH to me with “ADM” comment. Important! Don’t write anything else in comment, otherwise I will send your transfer back to you.
+**To make an exchange**, just send me crypto here in-Chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send in-Chat payment of 0.35 ETH to me with “ADM” comment.
 `;
 }
 
 async function rates(arr) {
-	const [coin] = arr;
+	const [coin] = arr.toUpperCase().trim();
 	if (!coin || !coin.length){
 		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
@@ -76,10 +76,11 @@ async function rates(arr) {
 		.join(', ');
 
 	if (!res.length){
-		return `I can’t get rates for ${coin}. Made a typo? Try */rates ADM*`;
+		return `I can’t get rates for *${coin}*. Made a typo? Try */rates ADM*.`;
 	}
-	return `What I’ve got:
-	${res}`;
+	return `Market rates:
+
+	${res}.`;
 }
 
 function calc(arr) {
@@ -105,7 +106,7 @@ function calc(arr) {
 	if ($u.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
 	}
-	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**`;
+	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**.`;
 }
 
 async function test(arr, tx) {
@@ -154,7 +155,7 @@ function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
 
-		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8))} _${c}_`;
+		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
 	}, 'My crypto balances:');
 }
 
