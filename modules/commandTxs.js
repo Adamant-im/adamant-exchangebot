@@ -37,9 +37,9 @@ function help() {
 	});
 
 	if (personalFee.length){
-		personalFeeString = 'In general, I take *${config.exchange_fee}%* for my work. But due to the rates fluctuation, if you send me these coins, fees differ — ' + personalFee.join(', ');
+		personalFeeString = `In general, I take *${config.exchange_fee}%* for my work. But due to the rates fluctuation, if you send me these coins, fees differ — ` + personalFee.join(', ');
 	} else {
-		personalFeeString = 'I take *${config.exchange_fee}%* for my work';
+		personalFeeString = `I take *${config.exchange_fee}%* for my work`;
 	}
 
 	let str = `I am **online** and ready for exchange. I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. ${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
@@ -93,10 +93,10 @@ function calc(arr) {
 	const outCurrency = arr[3].toUpperCase().trim();
 
 	if (!$u.isHasTicker(inCurrency)) {
-		return `I don’t know crypto ${inCurrency}. Command works like this: */calc 2.05 BTC in USD*.`;
+		return `I don’t know crypto *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!$u.isHasTicker(outCurrency)) {
-		return `I don’t know crypto ${outCurrency}. Command works like this: */calc 2.05 BTC in USD*.`;
+		return `I don’t know crypto *${outCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
