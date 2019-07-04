@@ -61,7 +61,7 @@ I understand commands:
 }
 
 async function rates(arr) {
-	const [coin] = arr.toUpperCase().trim();
+	const [coin] = arr;
 	if (!coin || !coin.length){
 		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
