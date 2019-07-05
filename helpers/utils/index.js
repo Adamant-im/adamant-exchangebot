@@ -86,7 +86,7 @@ module.exports = {
 	},
 	isHasTicker(coin){
 		const pairs = Object.keys(Store.currencies).toString();
-		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin +",");
+		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},
 	ETH: eth_utils,
 	ADM: adm_utils,

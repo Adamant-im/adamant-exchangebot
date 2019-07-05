@@ -165,8 +165,8 @@ module.exports = async (itx, tx) => {
 
 if (config.isDev){
 	setTimeout(()=>{
-		db.systemDb.db.drop();
-		db.incomingTxsDb.db.drop();
-		db.paymentsDb.db.drop();
+		// db.systemDb.db.drop();
+		// db.incomingTxsDb.db.drop();
+		// db.paymentsDb.db.drop();
 	}, 2000);
 }

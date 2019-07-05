@@ -19,10 +19,15 @@ module.exports = async (cmd, tx, itx) => {
 		} else {
 			msg = `I don’t know */${methodName}* command. ℹ️ You can start with **/help**.`;
 		}
-		console.log({msg});
-		$u.sendAdmMsg(tx.senderId, msg);
-		itx.update({isProcessed: true}, true);
+		if (!tx){
+			return msg;
+		}
+		if (tx){
+			$u.sendAdmMsg(tx.senderId, msg);
+			itx.update({isProcessed: true}, true);
+		}
 	} catch (e){
+		tx = tx || {};
 		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
 	}
 };
@@ -62,7 +67,7 @@ I understand commands:
 }
 
 async function rates(arr) {
-	const coin = arr[0].toUpperCase().trim();
+	const coin = (arr[0] || '').toUpperCase().trim();
 	if (!coin || !coin.length){
 		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
@@ -91,7 +96,9 @@ function calc(arr) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
-
+	if (!amount || amount === Infinity){
+		return `Value amount "${amount}" is not number. Command works like this: */test 0.35 ETH to ADM*`; // TODO: msg
+	}
 	if (!$u.isHasTicker(inCurrency)) {
 		return `I don’t know crypto *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
@@ -101,7 +108,7 @@ function calc(arr) {
 	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
-		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.';
+		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if ($u.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
@@ -118,7 +125,12 @@ async function test(arr, tx) {
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
 	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
-
+	if (!amount || amount === Infinity){
+		return `Value amount "${amount}" is not number. Command works like this: */test 0.35 ETH to ADM*`; // TODO: msg
+	}
+	if (inCurrency === outCurrency){
+		return ` In ${inCurrency} cant was out ${outCurrency} Command works like this: */test 0.35 ETH to ADM*.`;// TODO: msg
+	}
 	if (!$u.isKnown(inCurrency)) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
@@ -135,24 +147,24 @@ async function test(arr, tx) {
 	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
-		return 'I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.';
+		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 
 	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
-
-	const userDailiValue = await $u.userDailiValue(tx.senderId);
-	if (userDailiValue >= daily_limit_usd){
-		return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
-	} else if (userDailiValue + usdEqual >= daily_limit_usd){
-		return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
+	if (tx){
+		const userDailiValue = await $u.userDailiValue(tx.senderId);
+		if (userDailiValue >= daily_limit_usd){
+			return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
+		} else if (userDailiValue + usdEqual >= daily_limit_usd){
+			return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
+		}
 	}
-	
 	if (result + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
 		return `I have not enough coins to send you *${result}* *${outCurrency}* for exchange. Check my balances with **/balances** command.`;
-	}	
+	}
 
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
 }
@@ -172,3 +184,15 @@ const commands = {
 	balances,
 	test
 };
+
+
+setTimeout(()=>{
+	unitTest('/calc Infinity BTC in USD');
+	unitTest('/test Infinity BTC in USD');
+	unitTest('/test 35 adm to adm');
+	unitTest('/rates');
+}, 3000);
+
+async function unitTest(cmd){
+	console.log(cmd, '->', await module.exports(cmd));
+}
