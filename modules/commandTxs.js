@@ -96,8 +96,9 @@ function calc(arr) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
+	
 	if (!amount || amount === Infinity){
-		return `Value amount "${amount}" is not number. Command works like this: */test 0.35 ETH to ADM*`; // TODO: msg
+		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!$u.isHasTicker(inCurrency)) {
 		return `I don’t know crypto *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
@@ -125,8 +126,9 @@ async function test(arr, tx) {
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
 	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
+	
 	if (!amount || amount === Infinity){
-		return `Value amount "${amount}" is not number. Command works like this: */test 0.35 ETH to ADM*`; // TODO: msg
+		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*`;
 	}
 	if (!$u.isKnown(inCurrency)) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
