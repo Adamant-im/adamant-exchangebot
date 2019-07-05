@@ -128,9 +128,6 @@ async function test(arr, tx) {
 	if (!amount || amount === Infinity){
 		return `Value amount "${amount}" is not number. Command works like this: */test 0.35 ETH to ADM*`; // TODO: msg
 	}
-	if (inCurrency === outCurrency){
-		return ` In ${inCurrency} cant was out ${outCurrency} Command works like this: */test 0.35 ETH to ADM*.`;// TODO: msg
-	}
 	if (!$u.isKnown(inCurrency)) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
@@ -142,6 +139,9 @@ async function test(arr, tx) {
 	}
 	if (!$u.isAccepted(outCurrency)) {
 		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
+	}
+	if (inCurrency === outCurrency){
+		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
 	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
@@ -163,7 +163,7 @@ async function test(arr, tx) {
 		}
 	}
 	if (result + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
-		return `I have not enough coins to send you *${result}* *${outCurrency}* for exchange. Check my balances with **/balances** command.`;
+		return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. Check my balances with **/balances** command.`;
 	}
 
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
