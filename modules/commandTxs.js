@@ -128,7 +128,7 @@ async function test(arr, tx) {
 	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
 	
 	if (!amount || amount === Infinity){
-		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*`;
+		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!$u.isKnown(inCurrency)) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
