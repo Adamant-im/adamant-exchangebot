@@ -38,7 +38,7 @@ function help() {
 
 	config.known_crypto.forEach(c=>{
 		if (config['exchange_fee_' + c] !== config.exchange_fee){
-			personalFee.push(`${c}: ${config['exchange_fee_' + c]}%`);
+			personalFee.push(`*${c}*: *${config['exchange_fee_' + c]}%*`);
 		};
 	});
 
