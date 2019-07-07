@@ -110,7 +110,7 @@ try {
 }
 
 function exit(msg) {
-	notify(msg, 'error');
+	log.error(msg);
 	process.exit(-1);
 }
 config.isDev = isDev;
