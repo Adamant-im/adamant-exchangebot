@@ -7,6 +7,7 @@ Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://med
 ## Requirements
 * Ubuntu 16 / Ubuntu 18 (other OS had not been tested)
 * NodeJS v 8+ (already installed if you have a node on your machine)
+* MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
 ## Setup
 ```
@@ -23,7 +24,7 @@ nano config.json
 
 Parameters:
 * `passPhrase` <string> The exchanage bot's secret phrase for concluding transactions. Obligatory. Bot's ADAMANT address will correspond this passPhrase.
-* `node` <string, array> List of nodes for API work, obligatorily
+* `node_ADM` <string, array> List of nodes for API work, obligatorily
 * `node_ETH` <string, array> List of nodes for Ethereum API work, obligatorily
 * `node_LSK` <string, array> List of nodes for Lisk API work, obligatorily
 * `node_DOGE` <string, array> List of nodes for Doge API work, obligatorily
@@ -41,7 +42,7 @@ Parameters:
 * `daily_limit_usd` <float> Daily exchange limit for one user, equivalent in USD. Default is 1000.
 * `min_confirmations` <int> How many confirmations to wait before transaction counts accepted. Default is 3.
 * `min_confirmations_ADM` <int> To override `min_confirmations` for specific cryptocurrency.
-* `welcome_string` <string> How to reply user in-chat, if unknown command received. Default is “Hello 😊. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.”
+* `welcome_string` <string> How to reply user in-chat, if unknown command received. Default is “Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.”
 
 ## Launching
 You can start the Exchange Bot with the `node app` command, but it is recommended to use the process manager for this purpose.
