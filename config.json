@@ -9,7 +9,7 @@
     If one become unavailable, pool will choose live one.
     **/
 	
-	"node": [
+	"node_ADM": [
 		"http://localhost:36666",
 		"https://endless.adamant.im",
 		"https://clown.adamant.im",
@@ -87,7 +87,7 @@
     "min_confirmations_ADM": 2,
 
     /** How to reply user in-chat, if first unknown command received. **/
-    "welcome_string": "Hello 😊. I am exchange bot, anonymous and work instant. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
+    "welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
 
 	/** ADAMANT address for notifications and monitoring (if needed, recommended) **/
     "adamant_notify": "",
