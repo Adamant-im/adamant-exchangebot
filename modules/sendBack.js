@@ -70,7 +70,7 @@ module.exports = async () => {
 				Store.user[inCurrency].balance -= sentBackAmount;
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
-				
+
 				if (++pay.counterSendBack < 50){
 					pay.save();
 					return;
@@ -87,7 +87,7 @@ module.exports = async () => {
 				msgSendBack = 'I’ve tried to make send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			}
 		}
-		console.log('sendBack logs', {
+		log.info('sendBack logs', {
 			inCurrency,
 			tx: pay.sentBackTx,
 			error: pay.errorSendBack,

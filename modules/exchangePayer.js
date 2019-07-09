@@ -40,7 +40,7 @@ module.exports = async () => {
 				return;
 			}
 
-			console.log('Attempt to send exchange payment', {
+			log.info('Attempt to send exchange payment', {
 				outCurrency,
 				address: senderKvsOutAddress,
 				value: outAmount,
@@ -53,7 +53,7 @@ module.exports = async () => {
 				value: outAmount,
 				comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
 			});
-			console.log('Exchange payment result', {
+			log.info('Exchange payment result', {
 				result
 			});
 
@@ -64,7 +64,7 @@ module.exports = async () => {
 				Store.user[outCurrency].balance -= (outAmount + $u[outCurrency].FEE);
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
-				
+
 				if (pay.counterSendExchange++ < 50){
 					pay.save();
 					return;

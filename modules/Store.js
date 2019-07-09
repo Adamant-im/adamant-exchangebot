@@ -63,7 +63,7 @@ module.exports = {
 			to = to.toUpperCase();
 			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(8);
 		} catch (e){
-			console.log('Error while calculating getPrice(): ', e);
+			log.error('Error while calculating getPrice(): ', e);
 			return 0;
 		}
 	},

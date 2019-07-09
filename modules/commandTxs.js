@@ -1,9 +1,10 @@
 const Store = require('../modules/Store');
 const $u = require('../helpers/utils');
 const config = require('./configReader');
+const log = require('../helpers/log');
 
 module.exports = async (cmd, tx, itx) => {
-	console.log('Got new Command Tx to process: ', cmd);
+	log.info('Got new Command Tx to process: ', cmd);
 	try {
 		let msg = '';
 		const group = cmd
@@ -28,7 +29,7 @@ module.exports = async (cmd, tx, itx) => {
 		}
 	} catch (e){
 		tx = tx || {};
-		console.log('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
+		log.error('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
 	}
 };
 
@@ -96,7 +97,7 @@ function calc(arr) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
-	
+
 	if (!amount || amount === Infinity){
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
@@ -126,7 +127,7 @@ async function test(arr, tx) {
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
 	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
-	
+
 	if (!amount || amount === Infinity){
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
@@ -188,13 +189,13 @@ const commands = {
 };
 
 
-setTimeout(()=>{
-	unitTest('/calc Infinity BTC in USD');
-	unitTest('/test Infinity BTC in USD');
-	unitTest('/test 35 adm to adm');
-	unitTest('/rates');
-}, 3000);
+// setTimeout(()=>{
+// 	unitTest('/calc Infinity BTC in USD');
+// 	unitTest('/test Infinity BTC in USD');
+// 	unitTest('/test 35 adm to adm');
+// 	unitTest('/rates');
+// }, 3000);
 
-async function unitTest(cmd){
-	console.log(cmd, '->', await module.exports(cmd));
-}
+// async function unitTest(cmd){
+// 	console.log(cmd, '->', await module.exports(cmd));
+// }

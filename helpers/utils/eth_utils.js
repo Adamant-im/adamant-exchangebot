@@ -1,4 +1,5 @@
 const config = require('../../modules/configReader');
+const log = require('../log');
 const Web3 = require('web3');
 const web3 = new Web3(config.node_ETH[0]);// TODO: health check
 const {eth} = web3;
@@ -112,7 +113,7 @@ module.exports = {
 					}); // If a out of gas error, the second parameter is the receipt.
 			});
 		} catch (e) {
-			console.log('Error executing Ethereum transaction: ' + e);
+			log.error('Error executing Ethereum transaction: ' + e);
 		}
 	},
 	lastNonce: 0,

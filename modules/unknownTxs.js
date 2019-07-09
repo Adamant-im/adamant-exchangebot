@@ -47,7 +47,6 @@ module.exports = async (tx, itx) => {
 			else {
 				msg = getRnd(5);
 			}
-			console.log(msg);
 			$u.sendAdmMsg(tx.senderId, msg);
 			itx.update({isProcessed: true}, true);
 		});
@@ -56,7 +55,7 @@ module.exports = async (tx, itx) => {
 
 function getRnd(collectionNum){
 	const phrases = collection[collectionNum];
-  	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive
+	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive
 	return phrases[num];
 }
 

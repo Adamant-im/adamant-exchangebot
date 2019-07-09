@@ -113,7 +113,7 @@ module.exports = async (itx, tx) => {
 		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage).outAmount;
 
 		const userDailiValue = await $u.userDailiValue(tx.senderId);
-		console.log(`User's ${tx.senderId} daily volume is ${userDailiValue} USD.`);
+		log.info(`User's ${tx.senderId} daily volume is ${userDailiValue} USD.`);
 		if (userDailiValue + pay.inAmountMessageUsd >= config.daily_limit_usd){
 			pay.update({
 				error: 23,
