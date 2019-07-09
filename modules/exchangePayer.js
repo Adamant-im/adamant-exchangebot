@@ -40,22 +40,19 @@ module.exports = async () => {
 				return;
 			}
 
-			log.info('Attempt to send exchange payment', {
-				outCurrency,
-				address: senderKvsOutAddress,
-				value: outAmount,
-				balance: Store.user[outCurrency].balance
-			});
-
-
+			log.info(`Attempt to send exchange payment:
+				Coin: ${outCurrency},
+				address:${senderKvsOutAddress},
+				value: ${outAmount},
+				balance: ${Store.user[outCurrency].balance}
+			`);
 			const result = await $u[outCurrency].send({
 				address: senderKvsOutAddress,
 				value: outAmount,
 				comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
 			});
-			log.info('Exchange payment result', {
-				result
-			});
+			log.info(`Exchange payment result:
+			${JSON.stringify(result, 0, 2)}`);
 
 			if (result.success) {
 				pay.update({

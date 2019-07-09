@@ -87,15 +87,15 @@ module.exports = async () => {
 				msgSendBack = 'I’ve tried to make send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			}
 		}
-		log.info('sendBack logs', {
-			inCurrency,
-			tx: pay.sentBackTx,
-			error: pay.errorSendBack,
-			balance: Store.user[inCurrency].balance,
-			outFee,
-			sentBackAmount,
-			sentBackAmountUsd
-		});
+		log.info(`sendBack logs:
+			Coin: ${inCurrency}
+			tx: ${pay.sentBackTx}
+			error: ${pay.errorSendBack}
+			balance: ${Store.user[inCurrency].balance}
+			fee: ${outFee}
+			amount: ${sentBackAmount}
+			eqUsd: ${sentBackAmountUsd}
+		`);
 		pay.save();
 		if (msgNotify){
 			notify(msgNotify, notifyType);

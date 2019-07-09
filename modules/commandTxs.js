@@ -4,7 +4,7 @@ const config = require('./configReader');
 const log = require('../helpers/log');
 
 module.exports = async (cmd, tx, itx) => {
-	log.info('Got new Command Tx to process: ', cmd);
+	log.info('Got new Command Tx to process: ' + cmd);
 	try {
 		let msg = '';
 		const group = cmd
