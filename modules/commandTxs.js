@@ -179,13 +179,18 @@ function balances() {
 	}, 'My crypto balances:');
 }
 
+function version(){
+	return `I am running on _adamant-exchangebot ${Store.version}_. Revise code on ADAMANT's GitHub.`;
+}
+
 
 const commands = {
 	help,
 	rates,
 	calc,
 	balances,
-	test
+	test,
+	version
 };
 
 
