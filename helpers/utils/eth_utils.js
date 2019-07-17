@@ -64,14 +64,18 @@ module.exports = {
 					this.gasPrice = web3.utils.toHex(price);
 				}
 				resolve();
+			}).catch(e=>{
+				log.error('Update ETH GAS ' + e);
 			});
 		});
 	},
 	updateBalance(){
-		eth.getBalance(User.address, (err, balance) => {
+		eth.getBalance(User.address).then((err, balance) => {
 			if (!err){
 				User.balance = balance / ethSat;
 			}
+		}).catch(e=>{
+			log.error('Update ETH balance ' + e);
 		});
 	},
 	get FEE() {
@@ -82,6 +86,11 @@ module.exports = {
 			eth.getTransactionCount(User.address).then(nonce => {
 				this.currentNonce = nonce;
 				resolve(nonce);
+			}).catch(e =>{
+				log.error('Update ETH nonce ' + e);
+				setTimeout(()=>{
+					this.getNonce();
+				}, 2000);
 			});
 		});
 	},

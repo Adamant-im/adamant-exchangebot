@@ -9,7 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "adamant-api": "^0.1.21",
+    "adamant-api": "^0.1.22",
     "ethereumjs-tx": "^2.0.0",
     "ethereumjs-util": "^6.1.0",
     "express": "^4.17.1",

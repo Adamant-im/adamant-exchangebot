@@ -2,7 +2,7 @@ const notify = require('./helpers/notify');
 const db = require('./modules/DB');
 const Store = require('./modules/Store');
 const checker = require('./modules/checkerTransactions');
-setTimeout(init, 2000);
+setTimeout(init, 5000);
 
 function init() {
 	require('./server');
