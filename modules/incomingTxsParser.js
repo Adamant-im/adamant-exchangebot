@@ -12,6 +12,10 @@ const Store = require('./Store');
 const historyTxs = {}; // catch saved txs. Defender dublicated TODO: clear uptime
 
 module.exports = async (tx) => {
+	if (!tx){
+		return;
+	}
+
 	if (historyTxs[tx.id]){
 		return;
 	}
