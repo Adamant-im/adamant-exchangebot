@@ -4,8 +4,11 @@ const keys = require('adamant-api/helpers/keys');
 const api = require('./api');
 const {version} = require('../package.json');
 const config = require('./configReader');
+
+// ADM data
 const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 const AdmAddress = keys.createAddressFromPublicKey(AdmKeysPair.publicKey);
+// ETH data
 const ethData = api.eth.keys(config.passPhrase);
 
 module.exports = {
@@ -23,11 +26,7 @@ module.exports = {
 		}
 	},
 	comissions: {
-		DOGE: 1,
-		LSK: 0.1,
-		DASH: 0.0001,
-		ADM: 0.5,
-		ETH: 0.0001 // This is a stub. Ether fee returned with FEE() method in separate module
+		ADM: 0.5 // This is a stub. Ether fee returned with FEE() method in separate module
 	},
 	lastBlock: null,
 	get lastHeight() {
@@ -61,7 +60,13 @@ module.exports = {
 		try {
 			from = from.toUpperCase();
 			to = to.toUpperCase();
-			return + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(8);
+			let price = + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(8);
+			if (price){
+				return price;
+			}
+			const priceFrom = +(this.currencies[from + '/USD']);
+			const priceTo = +(this.currencies[to + '/USD']);
+			return +(priceFrom / priceTo || 1).toFixed(8);
 		} catch (e){
 			log.error('Error while calculating getPrice(): ', e);
 			return 0;

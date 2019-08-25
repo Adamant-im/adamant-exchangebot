@@ -14,6 +14,7 @@ const privateKey = Buffer.from(
 	'hex',
 );
 
+Store.web3 = web3;
 module.exports = {
 	syncGetTransaction(hash) {
 		return new Promise(resolve => {
@@ -70,8 +71,8 @@ module.exports = {
 		});
 	},
 	updateBalance(){
-		eth.getBalance(User.address).then((err, balance) => {
-			if (!err){
+		eth.getBalance(User.address).then(balance => {
+			if (balance){
 				User.balance = balance / ethSat;
 			}
 		}).catch(e=>{
@@ -94,7 +95,7 @@ module.exports = {
 			});
 		});
 	},
-	async send(params) {
+	async send(params, contract) {
 		try {
 			const txParams = {
 				nonce: this.currentNonce++,
@@ -103,6 +104,12 @@ module.exports = {
 				to: params.address,
 				value: params.value * ethSat
 			};
+			if (contract){ // ERC20
+				txParams.value = '0x0';
+				txParams.data = contract.data;
+				txParams.to = contract.address;
+				txParams.gas *= 2;
+			}
 
 			const tx = new EthereumTx(txParams);
 			tx.sign(privateKey);

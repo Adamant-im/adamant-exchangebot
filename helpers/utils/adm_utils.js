@@ -1,11 +1,7 @@
 const Store = require('../../modules/Store');
 const api = require('../../modules/api');
 const log = require('../../helpers/log');
-
-const {
-	SAT
-} = require('../const');
-const config = require('../../modules/configReader');
+const {SAT} = require('../const');
 const User = Store.user.ADM;
 
 module.exports = {
@@ -41,11 +37,7 @@ module.exports = {
 	},
 	async send(params) {
 		try {
-			const {
-				address,
-				value,
-				comment
-			} = params;
+			const {address, value, comment} = params;
 			console.log(`Send ${value} ADM: `, comment);
 			let res;
 			if (comment){

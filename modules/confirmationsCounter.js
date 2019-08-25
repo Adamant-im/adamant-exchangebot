@@ -7,11 +7,7 @@ const notify = require('../helpers/notify');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
-
-	const lastBlockNumber = {
-		ETH: await $u.ETH.getLastBlockNumber(),
-		ADM: await $u.ADM.getLastBlockNumber(),
-	};
+	const lastBlockNumber = await $u.getLastBlocksNumbers();
 
 	(await paymentsDb.find({
 		transactionIsValid: true,

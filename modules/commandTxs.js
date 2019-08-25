@@ -148,7 +148,6 @@ async function test(arr, tx) {
 	}
 
 	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
-
 	if (amount <= 0 || result <= 0 || !result) {
 		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
@@ -195,12 +194,16 @@ const commands = {
 
 
 // setTimeout(()=>{
-// 	unitTest('/calc Infinity BTC in USD');
-// 	unitTest('/test Infinity BTC in USD');
-// 	unitTest('/test 35 adm to adm');
-// 	unitTest('/rates');
-// }, 3000);
+// unitTest('/test 80 adm in usds');
+// unitTest('/calc 100 usds in btc');
+// unitTest('/calc 100 usds in usd');
+// unitTest('/test Infinity BTC in USD');
+// unitTest('/test 1 usds to usd');
+// unitTest('/test 100 adm to usd');
+// unitTest('/test 100 adm to usds');
+// unitTest('/rates');
+// }, 10000);
 
 // async function unitTest(cmd){
-// 	console.log(cmd, '->', await module.exports(cmd));
+// 	console.log('>>>', cmd, '->', await module.exports(cmd));
 // }

@@ -45,6 +45,9 @@ module.exports = {
 	},
 	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {
 		try {
+			if (this.isERC20(coin)) {// TODO: add array erc20
+				coin = 'ETH';
+			}
 			const resp = await api.syncGet(`/api/states/get?senderId=${admAddress}&key=${coin.toLowerCase()}:address`);
 			if (resp && resp.success) {
 				if (resp.transactions.length) {
@@ -70,8 +73,23 @@ module.exports = {
 		}, 0);
 	},
 	async updateAllBalances(){
-		await this.ETH.updateBalance();
-		await this.ADM.updateBalance();
+		try {
+			await this.ETH.updateBalance();
+			await this.ADM.updateBalance();
+			for (const t of config.erc20){
+				await this[t].updateBalance();
+			}
+		} catch (e){}
+	},
+	async getLastBlocksNumbers() {
+		const data = {
+			ETH: await this.ETH.getLastBlockNumber(),
+			ADM: await this.ADM.getLastBlockNumber(),
+		};
+		for (const t of config.erc20){
+			data[t] = await this[t].getLastBlockNumber();
+		}
+		return data;
 	},
 	isKnown(coin){
 		return config.known_crypto.includes(coin);
@@ -89,8 +107,9 @@ module.exports = {
 		const pairs = Object.keys(Store.currencies).toString();
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},
+	isERC20(coin){
+		return config.erc20.includes(coin.toUpperCase());
+	},
 	ETH: eth_utils,
 	ADM: adm_utils,
 };
-
-module.exports.updateAllBalances();
