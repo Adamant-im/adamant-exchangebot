@@ -66,7 +66,7 @@
 	**/
 	"known_crypto": ["ADM", "ETH", "USDS"],
 	
-	/** List ERC20 tokens **/
+	/** List of ERC-20 tokens **/
 	"erc20": ["USDS"],
 
 	/** Pecentage you take as fee for bot's service. **/
