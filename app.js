@@ -14,6 +14,7 @@ function init() {
 	require('./modules/sendedTxValidator');
 	try {
 
+		// if (true) {
 		if (doClearDB) {
 			db.systemDb.db.drop();
 			db.incomingTxsDb.db.drop();
