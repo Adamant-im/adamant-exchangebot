@@ -2,6 +2,7 @@ const notify = require('./helpers/notify');
 const db = require('./modules/DB');
 const Store = require('./modules/Store');
 const checker = require('./modules/checkerTransactions');
+const doClearDB = process.argv.reverse()[0] === 'clear_db';
 setTimeout(init, 5000);
 
 function init() {
@@ -13,9 +14,12 @@ function init() {
 	require('./modules/sendedTxValidator');
 	try {
 
-		// db.systemDb.db.drop();
-		// db.incomingTxsDb.db.drop();
-		// db.paymentsDb.db.drop();
+		if (doClearDB) {
+			db.systemDb.db.drop();
+			db.incomingTxsDb.db.drop();
+			db.paymentsDb.db.drop();
+			notify(`*Exchange Bot ${Store.botName}: database cleared*.`, 'info');
+		}
 
 		db.systemDb.findOne().then(system => {
 			if (system) {
