@@ -2,3 +2,4 @@ node_modules/
 logs/
 package-lock.json
 tests.js
+config.test

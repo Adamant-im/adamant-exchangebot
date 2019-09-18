@@ -67,7 +67,8 @@ const fields = {
 };
 try {
 	if (isDev) {
-		config = require('../tests');
+//		config = require('../tests');
+		config = JSON.parse(jsonminify(fs.readFileSync('./config.test', 'utf-8')));
 	} else {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
 	}

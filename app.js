@@ -12,6 +12,11 @@ function init() {
 	require('./modules/sendBack');
 	require('./modules/sendedTxValidator');
 	try {
+
+		// db.systemDb.db.drop();
+		// db.incomingTxsDb.db.drop();
+		// db.paymentsDb.db.drop();
+
 		db.systemDb.findOne().then(system => {
 			if (system) {
 				Store.lastBlock = system.lastBlock;

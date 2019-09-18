@@ -29,6 +29,7 @@ module.exports = async () => {
 			} = pay;
 
 			let etherString = '';
+
 			if (outAmount + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
 				log.warn('needToSendBack, not enough ' + outCurrency + ' balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
 				pay.update({

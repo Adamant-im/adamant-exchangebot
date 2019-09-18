@@ -13,16 +13,16 @@ class erc20{
 		this.address = this.User.address;
 		const {web3} = Store;
 		this.web3 = web3;
-		this.contract = web3.eth.Contract(abiArray, this.model.sc, {from: this.User.address});
+		this.contract = new web3.eth.Contract(abiArray, this.model.sc, {from: this.User.address});
 		$u[token] = this;
-		console.log('Create ERC20:', token);
+		console.log('Created ERC-20 token:', token);
 		this.updateBalance();
 	}
 	async updateBalance() {
 		try {
 			this.User.balance = ((await this.contract.methods.balanceOf(this.User.address).call()) || 0) / this.model.sat;
 		} catch (e){
-			log.error('Update ' + this.token + ' balance ' + e);
+			log.error('Error while updating ' + this.token + ' balance: ' + e);
 		}
 	}
 	async send(params) {
@@ -67,6 +67,8 @@ class erc20{
 
 	get FEE() {
 		const feeERC20 = eth.FEE * Store.mathEqual('ETH', this.token, 1, true).exchangePrice * 2;
+		console.log(`ETH fee: ${eth.FEE}`)
+		console.log(`ERC-20 fee: ${eth.FEE}`)
 		return 0; // TODO: fee@!
 	}
 }
@@ -285,6 +287,7 @@ const abiArray = [{
 	'name': 'Transfer',
 	'type': 'event'
 }];
-config.erc20.forEach(async t=>{ // create utills ERC20
+
+config.erc20.forEach(async t=>{ // Create all of ERC-20 tokens
 	new erc20(t);
 });
