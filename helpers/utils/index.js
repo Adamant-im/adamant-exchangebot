@@ -45,7 +45,7 @@ module.exports = {
 	},
 	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {
 		try {
-			if (this.isERC20(coin)) {// TODO: add array erc20
+			if (this.isERC20(coin)) {
 				coin = 'ETH';
 			}
 			const resp = await api.syncGet(`/api/states/get?senderId=${admAddress}&key=${coin.toLowerCase()}:address`);
@@ -86,8 +86,9 @@ module.exports = {
 			ETH: await this.ETH.getLastBlockNumber(),
 			ADM: await this.ADM.getLastBlockNumber(),
 		};
-		for (const t of config.erc20){
-			data[t] = await this[t].getLastBlockNumber();
+		for (const t of config.erc20) { 
+			// data[t] = await this[t].getLastBlockNumber(); // Don't do unnecessary requests
+			data[t] = data['ETH'];
 		}
 		return data;
 	},

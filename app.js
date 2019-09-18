@@ -28,5 +28,6 @@ function init() {
 		});
 	} catch (e) {
 		notify('Exchange Bot is not started. Error: ' + e, 'error');
+		process.exit(1);
 	}
 }

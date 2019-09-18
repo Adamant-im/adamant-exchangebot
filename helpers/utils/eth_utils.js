@@ -30,13 +30,15 @@ module.exports = {
 						amount: +(tx.value / ethSat).toFixed(8)
 					});
 				}
+			}).catch(e=>{
+				log.error(`Error while getting Tx ${hash}: ${e}`);
 			});
 		});
 	},
 	getTransactionStatus(hash) {
 		return new Promise(resolve => {
 			eth.getTransactionReceipt(hash, (err, tx) => {
-				if (err) {
+				if (err || !tx) {
 					resolve(null);
 				} else {
 					resolve({
@@ -44,6 +46,8 @@ module.exports = {
 						status: tx.status
 					});
 				}
+			}).catch(e=>{
+				log.error(`Error while getting Tx ${hash} status: ${e}`);
 			});
 		});
 	},
@@ -55,6 +59,8 @@ module.exports = {
 				} else {
 					resolve(null);
 				}
+			}).catch(e=>{
+				log.error('Error while getting ETH last block: ' + e);
 			});
 		});
 	},
@@ -66,7 +72,7 @@ module.exports = {
 				}
 				resolve();
 			}).catch(e=>{
-				log.error('Update ETH GAS ' + e);
+				log.error('Error while updating Ether gas price: ' + e);
 			});
 		});
 	},
@@ -76,7 +82,7 @@ module.exports = {
 				User.balance = balance / ethSat;
 			}
 		}).catch(e=>{
-			log.error('Update ETH balance ' + e);
+			log.error('Error while updating ETH balance: ' + e);
 		});
 	},
 	get FEE() {
@@ -88,7 +94,7 @@ module.exports = {
 				this.currentNonce = nonce;
 				resolve(nonce);
 			}).catch(e =>{
-				log.error('Update ETH nonce ' + e);
+				log.error('Error while updating ETH nonce: ' + e);
 				setTimeout(()=>{
 					this.getNonce();
 				}, 2000);
@@ -121,15 +127,17 @@ module.exports = {
 							success: true,
 							hash
 						});
-					}).on('error', (error) => {
+					}).on('error', (error) => {  // If a out of gas error, the second parameter is the receipt.
 						resolve({
 							success: false,
 							error
 						});
-					}); // If a out of gas error, the second parameter is the receipt.
+					}).catch(e =>{
+						log.error('Error while sending ETH tx: ' + e);
+					});
 			});
 		} catch (e) {
-			log.error('Error executing Ethereum transaction: ' + e);
+			log.error('Error while executing Ethereum transaction: ' + e);
 		}
 	},
 	lastNonce: 0,
