@@ -72,9 +72,9 @@ module.exports = {
 			return 0;
 		}
 	},
-	mathEqual(from, to, amount, isNotFee){
+	mathEqual(from, to, amount, doNotAccountFees){
 		let price = this.getPrice(from, to);
-		if (!isNotFee){
+		if (!doNotAccountFees){
 			price *= (100 - config['exchange_fee_' + from]) / 100;
 		};
 		if (!price){

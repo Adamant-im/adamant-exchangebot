@@ -152,7 +152,7 @@ async function test(arr, tx) {
 		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 
-	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount).outAmount;
+	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount, true).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
