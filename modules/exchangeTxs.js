@@ -110,7 +110,7 @@ module.exports = async (itx, tx) => {
 		msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	} else {
 		// need some calculate
-		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage).outAmount.toFixed(2);
+		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage, true).outAmount.toFixed(2);
 
 		const userDailiValue = await $u.userDailiValue(tx.senderId);
 		log.info(`User's ${tx.senderId} daily volume is ${userDailiValue} USD.`);
