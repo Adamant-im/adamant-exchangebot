@@ -3,7 +3,7 @@ const fs = require('fs');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const keys = require('adamant-api/helpers/keys');
-const isDev = process.argv.reverse()[0] === 'dev';
+const isDev = process.argv.includes('dev');
 let config = {};
 
 // Validate config fields

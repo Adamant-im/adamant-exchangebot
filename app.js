@@ -2,7 +2,7 @@ const notify = require('./helpers/notify');
 const db = require('./modules/DB');
 const Store = require('./modules/Store');
 const checker = require('./modules/checkerTransactions');
-const doClearDB = process.argv.reverse()[0] === 'clear_db';
+const doClearDB = process.argv.includes('clear_db');
 setTimeout(init, 5000);
 
 function init() {
@@ -16,21 +16,24 @@ function init() {
 
 		// if (true) {
 		if (doClearDB) {
+			console.log('Clearing database..');
 			db.systemDb.db.drop();
 			db.incomingTxsDb.db.drop();
 			db.paymentsDb.db.drop();
-			notify(`*Exchange Bot ${Store.botName}: database cleared*.`, 'info');
+			notify(`*Exchange Bot ${Store.botName}: database cleared*. Close process now.`, 'info');
+		} else {
+
+			db.systemDb.findOne().then(system => {
+				if (system) {
+					Store.lastBlock = system.lastBlock;
+				} else { // if fst start
+					Store.updateLastBlock();
+				}
+				checker();
+				notify(`*Exchange Bot ${Store.botName} started* for address _${Store.user.ADM.address}_ (ver. ${Store.version}).`, 'info');
+			});
 		}
 
-		db.systemDb.findOne().then(system => {
-			if (system) {
-				Store.lastBlock = system.lastBlock;
-			} else { // if fst start
-				Store.updateLastBlock();
-			}
-			checker();
-			notify(`*Exchange Bot ${Store.botName} started* for address _${Store.user.ADM.address}_ (ver. ${Store.version}).`, 'info');
-		});
 	} catch (e) {
 		notify('Exchange Bot is not started. Error: ' + e, 'error');
 		process.exit(1);
