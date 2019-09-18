@@ -164,8 +164,23 @@ async function test(arr, tx) {
 			return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
 		}
 	}
-	if (result + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
-		return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. Check my balances with **/balances** command.`;
+
+	let etherString = '';
+	let isNotEnoughBalance;
+	
+	if ($u.isERC20(outCurrency)) {
+		isNotEnoughBalance = (result > Store.user[outCurrency].balance) || ($u[outCurrency].FEE > Store.user['ETH'].balance);
+		if ($u[outCurrency].FEE > Store.user['ETH'].balance) {
+			etherString = `Not enough Ether to pay fees. `;
+		}
+	} else {
+		etherString = '';				
+		isNotEnoughBalance = result + $u[outCurrency].FEE > Store.user[outCurrency].balance;
+	}
+
+
+	if (isNotEnoughBalance) {
+		return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. ${etherString}Check my balances with **/balances** command.`;
 	}
 
 	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;

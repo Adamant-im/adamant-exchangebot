@@ -30,11 +30,23 @@ module.exports = async () => {
 
 		let msgSendBack = false;
 		let msgNotify = false;
-		let etherString = '';
 		let notifyType = 'log';
 
-		const outFee = $u[inCurrency].FEE;
-		const sentBackAmount = +(inAmountReal - outFee).toFixed(8);
+		let etherString = '';
+		let isNotEnoughBalance;
+		let outFee = $u[inCurrency].FEE;
+		let sentBackAmount;
+
+		if ($u.isERC20(inCurrency)) {
+			etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
+			sentBackAmount = +(inAmountReal - $u[inCurrency].FEEinToken).toFixed(8);
+			isNotEnoughBalance = (sentBackAmount > Store.user[inCurrency].balance) || ($u[inCurrency].FEE.inEth > Store.user['ETH'].balance);
+		} else {
+			etherString = '';
+			sentBackAmount = +(inAmountReal - outFee).toFixed(8);
+			isNotEnoughBalance = sentBackAmount > Store.user[inCurrency].balance;
+		}
+
 		const sentBackAmountUsd = Store.mathEqual(inCurrency, 'USD', sentBackAmount).outAmount;
 		pay.update({
 			outFee,
@@ -49,7 +61,7 @@ module.exports = async () => {
 			notifyType = 'log';
 			msgNotify = `Exchange Bot ${Store.botName} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
 			msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
-		} else if (sentBackAmount > Store.user[inCurrency].balance){
+		} else if (isNotEnoughBalance){
 			notifyType = 'error';
 			msgNotify = `Exchange Bot ${Store.botName} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${Store.user[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
 			msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
@@ -67,7 +79,14 @@ module.exports = async () => {
 
 			if (result.success) {
 				pay.sentBackTx = result.hash;
-				Store.user[inCurrency].balance -= sentBackAmount;
+
+				if ($u.isERC20(inCurrency)) {
+					Store.user[inCurrency].balance -= sentBackAmount;
+					Store.user['ETH'].balance -= outFee;
+				} else {
+					Store.user[inCurrency].balance -= sentBackAmount;
+				}
+
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
 

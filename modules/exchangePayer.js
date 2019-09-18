@@ -29,9 +29,18 @@ module.exports = async () => {
 			} = pay;
 
 			let etherString = '';
+			let isNotEnoughBalance;
+			
+			if ($u.isERC20(outCurrency)) {
+				etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
+				isNotEnoughBalance = (outAmount > Store.user[outCurrency].balance) || ($u[outCurrency].FEE > Store.user['ETH'].balance);
+			} else {
+				etherString = '';				
+				isNotEnoughBalance = outAmount + $u[outCurrency].FEE > Store.user[outCurrency].balance;
+			}
 
-			if (outAmount + $u[outCurrency].FEE > Store.user[outCurrency].balance) {
-				log.warn('needToSendBack, not enough ' + outCurrency + ' balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
+			if (isNotEnoughBalance) {
+				log.warn('needToSendBack, not enough balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
 				pay.update({
 					error: 15,
 					needToSendBack: true
@@ -59,7 +68,14 @@ module.exports = async () => {
 				pay.update({
 					outTxid: result.hash
 				}, true);
-				Store.user[outCurrency].balance -= (outAmount + $u[outCurrency].FEE);
+
+				if ($u.isERC20(outCurrency)) {
+					Store.user[outCurrency].balance -= outAmount;
+					Store.user['ETH'].balance -= $u[outCurrency].FEE;
+				} else {
+					Store.user[outCurrency].balance -= (outAmount + $u[outCurrency].FEE);
+				}
+
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
 

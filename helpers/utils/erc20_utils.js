@@ -66,11 +66,19 @@ class erc20{
 	}
 
 	get FEE() {
-		const feeERC20 = eth.FEE * Store.mathEqual('ETH', this.token, 1, true).exchangePrice * 2;
-		console.log(`ETH fee: ${eth.FEE}`)
-		console.log(`ERC-20 fee: ${eth.FEE}`)
-		return 0; // TODO: fee@!
+		let inEth = eth.FEE * 2;
+		console.log(`Fee in eth: ${inEth}`)
+		return inEth
 	}
+
+	get FEEinToken() {
+		let inEth = eth.FEE * 2;
+		let inToken = inEth * Store.mathEqual('ETH', this.token, 1, true).exchangePrice;
+		console.log(`Fee in eth: ${inEth}`)
+		console.log(`Fee in token: ${inToken}`)
+		return inToken			
+	}
+
 }
 
 const abiArray = [{
