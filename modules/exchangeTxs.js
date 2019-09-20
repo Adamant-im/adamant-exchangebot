@@ -28,6 +28,9 @@ module.exports = async (itx, tx) => {
 			inAmountMessage = Number(json.amount);
 			inTxid = json.hash;
 			outCurrency = json.comments;
+			if (outCurrency === ''){
+				outCurrency = 'NONE';
+			}		
 		} catch (e){
 			inCurrency = 'none';
 		}
