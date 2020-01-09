@@ -104,7 +104,7 @@ module.exports = {
 	isFiat(coin){
 		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
-	isHasTicker(coin){
+	isHasTicker(coin){ // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
 		const pairs = Object.keys(Store.currencies).toString();
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},

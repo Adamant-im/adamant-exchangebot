@@ -77,7 +77,7 @@ try {
 	try {
 		keysPair = keys.createKeypairFromPassPhrase(config.passphrase);
 	} catch (e) {
-		exit('Passphrase is not valid! Error:' + e);
+		exit('Passphrase is not valid! Error: ' + e);
 	}
 	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
 	config.publicKey = keysPair.publicKey;

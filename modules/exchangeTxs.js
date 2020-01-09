@@ -84,7 +84,6 @@ module.exports = async (itx, tx) => {
 		pay.error = 3;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
-
 		msgNotify = `Exchange Bot ${Store.botName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I don’t know crypto _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
@@ -111,6 +110,29 @@ module.exports = async (itx, tx) => {
 
 		msgNotify = `Exchange Bot ${Store.botName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+	} 
+	else if (!$u.isHasTicker(inCurrency)){
+		if ($u.isERC20(inCurrency)) { // Unable to send back, as we can't count fee in ETH
+			pay.error = 32;
+			pay.needHumanCheck = true;
+			pay.isFinished = true;
+			notifyType = 'error';
+			msgNotify = `Exchange Bot ${Store.botName} notifies about unknown rates of crypto _${inCurrency}_. Incoming transfer: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgSendBack = `I don’t have rates of crypto _${inCurrency}_ and unable to send payment back. If you think it’s a mistake, contact my master.`;
+		} else { // We can send backment back
+			pay.error = 32;
+			pay.needToSendBack = true;
+			notifyType = 'warn';
+			msgNotify = `Exchange Bot ${Store.botName} notifies about unknown rates of crypto _${inCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgSendBack = `I don’t have rates of crypto _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;	
+		}
+	}
+	else if (!$u.isHasTicker(outCurrency)){
+		pay.error = 33;
+		pay.needToSendBack = true;
+		notifyType = 'warn';
+		msgNotify = `Exchange Bot ${Store.botName} notifies about unknown rates of crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+		msgSendBack = `I don’t have rates of crypto _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	} else {
 		// need some calculate
 		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage, true).outAmount.toFixed(2);

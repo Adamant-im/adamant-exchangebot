@@ -102,10 +102,10 @@ function calc(arr) {
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!$u.isHasTicker(inCurrency)) {
-		return `I don’t know crypto *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
+		return `I don’t have rates of crypto *${inCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
 	if (!$u.isHasTicker(outCurrency)) {
-		return `I don’t know crypto *${outCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
+		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
 	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
 
@@ -136,6 +136,12 @@ async function test(arr, tx) {
 	}
 	if (!$u.isKnown(outCurrency)) {
 		return `I don’t work with crypto *${outCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
+	}
+	if (!$u.isHasTicker(inCurrency)) {
+		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
+	}
+	if (!$u.isHasTicker(outCurrency)) {
+		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
 	}
 	if (!$u.isExchanged(inCurrency)) {
 		return `Crypto *${inCurrency}* is not accepted. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;

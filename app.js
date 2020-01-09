@@ -20,7 +20,7 @@ function init() {
 			db.systemDb.db.drop();
 			db.incomingTxsDb.db.drop();
 			db.paymentsDb.db.drop();
-			notify(`*Exchange Bot ${Store.botName}: database cleared*. Close process now.`, 'info');
+			notify(`*Exchange Bot ${Store.botName}: database cleared*. Manually stop the Exchanger now.`, 'info');
 		} else {
 
 			db.systemDb.findOne().then(system => {
