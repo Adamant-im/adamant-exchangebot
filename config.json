@@ -70,7 +70,7 @@
 	"erc20": ["USDS", "RES"],
 
 	/** Pecentage you take as fee for bot's service. **/
-	"exchange_fee": 10,
+	"exchange_fee": 5,
 
 	/** Pecentage you take as fee, if receiving payment is in specific currency. 
 		If set, this value will override general exchange_fee 
@@ -78,7 +78,7 @@
     "exchange_fee_ADM": false,
 
     /** Minimum payment equivalent in USD accepted. **/
-    "min_value_usd": 1,
+    "min_value_usd": 0.1,
 
     /** Daily exchange limit for one user, equivalent in USD. **/
     "daily_limit_usd": 1000,

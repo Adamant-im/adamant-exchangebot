@@ -48,10 +48,10 @@ module.exports = (message, type) => {
 		if (slack && slack.length > 5) {
 			request(opts);
 		}
-		if (adamant_notify && adamant_notify.length > 5 && adamant_notify.startsWith('U') && config.passPhrase) {
+		if (adamant_notify && adamant_notify.length > 5 && adamant_notify.startsWith('U') && config.passPhrase && config.passPhrase.length > 30) {
 			api.send(config.passPhrase, adamant_notify, `${type}| ${message.replace(/\*/g, '**')}`, 'message');
 		}
 	} catch (e) {
-		log.error('Notifer error: ' + e);
+		log.error('Notifier error: ' + e);
 	}
 };
