@@ -1,6 +1,6 @@
 {
 
-	/** The exchanage bot's secret phrase for concluding transactions. 
+	/** The exchange bot's secret phrase for concluding transactions. 
 		Bot's ADAMANT address will correspond this passPhrase.
     **/
 	"passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwe",
@@ -17,9 +17,14 @@
 		"https://unusual.adamant.im",
 		"https://debate.adamant.im",
 		"http://185.231.245.26:36666",
-		"http://80.211.177.181:36666",
 		"https://lake.adamant.im"
 	],
+
+	/** Socket connection is recommended for better user experience **/
+	"socket": true,
+
+	/** Choose socket connection, "ws" or "wss" depending on your server **/
+	"ws_type": "ws",
 	
     /** List of nodes for Ethereum API work **/
 	"node_ETH": [
@@ -51,28 +56,28 @@
 		"https://info.adamant.im"
 	],	
 
-	/** List of crytpocurrencies you want to accept for exchange. 
+	/** List of cryptocurrencies you want to accept for exchange. 
 		If bot will receive payment in not-in-list crypto, it will try to send back it.
     **/
-	"accepted_crypto": ["ADM", "ETH", "USDS", "RES"],
+	"accepted_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 
-	/** List of crytpocurrencies you want to send in exchange. 
+	/** List of cryptocurrencies you want to send in exchange. 
 		If bot will receive request for exchange of not-in-list crypto, it will try to return payment back.
     **/
-	"exchange_crypto": ["ADM", "ETH", "USDS", "RES"],
+	"exchange_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 	
-	/** List of crytpocurrencies bot can work with. 
+	/** List of cryptocurrencies bot can work with. 
 	If bot will receive or request for crypto not in list, it will not process payment and notify owner.
 	**/
-	"known_crypto": ["ADM", "ETH", "USDS", "RES"],
+	"known_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 	
 	/** List of ERC-20 tokens **/
-	"erc20": ["USDS", "RES"],
+	"erc20": ["USDS", "RES", "BZ"],
 
-	/** Pecentage you take as fee for bot's service. **/
+	/** Percentage you take as fee for bot's service. **/
 	"exchange_fee": 5,
 
-	/** Pecentage you take as fee, if receiving payment is in specific currency. 
+	/** Percentage you take as fee, if receiving payment is in specific currency. 
 		If set, this value will override general exchange_fee 
 	**/
     "exchange_fee_ADM": false,
@@ -91,6 +96,9 @@
 
     /** How to reply user in-chat, if first unknown command received. **/
     "welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
+
+	/** Bot's name for notifications **/
+    "bot_name": "Lovely Exchange Bot",
 
 	/** ADAMANT address for notifications and monitoring (if needed, recommended) **/
     "adamant_notify": "",

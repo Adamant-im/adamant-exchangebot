@@ -14,26 +14,26 @@ _________________${fullTime()}_________________
 module.exports = {
 	error(str) {
 		infoStr.write(`
-		` + 'ExBot error|' + time() + '|' + str);
+		` + 'Bot error|' + time() + '|' + str);
 		console.log('\x1b[31m', 'error|' + time(), '\x1b[0m', str);
 	},
 	info(str) {
 		console.log('\x1b[32m', 'info|' + time(), '\x1b[0m', str);
 
 		infoStr.write(`
-		` + 'ExBot info|' + time() + '|' + str);
+		` + 'Bot info|' + time() + '|' + str);
 	},
 	warn(str) {
 		console.log('\x1b[33m', 'warn|' + time(), '\x1b[0m', str);
 
 		infoStr.write(`
-		` + 'ExBot warn|' + time() + '|' + str);
+		` + 'Bot warn|' + time() + '|' + str);
 	},
 	log(str) {
 		console.log('\x1b[34m', 'log|' + time(), '\x1b[0m', str);
 
 		infoStr.write(`
-		` + 'ExBot log|[' + time() + '|' + str);
+		` + 'Bot log|[' + time() + '|' + str);
 	}
 };
 

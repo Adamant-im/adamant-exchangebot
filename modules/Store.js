@@ -91,6 +91,7 @@ module.exports = {
 	}
 };
 
+config.notifyName = `${config.bot_name} (${module.exports.botName})`;
 module.exports.updateCurrencies();
 
 setInterval(() => {

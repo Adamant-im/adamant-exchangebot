@@ -30,8 +30,8 @@ module.exports = {
 						amount: +(tx.value / ethSat).toFixed(8)
 					});
 				}
-			}).catch(e=>{
-				log.error(`Error while getting Tx ${hash}: ${e}`);
+			}).catch(e=> {
+				log.warn(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
 			});
 		});
 	},
@@ -46,8 +46,8 @@ module.exports = {
 						status: tx.status
 					});
 				}
-			}).catch(e=>{
-				log.error(`Error while getting Tx ${hash} status: ${e}`);
+			}).catch(e=> {
+				log.error(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
 			});
 		});
 	},
@@ -110,7 +110,7 @@ module.exports = {
 				to: params.address,
 				value: params.value * ethSat
 			};
-			if (contract){ // ERC20
+			if (contract) { // ERC20
 				txParams.value = '0x0';
 				txParams.data = contract.data;
 				txParams.to = contract.address;
@@ -127,13 +127,14 @@ module.exports = {
 							success: true,
 							hash
 						});
-					}).on('error', (error) => {  // If a out of gas error, the second parameter is the receipt.
+					}).on('error', (error) => {  // If out of gas error, the second parameter is the receipt
 						resolve({
 							success: false,
 							error
 						});
-					}).catch(e =>{
-						log.error('Error while sending ETH tx: ' + e);
+					}).catch(e => {
+						if (!e.toString().includes('Failed to check for transaction receipt')) // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
+							log.error('Error while sending ETH tx: ' + e);
 					});
 			});
 		} catch (e) {

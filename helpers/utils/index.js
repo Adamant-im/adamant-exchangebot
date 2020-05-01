@@ -61,7 +61,7 @@ module.exports = {
 			return null;
 		}
 	},
-	async userDailiValue(senderId){
+	async userDailyValue(senderId){
 		return (await db.paymentsDb.find({
 			transactionIsValid: true,
 			senderId: senderId,
@@ -69,7 +69,7 @@ module.exports = {
 			inAmountMessageUsd: {$ne: null},
 			date: {$gt: (this.unix() - 24 * 3600 * 1000)} // last 24h
 		})).reduce((r, c) => {
-			return r + c.inAmountMessageUsd;
+			return +r + +c.inAmountMessageUsd;
 		}, 0);
 	},
 	async updateAllBalances(){

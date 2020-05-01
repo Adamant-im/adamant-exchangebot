@@ -1,7 +1,6 @@
 const jsonminify = require('jsonminify');
 const fs = require('fs');
 const log = require('../helpers/log');
-const notify = require('../helpers/notify');
 const keys = require('adamant-api/helpers/keys');
 const isDev = process.argv.includes('dev');
 let config = {};
@@ -52,6 +51,10 @@ const fields = {
 		type: Number,
 		default: 1
 	},
+	bot_name: {
+		type: String,
+		default: null
+	},
 	adamant_notify: {
 		type: String,
 		default: null
@@ -62,12 +65,11 @@ const fields = {
 	},
 	welcome_string: {
 		type: String,
-		default: 'Hello 😊. I didn’t understand you. I am exchange bot, anonymous and work instant. Learn more about me on ADAMANT’s blog or type */help* to see what I can.'
+		default: 'Hello 😊. This is a stub. I have nothing to say. Please check my config.'
 	}
 };
 try {
 	if (isDev) {
-//		config = require('../tests');
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.test', 'utf-8')));
 	} else {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
@@ -96,12 +98,12 @@ try {
 
 	Object.keys(fields).forEach(f => {
 		if (!config[f] && fields[f].isRequired) {
-			exit(`Exchange Bot ${address} config is wrong. Field _${f}_ is not valid. Cannot start Bot.`);
-		} else if (!config[f] && fields[f].default) {
+			exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start Bot.`);
+		} else if (!config[f] && config[f] != 0 && fields[f].default) {
 			config[f] = fields[f].default;
 		}
 		if (config[f] && fields[f].type !== config[f].__proto__.constructor) {
-			exit(`Exchange Bot ${address} config is wrong. Field type _${f}_ is not valid, expected type is _${fields[f].type.name}_. Cannot start Bot.`);
+			exit(`Bot's ${address} config is wrong. Field type _${f}_ is not valid, expected type is _${fields[f].type.name}_. Cannot start Bot.`);
 		}
 	});
 
