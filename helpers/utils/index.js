@@ -61,7 +61,7 @@ module.exports = {
 			return null;
 		}
 	},
-	async userDailyValue(senderId){
+	async userDailyValue(senderId) {
 		return (await db.paymentsDb.find({
 			transactionIsValid: true,
 			senderId: senderId,
@@ -72,7 +72,7 @@ module.exports = {
 			return +r + +c.inAmountMessageUsd;
 		}, 0);
 	},
-	async updateAllBalances(){
+	async updateAllBalances() {
 		try {
 			await this.ETH.updateBalance();
 			await this.ADM.updateBalance();
@@ -92,24 +92,27 @@ module.exports = {
 		}
 		return data;
 	},
-	isKnown(coin){
+	isKnown(coin) {
 		return config.known_crypto.includes(coin);
 	},
-	isAccepted(coin){
+	isAccepted(coin) {
 		return config.accepted_crypto.includes(coin);
 	},
-	isExchanged(coin){
+	isExchanged(coin) {
 		return config.exchange_crypto.includes(coin);
 	},
-	isFiat(coin){
+	isFiat(coin) {
 		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
-	isHasTicker(coin){ // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
+	isHasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
 		const pairs = Object.keys(Store.currencies).toString();
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},
-	isERC20(coin){
+	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
+	},
+	isArraysEqual(array1, array2) {
+		return array1.length === array2.length && array1.sort().every(function(value, index) { return value === array2.sort()[index]});
 	},
 	ETH: eth_utils,
 	ADM: adm_utils,

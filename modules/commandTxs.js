@@ -49,7 +49,14 @@ function help() {
 		personalFeeString = `I take *${config.exchange_fee}%* for my work`;
 	}
 
-	let str = `I am **online** and ready for exchange. I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. ${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
+	let str = `I am **online** and ready for a deal. `;
+	if ($u.isArraysEqual(config.accepted_crypto, config.exchange_crypto)) {
+		str += `I exchange anything between *${config.accepted_crypto.join(', ')}*. `
+	} else {
+		str += `I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. `
+	}
+	
+	str += `${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
 
 	return str + `
 
@@ -163,10 +170,10 @@ async function test(arr, tx) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
 	if (tx){
-		const userDailiValue = await $u.userDailiValue(tx.senderId);
-		if (userDailiValue >= daily_limit_usd){
+		const userDailyValue = await $u.userDailyValue(tx.senderId);
+		if (userDailyValue >= daily_limit_usd) {
 			return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
-		} else if (userDailiValue + usdEqual >= daily_limit_usd){
+		} else if (userDailyValue + usdEqual >= daily_limit_usd){
 			return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
 		}
 	}
