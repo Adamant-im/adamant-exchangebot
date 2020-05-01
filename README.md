@@ -35,6 +35,9 @@ Parameters:
 * `node_BTC` <string, array> List of nodes for Bitcoin API work, obligatorily
 * `node_DASH` <string, array> List of nodes for Dash API work, obligatorily
 * `infoservice` <string, array> List of [ADAMANT InfoServices](https://github.com/Adamant-im/adamant-currencyinfo-services) for catching exchange rates, obligatorily
+* `socket` <boolean> If to use WebSocket connection. Recommended for better user experience.
+* `ws_type` <string> Choose socket connection, "ws" or "wss" depending on your server.
+* `bot_name` <string> Bot's name for notifications.
 * `slack` <string> Token for Slack alerts for the bot’s administrator. No alerts if not set.
 * `adamant_notify` <string> ADM address for the bot’s administrator. Recommended.
 * `known_crypto` <string, array> List of cryptocurrencies bot can work with. If bot will receive or request for crypto not in list, it will not process payment and notify owner. Obligatorily
@@ -52,17 +55,19 @@ Parameters:
 ## Launching
 
 You can start the Exchange Bot with the `node app` command, but it is recommended to use the process manager for this purpose.
+
 ```
-pm2 start --name exchangebot app.js 
+pm2 start --name exchangebot app.js
 ```
 
-## Add Exchange Bot to cron:
+## Add Exchange Bot to cron
 
 ```
 crontab -e
 ```
 
 Add string:
+
 ```
 @reboot cd /home/adamant/adamant-exchangebot && pm2 start --name exchangebot app.js
 ```

@@ -9,14 +9,14 @@ const unknownTxs = require('./unknownTxs');
 const notify = require('../helpers/notify');
 const Store = require('./Store');
 
-const historyTxs = {}; // catch saved txs. Defender dublicated TODO: clear uptime
+const historyTxs = {}; // catch saved txs. Defender duplicated TODO: clear uptime
 
 module.exports = async (tx) => {
 	if (!tx){
 		return;
 	}
 
-	if (historyTxs[tx.id]){
+	if (historyTxs[tx.id]) {
 		return;
 	}
 
@@ -32,13 +32,13 @@ module.exports = async (tx) => {
 		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 	}
 
-	if (msg === ''){
+	if (msg === '') {
 		msg = 'NONE';
 	}
 
 
 	let type = 'unknown';
-	if (msg.includes('_transaction') || tx.amount > 0){
+	if (msg.includes('_transaction') || tx.amount > 0) {
 		type = 'exchange';
 	} else if (msg.startsWith('/')){
 		type = 'command';
@@ -61,7 +61,7 @@ module.exports = async (tx) => {
 		isProcessed: false
 	});
 
-	if (msg.toLowerCase().trim() === 'deposit'){
+	if (msg.toLowerCase().trim() === 'deposit') {
 		itx.update({isProcessed: true}, true);
 		historyTxs[tx.id] = $u.unix();
 		return;
@@ -72,7 +72,7 @@ module.exports = async (tx) => {
 		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
-	if (countRequestsUser > 65 || spamerIsNotyfy){
+	if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
 		itx.update({
 			isProcessed: true,
 			isSpam: true
@@ -80,19 +80,19 @@ module.exports = async (tx) => {
 	}
 
 	await itx.save();
-	if (historyTxs[tx.id]){
+	if (historyTxs[tx.id]) {
 		return;
 	}
 	historyTxs[tx.id] = $u.unix();
 
-	if (itx.isSpam && !spamerIsNotyfy){
-		notify(`Exchange Bot ${Store.botName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
+	if (itx.isSpam && !spamerIsNotyfy) {
+		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
 		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
 		 Come back tomorrow but less talk, more deal.`);
 		return;
 	}
 
-	switch (type){
+	switch (type) {
 	case ('exchange'):
 		exchangeTxs(itx, tx);
 		break;

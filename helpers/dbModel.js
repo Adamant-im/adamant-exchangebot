@@ -17,6 +17,13 @@ module.exports = (db) => {
 				});
 			});
 		}
+		static aggregate(a) { // return Array
+			return new Promise((resolve, reject) => {
+				this.db.aggregate(a).toArray((err, data) => {
+					resolve(data.map(d=>new this(d)));
+				});
+			});
+		}
 		static findOne(a) {
 			return new Promise((resolve, reject) => {
 				db.findOne(a).then((doc, b) => {

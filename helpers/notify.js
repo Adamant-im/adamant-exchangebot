@@ -45,7 +45,7 @@ module.exports = (message, type) => {
 				}]
 			}
 		};
-		if (slack && slack.length > 5) {
+		if (slack && slack.length > 34) {
 			request(opts);
 		}
 		if (adamant_notify && adamant_notify.length > 5 && adamant_notify.startsWith('U') && config.passPhrase && config.passPhrase.length > 30) {

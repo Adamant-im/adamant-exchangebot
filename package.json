@@ -1,17 +1,37 @@
 {
   "name": "adamant-exchangebot",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "adm",
+    "adamant",
+    "blockchain",
+    "messenger",
+    "bot",
+    "bitcoin",
+    "ethereum",
+    "trading",
+    "trade",
+    "exchange",
+    "crypto",
+    "cryptocurrency",
+    "bit-z",
+    "resfinex",
+    "bz",
+    "res",
+    "usds",
+    "stably"
+  ],
+  "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
+  "license": "GPL-3.0",
   "dependencies": {
-    "adamant-api": "^0.1.22",
-    "ethereumjs-tx": "^2.0.0",
-    "ethereumjs-util": "^6.1.0",
+    "adamant-api": "^0.5.2",
+    "ethereumjs-tx": "^2.1.2",
+    "ethereumjs-util": "^7.0.0",
     "express": "^4.17.1",
     "jsonminify": "^0.4.1",
     "jsonrpc-client": "^0.1.1",
@@ -19,6 +39,14 @@
     "node-ethereum-wallet": "^1.3.2",
     "node-json-rpc": "0.0.1",
     "request": "^2.88.0",
-    "web3": "^1.0.0-beta.55"
-  }
+    "web3": "^1.2.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Adamant-im/adamant-exchangebot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Adamant-im/adamant-exchangebot/issues"
+  },
+  "homepage": "https://github.com/Adamant-im/adamant-exchangebot#readme"
 }

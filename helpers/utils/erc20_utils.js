@@ -5,8 +5,8 @@ const config = require('./../../modules/configReader');
 const eth = require('./eth_utils');
 const $u = require('./index');
 
-class erc20{
-	constructor(token){
+class erc20 {
+	constructor(token) {
 		this.token = token;
 		this.model = models[token];
 		this.User = Store.user[token] = JSON.parse(JSON.stringify(Store.user.ETH));
@@ -15,7 +15,7 @@ class erc20{
 		this.web3 = web3;
 		this.contract = new web3.eth.Contract(abiArray, this.model.sc, {from: this.User.address});
 		$u[token] = this;
-		console.log('Created ERC-20 token:', token);
+		log.info(`Created ERC-20 token: ${token}`);
 		this.updateBalance();
 	}
 	async updateBalance() {
@@ -26,9 +26,10 @@ class erc20{
 		}
 	}
 	async send(params) {
+		const amount = (params.value * this.model.sat).toFixed(0);
 		const transfer = {
 			address: this.model.sc,
-			data: this.contract.methods.transfer(params.address, +(params.value * this.model.sat).toFixed(0)).encodeABI()
+			data: this.contract.methods.transfer(params.address, amount).encodeABI()
 		};
 		return await eth.send(params, transfer);
 	}
@@ -38,7 +39,7 @@ class erc20{
 	}
 
 	async syncGetTransaction(hash) {
-		return new Promise(resolve =>{
+		return new Promise(resolve => {
 			this.web3.eth.getTransactionReceipt(hash, (err, tx) => {
 				try {
 					if (err || !tx.logs) {
@@ -61,21 +62,21 @@ class erc20{
 		});
 	}
 	
-	async getTransactionStatus(txid){
+	async getTransactionStatus(txid) {
 		return await eth.getTransactionStatus(txid);
 	}
 
 	get FEE() {
 		let inEth = eth.FEE * 2;
-		console.log(`Fee in eth: ${inEth}`)
+		// console.log(`Fee in eth: ${inEth}`)
 		return inEth
 	}
 
 	get FEEinToken() {
 		let inEth = eth.FEE * 2;
 		let inToken = inEth * Store.mathEqual('ETH', this.token, 1, true).exchangePrice;
-		console.log(`Fee in eth: ${inEth}`)
-		console.log(`Fee in token: ${inToken}`)
+		// console.log(`Fee in eth: ${inEth}`)
+		// console.log(`Fee in token: ${inToken}`)
 		return inToken			
 	}
 
@@ -296,6 +297,6 @@ const abiArray = [{
 	'type': 'event'
 }];
 
-config.erc20.forEach(async t=>{ // Create all of ERC-20 tokens
+config.erc20.forEach(async t=> { // Create all of ERC-20 tokens
 	new erc20(t);
 });
