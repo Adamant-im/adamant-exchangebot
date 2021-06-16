@@ -1,4 +1,5 @@
 module.exports = (db) => {
+
 	return class {
 		constructor(data = {}, isSave) {
 			this.db = db;
@@ -66,5 +67,6 @@ module.exports = (db) => {
 				}
 			});
 		}
-	};
+	}
+
 };
