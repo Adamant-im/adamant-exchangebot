@@ -30,6 +30,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "adamant-api": "^0.5.2",
+    "axios": "0.21.1",
     "ethereumjs-tx": "^2.1.2",
     "ethereumjs-util": "^7.0.0",
     "express": "^4.17.1",
