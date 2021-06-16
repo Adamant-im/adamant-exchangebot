@@ -1,5 +1,5 @@
 const log = require('../helpers/log');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const notify = require('../helpers/notify');
 const Store = require('./Store');
 const config = require('./configReader');
@@ -15,9 +15,9 @@ module.exports = async (pay, tx) => {
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
-			await $u.getAddressCryptoFromAdmAddressADM(pay.inCurrency, tx.senderId);
+			await exchangerUtils.getAddressCryptoFromAdmAddressADM(pay.inCurrency, tx.senderId);
 		let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
-			await $u.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
+			await exchangerUtils.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
 
 		pay.update({
 			senderKvsInAddress,
@@ -39,7 +39,7 @@ module.exports = async (pay, tx) => {
 			}, true);
 			notifyType = 'error';
 			notify(`${config.notifyName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}. Attention needed.`, 'error');
-			$u.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
+			exchangerUtils.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
 			return;
 		};
 
@@ -57,7 +57,7 @@ module.exports = async (pay, tx) => {
 
 		// Validating incoming TX in blockchain of inCurrency
 		try {
-			const in_tx = await $u[pay.inCurrency].syncGetTransaction(pay.inTxid, tx);
+			const in_tx = await exchangerUtils[pay.inCurrency].syncGetTransaction(pay.inTxid, tx);
 			if (!in_tx) {
 				if (pay.counterTxDeepValidator < 20){
 					pay.save();
@@ -119,7 +119,7 @@ module.exports = async (pay, tx) => {
 		await pay.save();
 		if (msgSendBack) {
 			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, notifyType);
-			$u.sendAdmMsg(tx.senderId, msgSendBack);
+			exchangerUtils.sendAdmMsg(tx.senderId, msgSendBack);
 		}
 	} catch (e) {
 		log.error('Error in deepExchangeValidator module: ' + e);

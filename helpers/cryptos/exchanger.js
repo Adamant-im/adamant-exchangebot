@@ -7,24 +7,7 @@ const db = require('../../modules/DB');
 const Store = require('../../modules/Store');
 
 module.exports = {
-	formatDate(timestamp) {
-    if (!timestamp) return false;
-    let formattedDate = { };
-    let dateObject = new Date(timestamp);
-    formattedDate.year = dateObject.getFullYear();
-    formattedDate.month = ("0" + (dateObject.getMonth() + 1)).slice(-2);
-    formattedDate.date = ("0" + dateObject.getDate()).slice(-2);
-    formattedDate.hours = ("0" + dateObject.getHours()).slice(-2);
-    formattedDate.minutes = ("0" + dateObject.getMinutes()).slice(-2);
-    formattedDate.seconds = ("0" + dateObject.getSeconds()).slice(-2);
-    formattedDate.YYYY_MM_DD = formattedDate.year + "-" + formattedDate.month + "-" + formattedDate.date;
-    formattedDate.YYYY_MM_DD_hh_mm = formattedDate.year + "-" + formattedDate.month + "-" + formattedDate.date + " " + formattedDate.hours + ":" + formattedDate.minutes;
-    formattedDate.hh_mm_ss = formattedDate.hours + ":" + formattedDate.minutes + ":" + formattedDate.seconds;
-    return formattedDate
-  },
-	unix() {
-		return new Date().getTime();
-	},
+
 	sendAdmMsg(address, msg, type = 'message') {
 		if (msg && !config.isDev || true) {
 			try {
@@ -33,30 +16,6 @@ module.exports = {
 				return false;
 			}
 		}
-	},
-	thousandSeparator(num, doBold) {
-		var parts = (num + '').split('.'),
-			main = parts[0],
-			len = main.length,
-			output = '',
-			i = len - 1;
-
-		while (i >= 0) {
-			output = main.charAt(i) + output;
-			if ((len - i) % 3 === 0 && i > 0) {
-				output = ' ' + output;
-			}
-			--i;
-		}
-
-		if (parts.length > 1) {
-			if (doBold) {
-				output = `**${output}**.${parts[1]}`;
-			} else {
-				output = `${output}.${parts[1]}`;
-			}
-		}
-		return output;
 	},
 	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {
 		try {
@@ -125,9 +84,6 @@ module.exports = {
 	},
 	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
-	},
-	isArraysEqual(array1, array2) {
-		return array1.length === array2.length && array1.sort().every(function(value, index) { return value === array2.sort()[index]});
 	},
 	ETH: eth_utils,
 	ADM: adm_utils,

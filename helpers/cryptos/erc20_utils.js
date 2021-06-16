@@ -3,7 +3,7 @@ const log = require('../../helpers/log');
 const models = require('./erc20_models');
 const config = require('./../../modules/configReader');
 const eth = require('./eth_utils');
-const $u = require('./index');
+const exchangerUtils = require('./exchanger');
 
 class erc20 {
 	constructor(token) {
@@ -14,7 +14,7 @@ class erc20 {
 		const {web3} = Store;
 		this.web3 = web3;
 		this.contract = new web3.eth.Contract(abiArray, this.model.sc, {from: this.User.address});
-		$u[token] = this;
+		exchangerUtils[token] = this;
 		log.info(`Created ERC-20 token: ${token}`);
 		this.updateBalance();
 	}

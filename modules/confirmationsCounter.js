@@ -1,13 +1,13 @@
 const db = require('./DB');
 const config = require('./configReader');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
-	const lastBlockNumber = await $u.getLastBlocksNumbers();
+	const lastBlockNumber = await exchangerUtils.getLastBlocksNumbers();
 
 	(await paymentsDb.find({
 		transactionIsValid: true,
@@ -34,7 +34,7 @@ module.exports = async () => {
 				log.warn('Cannot get lastBlockNumber for ' + inCurrency + '. Waiting for next try.');
 				return;
 			}
-			const txData = (await $u[inCurrency].getTransactionStatus(inTxid));
+			const txData = (await exchangerUtils[inCurrency].getTransactionStatus(inTxid));
 			if (!txData || !txData.blockNumber){
 				return;
 			}
@@ -57,7 +57,7 @@ module.exports = async () => {
 			await pay.save();
 			if (msgSendBack) {
 				notify(msgNotify, 'error');
-				$u.sendAdmMsg(pay.senderId, msgSendBack);
+				exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
 			}
 		} catch (e) {
 			log.error('Error in ConformationsCounter module: ' + e);

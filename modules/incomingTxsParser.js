@@ -1,6 +1,7 @@
 const db = require('./DB');
 const log = require('../helpers/log');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
+const utils = require('../helpers/utils');
 const api = require('./api');
 const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
@@ -47,12 +48,12 @@ module.exports = async (tx) => {
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
 		sender: tx.senderId,
 		isSpam: true,
-		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
+		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
 	});
 	const itx = new incomingTxsDb({
 		_id: tx.id,
 		txid: tx.id,
-		date: $u.unix(),
+		date: utils.unix(),
 		block_id: tx.blockId,
 		encrypted_content: msg,
 		spam: false,
@@ -63,13 +64,13 @@ module.exports = async (tx) => {
 
 	if (msg.toLowerCase().trim() === 'deposit') {
 		itx.update({isProcessed: true}, true);
-		historyTxs[tx.id] = $u.unix();
+		historyTxs[tx.id] = utils.unix();
 		return;
 	}
 
 	const countRequestsUser = (await incomingTxsDb.find({
 		sender: tx.senderId,
-		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
+		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
 	if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
@@ -83,11 +84,11 @@ module.exports = async (tx) => {
 	if (historyTxs[tx.id]) {
 		return;
 	}
-	historyTxs[tx.id] = $u.unix();
+	historyTxs[tx.id] = utils.unix();
 
 	if (itx.isSpam && !spamerIsNotyfy) {
 		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
-		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
+		exchangerUtils.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
 		 Come back tomorrow but less talk, more deal.`);
 		return;
 	}

@@ -1,13 +1,13 @@
 const db = require('./DB');
 const config = require('./configReader');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
-	await $u.updateAllBalances();
+	await exchangerUtils.updateAllBalances();
 
 	const pays = (await paymentsDb.find({
 		transactionIsValid: true,
@@ -34,13 +34,13 @@ module.exports = async () => {
 
 		let etherString = '';
 		let isNotEnoughBalance;
-		let outFee = $u[inCurrency].FEE;
+		let outFee = exchangerUtils[inCurrency].FEE;
 		let sentBackAmount;
 
-		if ($u.isERC20(inCurrency)) {
+		if (exchangerUtils.isERC20(inCurrency)) {
 			etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
-			sentBackAmount = +(inAmountReal - $u[inCurrency].FEEinToken).toFixed(8);
-			isNotEnoughBalance = (sentBackAmount > Store.user[inCurrency].balance) || ($u[inCurrency].FEE.inEth > Store.user['ETH'].balance);
+			sentBackAmount = +(inAmountReal - exchangerUtils[inCurrency].FEEinToken).toFixed(8);
+			isNotEnoughBalance = (sentBackAmount > Store.user[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > Store.user['ETH'].balance);
 		} else {
 			etherString = '';
 			sentBackAmount = +(inAmountReal - outFee).toFixed(8);
@@ -71,7 +71,7 @@ module.exports = async () => {
 				isFinished: true
 			});
 		} else { // We are able to send transfer back
-			const result = await $u[inCurrency].send({
+			const result = await exchangerUtils[inCurrency].send({
 				address: senderKvsInAddress,
 				value: sentBackAmount,
 				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!' // if ADM
@@ -80,7 +80,7 @@ module.exports = async () => {
 			if (result.success) {
 				pay.sentBackTx = result.hash;
 
-				if ($u.isERC20(inCurrency)) {
+				if (exchangerUtils.isERC20(inCurrency)) {
 					Store.user[inCurrency].balance -= sentBackAmount;
 					Store.user['ETH'].balance -= outFee;
 				} else {
@@ -112,7 +112,7 @@ module.exports = async () => {
 			notify(msgNotify, notifyType);
 		}
 		if (msgSendBack){
-			$u.sendAdmMsg(pay.senderId, msgSendBack);
+			exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
 		}
 	}
 };

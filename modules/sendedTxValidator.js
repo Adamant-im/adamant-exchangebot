@@ -1,13 +1,13 @@
 const db = require('./DB');
 const config = require('./configReader');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
-	const lastBlockNumber = await $u.getLastBlocksNumbers();
+	const lastBlockNumber = await exchangerUtils.getLastBlocksNumbers();
 
 	(await paymentsDb.find({
 		$and: [
@@ -52,7 +52,7 @@ module.exports = async () => {
 			let msgNotify = null;
 			let msgSendBack = null;
 
-			if ($u.isERC20(outCurrency)) {
+			if (exchangerUtils.isERC20(outCurrency)) {
 				etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
 			}
 
@@ -61,7 +61,7 @@ module.exports = async () => {
 				return;
 			}
 
-			const txData = (await $u[sendCurrency].getTransactionStatus(sendTxId));
+			const txData = (await exchangerUtils[sendCurrency].getTransactionStatus(sendTxId));
 			if (!txData || !txData.blockNumber){
 				if (pay.tryCounterCheckOutTX > 50){
 					pay.update({
@@ -81,7 +81,7 @@ module.exports = async () => {
 					}
 					
 					notify(msgNotify, notifyType);
-					$u.sendAdmMsg(pay.senderId, msgSendBack);
+					exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
 				}
 				pay.save();
 				return;
@@ -118,7 +118,7 @@ module.exports = async () => {
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 				}
 
-				$u.sendAdmMsg(pay.senderId, msgSendBack);
+				exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
 
@@ -135,7 +135,7 @@ module.exports = async () => {
 
 				if (sendCurrency !== 'ADM'){
 					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
-					pay.isFinished = $u.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
+					pay.isFinished = exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
 				} else {
 					pay.isFinished = true;
 				}

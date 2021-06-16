@@ -1,5 +1,6 @@
 const Store = require('../modules/Store');
-const $u = require('../helpers/utils');
+const utils = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const config = require('./configReader');
 const log = require('../helpers/log');
 
@@ -24,7 +25,7 @@ module.exports = async (cmd, tx, itx) => {
 			return msg;
 		}
 		if (tx){
-			$u.sendAdmMsg(tx.senderId, msg);
+			exchangerUtils.sendAdmMsg(tx.senderId, msg);
 			itx.update({isProcessed: true}, true);
 		}
 	} catch (e){
@@ -50,7 +51,7 @@ function help() {
 	}
 
 	let str = `I am **online** and ready for a deal. `;
-	if ($u.isArraysEqual(config.accepted_crypto, config.exchange_crypto)) {
+	if (utils.isArraysEqual(config.accepted_crypto, config.exchange_crypto)) {
 		str += `I exchange anything between *${config.accepted_crypto.join(', ')}*. `
 	} else {
 		str += `I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. `
@@ -108,10 +109,10 @@ function calc(arr) {
 	if (!amount || amount === Infinity){
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
-	if (!$u.isHasTicker(inCurrency)) {
+	if (!exchangerUtils.isHasTicker(inCurrency)) {
 		return `I don’t have rates of crypto *${inCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
-	if (!$u.isHasTicker(outCurrency)) {
+	if (!exchangerUtils.isHasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
 	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
@@ -119,10 +120,10 @@ function calc(arr) {
 	if (amount <= 0 || result <= 0 || !result) {
 		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
-	if ($u.isFiat(outCurrency)) {
+	if (exchangerUtils.isFiat(outCurrency)) {
 		result = +result.toFixed(2);
 	}
-	return `Market value of ${$u.thousandSeparator(amount)} ${inCurrency} equals **${$u.thousandSeparator(result)} ${outCurrency}**.`;
+	return `Market value of ${utils.thousandSeparator(amount)} ${inCurrency} equals **${utils.thousandSeparator(result)} ${outCurrency}**.`;
 }
 
 async function test(arr, tx) {
@@ -138,22 +139,22 @@ async function test(arr, tx) {
 	if (!amount || amount === Infinity){
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
-	if (!$u.isKnown(inCurrency)) {
+	if (!exchangerUtils.isKnown(inCurrency)) {
 		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
-	if (!$u.isKnown(outCurrency)) {
+	if (!exchangerUtils.isKnown(outCurrency)) {
 		return `I don’t work with crypto *${outCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
-	if (!$u.isHasTicker(inCurrency)) {
+	if (!exchangerUtils.isHasTicker(inCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
 	}
-	if (!$u.isHasTicker(outCurrency)) {
+	if (!exchangerUtils.isHasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
 	}
-	if (!$u.isExchanged(inCurrency)) {
+	if (!exchangerUtils.isExchanged(inCurrency)) {
 		return `Crypto *${inCurrency}* is not accepted. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
-	if (!$u.isAccepted(outCurrency)) {
+	if (!exchangerUtils.isAccepted(outCurrency)) {
 		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
 	if (inCurrency === outCurrency){
@@ -170,7 +171,7 @@ async function test(arr, tx) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
 	if (tx){
-		const userDailyValue = await $u.userDailyValue(tx.senderId);
+		const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 		if (userDailyValue >= daily_limit_usd) {
 			return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
 		} else if (userDailyValue + usdEqual >= daily_limit_usd){
@@ -181,14 +182,14 @@ async function test(arr, tx) {
 	let etherString = '';
 	let isNotEnoughBalance;
 	
-	if ($u.isERC20(outCurrency)) {
-		isNotEnoughBalance = (result > Store.user[outCurrency].balance) || ($u[outCurrency].FEE > Store.user['ETH'].balance);
-		if ($u[outCurrency].FEE > Store.user['ETH'].balance) {
+	if (exchangerUtils.isERC20(outCurrency)) {
+		isNotEnoughBalance = (result > Store.user[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > Store.user['ETH'].balance);
+		if (exchangerUtils[outCurrency].FEE > Store.user['ETH'].balance) {
 			etherString = `Not enough Ether to pay fees. `;
 		}
 	} else {
 		etherString = '';				
-		isNotEnoughBalance = result + $u[outCurrency].FEE > Store.user[outCurrency].balance;
+		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > Store.user[outCurrency].balance;
 	}
 
 
@@ -202,7 +203,7 @@ async function test(arr, tx) {
 function balances() {
 	return config.exchange_crypto.reduce((str, c) => {
 		return str + `
-		${$u.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
+		${utils.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
 	}, 'My crypto balances:');
 }
 

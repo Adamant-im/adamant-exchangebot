@@ -1,7 +1,8 @@
 
 const db = require('./DB');
 const {SAT} = require('../helpers/const');
-const $u = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
+const utils = require('../helpers/utils');
 const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const config = require('./configReader');
@@ -41,7 +42,7 @@ module.exports = async (itx, tx) => {
 
 	const pay = new paymentsDb({
 		_id: tx.id,
-		date: $u.unix(),
+		date: utils.unix(),
 		admTxId: tx.id,
 		itxId: itx._id,
 		senderId: tx.senderId,
@@ -72,7 +73,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
 	}
-	else if (!$u.isKnown(inCurrency)){
+	else if (!exchangerUtils.isKnown(inCurrency)){
 		pay.error = 2;
 		pay.needHumanCheck = true;
 		pay.isFinished = true;
@@ -80,7 +81,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.`;
 	}
-	else if (!$u.isKnown(outCurrency)){
+	else if (!exchangerUtils.isKnown(outCurrency)){
 		pay.error = 3;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -95,7 +96,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `${config.notifyName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!$u.isAccepted(inCurrency)){
+	else if (!exchangerUtils.isAccepted(inCurrency)){
 		pay.error = 5;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -103,7 +104,7 @@ module.exports = async (itx, tx) => {
 		msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `Crypto _${inCurrency}_ is not accepted. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	}
-	else if (!$u.isExchanged(outCurrency)){
+	else if (!exchangerUtils.isExchanged(outCurrency)){
 		pay.error = 6;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -111,8 +112,8 @@ module.exports = async (itx, tx) => {
 		msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
 		msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	} 
-	else if (!$u.isHasTicker(inCurrency)){
-		if ($u.isERC20(inCurrency)) { // Unable to send back, as we can't count fee in ETH
+	else if (!exchangerUtils.isHasTicker(inCurrency)){
+		if (exchangerUtils.isERC20(inCurrency)) { // Unable to send back, as we can't count fee in ETH
 			pay.error = 32;
 			pay.needHumanCheck = true;
 			pay.isFinished = true;
@@ -127,7 +128,7 @@ module.exports = async (itx, tx) => {
 			msgSendBack = `I don’t have rates of crypto _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;	
 		}
 	}
-	else if (!$u.isHasTicker(outCurrency)){
+	else if (!exchangerUtils.isHasTicker(outCurrency)){
 		pay.error = 33;
 		pay.needToSendBack = true;
 		notifyType = 'warn';
@@ -137,7 +138,7 @@ module.exports = async (itx, tx) => {
 		// need some calculate
 		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage, true).outAmount.toFixed(2);
 
-		const userDailyValue = await $u.userDailyValue(tx.senderId);
+		const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 		log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
 		if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd){
 			pay.update({
@@ -181,7 +182,7 @@ module.exports = async (itx, tx) => {
 	await itx.update({isProcessed: true}, true);
 
 	notify(msgNotify, notifyType);
-	$u.sendAdmMsg(tx.senderId, msgSendBack);
+	exchangerUtils.sendAdmMsg(tx.senderId, msgSendBack);
 
 	if (!pay.isFinished){
 		deepExchangeValidator(pay, tx);
