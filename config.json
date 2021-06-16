@@ -1,12 +1,12 @@
 {
 
-	/** The exchange bot's secret phrase for concluding transactions. 
-		Bot's ADAMANT address will correspond this passPhrase.
-    **/
+	/** The exchange bot's secret phrase for concluding transactions.
+			Bot's ADAMANT address will correspond this passPhrase.
+  	**/
 	"passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwe",
 
 	/** List of nodes to fetch transactions.
-    	If one become unavailable, pool will choose live one.
+    	API module does a heath check.
     **/
 	
 	"node_ADM": [
@@ -16,7 +16,8 @@
 		"https://bid.adamant.im",
 		"https://unusual.adamant.im",
 		"https://debate.adamant.im",
-		"http://185.231.245.26:36666",
+		"http://23.226.231.225:36666",
+		"http://88.198.156.44:36666",
 		"https://lake.adamant.im"
 	],
 
@@ -26,90 +27,95 @@
 	/** Choose socket connection, "ws" or "wss" depending on your server **/
 	"ws_type": "ws",
 	
-    /** List of nodes for Ethereum API work **/
+  /** List of nodes for Ethereum API work **/
 	"node_ETH": [
 		"https://ethnode1.adamant.im"
 	],	
 	
-    /** List of nodes for Lisk API work **/
+  /** List of nodes for Lisk API work **/
 	"node_LSK": [
 		"https://lisknode1.adamant.im"
 	],	
 
-    /** List of nodes for Doge API work **/
+  /** List of nodes for Doge API work **/
 	"node_DOGE": [
 		"https://dogenode1.adamant.im"
 	],	
 
-    /** List of nodes for Bitcoin API work **/
+  /** List of nodes for Bitcoin API work **/
 	"node_BTC": [
 		"https://btcnode1.adamant.im"
 	],	
 
-    /** List of nodes for Dash API work **/
+  /** List of nodes for Dash API work **/
 	"node_DASH": [
 		"https://dashnode1.adamant.im"
 	],	
 	
-    /** List of ADAMANT InfoServices for catching exchange rates **/
+  /** List of ADAMANT InfoServices for catching exchange rates **/
 	"infoservice": [
 		"https://info.adamant.im"
 	],	
 
-	/** List of cryptocurrencies you want to accept for exchange. 
-		If bot will receive payment in not-in-list crypto, it will try to send back it.
+	/** List of cryptocurrencies you want to accept for exchange.
+			If the bot will receive payment in other crypto, it will try to send back it.
     **/
 	"accepted_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 
-	/** List of cryptocurrencies you want to send in exchange. 
-		If bot will receive request for exchange of not-in-list crypto, it will try to return payment back.
+	/** List of cryptocurrencies you want to send in exchange.
+			If the bot will receive request for exchange in other crypto, it will try to return payment back.
     **/
 	"exchange_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 	
-	/** List of cryptocurrencies bot can work with. 
-	If bot will receive or request for crypto not in list, it will not process payment and notify owner.
-	**/
+	/** List of cryptocurrencies the bot can work with.
+			If the bot will receive or request for crypto not in list, it will not process payment and notify owner.
+		**/
 	"known_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 	
 	/** List of ERC-20 tokens **/
 	"erc20": ["USDS", "RES", "BZ"],
 
-	/** Percentage you take as fee for bot's service. **/
+	/** Percentage you take as fee for the bot's service. **/
 	"exchange_fee": 5,
 
-	/** Percentage you take as fee, if receiving payment is in specific currency. 
-		If set, this value will override general exchange_fee 
-	**/
-    "exchange_fee_ADM": false,
+	/** Percentage you take as fee, if receiving payment is in specific currency.
+			If set, this value will override general exchange_fee
+		**/
+  "exchange_fee_ADM": false,
 
-    /** Minimum payment equivalent in USD accepted. **/
-    "min_value_usd": 0.1,
+	/** Minimum payment equivalent in USD accepted. **/
+	"min_value_usd": 0.1,
 
-    /** Daily exchange limit for one user, equivalent in USD. **/
-    "daily_limit_usd": 1000,
+	/** Daily exchange limit for one user, equivalent in USD. **/
+	"daily_limit_usd": 1000,
 
-    /** How many confirmations to wait before transaction counts accepted. **/
-    "min_confirmations": 3,
+	/** How many confirmations to consider transaction as accepted. **/
+	"min_confirmations": 3,
 
-    /** To override min_confirmations for specific cryptocurrency. **/
-    "min_confirmations_ADM": 2,
+	/** To override min_confirmations for specific cryptocurrency. **/
+	"min_confirmations_ADM": 2,
 
-    /** How to reply user in-chat, if first unknown command received. **/
-    "welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
+	/** How to reply user in-chat, if first unknown command received. **/
+	"welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
 
 	/** Bot's name for notifications **/
-    "bot_name": "Lovely Exchange Bot",
+	"bot_name": "Lovely Exchange Bot",
 
-	/** ADAMANT address for notifications and monitoring (if needed, recommended) **/
-    "adamant_notify": "",
+	/** ADAMANT address for notifications and monitoring **/
+	"adamant_notify": "",
 
-    /** Slack key for notifications and monitoring (if needed) **/
-    "slack": "https://hooks.slack.com/services/",
+	/** Slack key for notifications and monitoring **/
+	"slack": "https://hooks.slack.com/services/",
 
-    /** Port for getting debug info. 
-		Do not set for live exchange bots, use only for debugging. 
-		Allows to get DBs records like http://ip:port/db?tb=incomingTxsDb 
-	**/
+	/** The software will use verbosity according to log_level.
+			It can be none < error < warn < info < log.
+		**/
+	"log_level": "log",
+
+	/** Port for getting debug info.
+			Do not set for live exchange bots, use only for debugging.
+			Allows to get DBs records like http://ip:port/db?tb=incomingTxsDb
+		**/
 	"api": false
 
 }

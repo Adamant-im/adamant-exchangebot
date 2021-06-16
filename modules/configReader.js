@@ -17,7 +17,7 @@ const fields = {
 	},
 	node_ETH: {
 		type: Array,
-		default: ['https://ethnode1.adamant.im']
+		isRequired: true
 	},
 	exchange_crypto: {
 		type: Array,
@@ -33,7 +33,7 @@ const fields = {
 	},
 	infoservice: {
 		type: Array,
-		default: ['https://info.adamant.im']
+		isRequired: true
 	},
 	min_value_usd: {
 		type: Number,
@@ -63,43 +63,55 @@ const fields = {
 		type: String,
 		default: null
 	},
+	log_level: {
+		type: String,
+		default: 'log'
+	},
 	welcome_string: {
 		type: String,
 		default: 'Hello 😊. This is a stub. I have nothing to say. Please check my config.'
 	}
 };
+
 try {
+
 	if (isDev) {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.test', 'utf-8')));
 	} else {
 		config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
 	}
 
+	if (!config.node_ADM) {
+		exit(`Bot's config is wrong. ADM nodes are not set. Cannot start the Bot.`);
+	}
+	if (!config.passPhrase) {
+		exit(`Bot's config is wrong. No passPhrase. Cannot start the Bot.`);
+	}
+
 	let keysPair;
 	try {
-		keysPair = keys.createKeypairFromPassPhrase(config.passphrase);
+		keysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 	} catch (e) {
-		exit('Passphrase is not valid! Error: ' + e);
+		exit(`Bot's config is wrong. Invalid passPhrase. Error: ${e}. Cannot start the Bot.`);
 	}
 	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
-	config.publicKey = keysPair.publicKey;
+	config.publicKey = keysPair.publicKey.toString('hex');
 	config.address = address;
-
 
 	['min_confirmations', 'exchange_fee', 'min_value_usd'].forEach(param => {
 		config.known_crypto.forEach(coin => {
 			const field = param + '_' + coin;
 			config[field] = config[field] || config[param] || fields[param].default;
 			if (fields[param].type !== config[field].__proto__.constructor) {
-				exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[field].type.name}_. Cannot start Bot.`);
+				exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[field].type.name}_. Cannot start the Bot.`);
 			}
 		});
 	});
 
 	Object.keys(fields).forEach(f => {
 		if (!config[f] && fields[f].isRequired) {
-			exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start Bot.`);
-		} else if (!config[f] && config[f] != 0 && fields[f].default) {
+			exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start the Bot.`);
+		} else if (!config[f] && config[f] !== 0 && fields[f].default) {
 			config[f] = fields[f].default;
 		}
 		if (config[f] && fields[f].type !== config[f].__proto__.constructor) {
@@ -107,13 +119,16 @@ try {
 		}
 	});
 
+	console.info(`Exchange Bot ${address} successfully read a config-file${isDev ? ' (dev)' : ''}.`);
+
 } catch (e) {
-	log.error('Error reading config: ' + e);
+	console.error('Error reading config: ' + e);
 }
+
+config.isDev = isDev;
+module.exports = config;
 
 function exit(msg) {
 	log.error(msg);
 	process.exit(-1);
 }
-config.isDev = isDev;
-module.exports = config;
