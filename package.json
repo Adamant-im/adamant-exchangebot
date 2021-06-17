@@ -33,7 +33,6 @@
     "axios": "0.21.1",
     "ethereumjs-tx": "^2.1.2",
     "ethereumjs-util": "^7.0.0",
-    "express": "^4.17.1",
     "jsonminify": "^0.4.1",
     "jsonrpc-client": "^0.1.1",
     "mongodb": "^3.6.9",

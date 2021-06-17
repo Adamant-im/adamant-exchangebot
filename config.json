@@ -110,12 +110,6 @@
 	/** The software will use verbosity according to log_level.
 			It can be none < error < warn < info < log.
 		**/
-	"log_level": "log",
-
-	/** Port for getting debug info.
-			Do not set for live exchange bots, use only for debugging.
-			Allows to get DBs records like http://ip:port/db?tb=incomingTxsDb
-		**/
-	"api": false
+	"log_level": "log"
 
 }
