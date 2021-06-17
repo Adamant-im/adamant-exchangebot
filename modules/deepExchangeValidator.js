@@ -5,6 +5,7 @@ const Store = require('./Store');
 const config = require('./configReader');
 const db = require('./DB');
 const api = require('./api');
+const utils = require('../helpers/utils');
 
 module.exports = async (pay, tx) => {
 	pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
@@ -39,7 +40,7 @@ module.exports = async (pay, tx) => {
 			}, true);
 			notifyType = 'error';
 			notify(`${config.notifyName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}. Attention needed.`, 'error');
-			exchangerUtils.sendAdmMsg(tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
+			api.sendMessage(config.passPhrase, tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
 			return;
 		};
 
@@ -119,7 +120,7 @@ module.exports = async (pay, tx) => {
 		await pay.save();
 		if (msgSendBack) {
 			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, notifyType);
-			exchangerUtils.sendAdmMsg(tx.senderId, msgSendBack);
+			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack);
 		}
 	} catch (e) {
 		log.error('Error in deepExchangeValidator module: ' + e);
@@ -132,11 +133,12 @@ setInterval(async ()=>{
 		transactionIsValid: null,
 		isFinished: false
 	})).forEach(async pay => {
-		try {
-			const tx = (await api.get('transaction', pay.admTxId)).transaction;
-			module.exports(pay, tx);
-		} catch (e){
+		const tx = await api.get('transactions/get', { id: pay.admTxId });
+		if (tx.success) {
+			module.exports(pay, tx.data.transaction);
+		} else {
 			module.exports(pay, null);
+			log.warn(`Failed to get Tx ${pay.admTxId} info in setInterval() of ${utils.getModuleName()} module. ${tx.errorMessage}.`);
 		}
 	});
 }, 60 * 1000);

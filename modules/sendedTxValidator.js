@@ -4,6 +4,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
+const api = require('./api');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
@@ -81,7 +82,7 @@ module.exports = async () => {
 					}
 					
 					notify(msgNotify, notifyType);
-					exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
+					api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
 				}
 				pay.save();
 				return;
@@ -118,7 +119,7 @@ module.exports = async () => {
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 				}
 
-				exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
+				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
 
@@ -135,7 +136,7 @@ module.exports = async () => {
 
 				if (sendCurrency !== 'ADM'){
 					msgSendBack = `{"type":"${sendCurrency}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
-					pay.isFinished = exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack, 'rich');
+					pay.isFinished = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich').success;
 				} else {
 					pay.isFinished = true;
 				}

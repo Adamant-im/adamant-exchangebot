@@ -3,9 +3,11 @@ const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const config = require('./configReader');
 const log = require('../helpers/log');
+const api = require('./api');
 
 module.exports = async (cmd, tx, itx) => {
 	log.info('Got new Command Tx to process: ' + cmd);
+
 	try {
 		let msg = '';
 		const group = cmd
@@ -25,7 +27,7 @@ module.exports = async (cmd, tx, itx) => {
 			return msg;
 		}
 		if (tx){
-			exchangerUtils.sendAdmMsg(tx.senderId, msg);
+			api.sendMessage(config.passPhrase, tx.senderId, msg);
 			itx.update({isProcessed: true}, true);
 		}
 	} catch (e){

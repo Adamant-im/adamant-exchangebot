@@ -4,6 +4,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
+const api = require('./api');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
@@ -57,7 +58,7 @@ module.exports = async () => {
 			await pay.save();
 			if (msgSendBack) {
 				notify(msgNotify, 'error');
-				exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
+				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
 			}
 		} catch (e) {
 			log.error('Error in ConformationsCounter module: ' + e);

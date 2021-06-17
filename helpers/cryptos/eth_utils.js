@@ -51,7 +51,7 @@ module.exports = {
 			});
 		});
 	},
-	getLastBlockNumber() {
+	getLastBlock() {
 		return new Promise(resolve => {
 			eth.getBlock('latest').then(block => {
 				if (block) {

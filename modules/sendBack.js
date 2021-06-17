@@ -4,6 +4,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
+const api = require('./api');
 
 module.exports = async () => {
 	const {paymentsDb} = db;
@@ -112,7 +113,7 @@ module.exports = async () => {
 			notify(msgNotify, notifyType);
 		}
 		if (msgSendBack){
-			exchangerUtils.sendAdmMsg(pay.senderId, msgSendBack);
+			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
 		}
 	}
 };

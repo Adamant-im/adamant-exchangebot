@@ -2,6 +2,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const utils = require('../helpers/utils');
 const db = require('./DB');
 const config = require('./configReader');
+const api = require('./api');
 
 module.exports = async (tx, itx) => {
 	const {incomingTxsDb} = db;
@@ -48,7 +49,7 @@ module.exports = async (tx, itx) => {
 			else {
 				msg = getRnd(5);
 			}
-			exchangerUtils.sendAdmMsg(tx.senderId, msg);
+			api.sendMessage(config.passPhrase, tx.senderId, msg);
 			itx.update({isProcessed: true}, true);
 		});
 
@@ -82,8 +83,8 @@ const collection = [
 		'Convenient. Anonymous. Reliable. Instant. Oh, it is me! 💱',
 		'ADAMANT is open source, including myself 🤖. Join to make me better! 📶',
 		'Do you know what is ADAMANT 2FA?',
-		'ADAMANT is soooo decentralised! And private! ❤️',
-		'Do you want me to trade more cryptocurrenies 💱? Ask my master!',
+		'ADAMANT is soooo decentralized! And private! ❤️',
+		'Do you want me to trade more cryptocurrencies 💱? Ask my master!',
 		'Recommend ADAMANT to your friends! 🌟',
 		'If I were Satoshi, I’d rebuild Bitcoin ₿ on top of ADAMANT! 😍'
 	],

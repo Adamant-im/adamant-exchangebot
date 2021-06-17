@@ -29,7 +29,7 @@
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
-    "adamant-api": "^0.5.2",
+    "adamant-api": "^1.0.0",
     "axios": "0.21.1",
     "ethereumjs-tx": "^2.1.2",
     "ethereumjs-util": "^7.0.0",

@@ -8,32 +8,22 @@ const Store = require('../../modules/Store');
 
 module.exports = {
 
-	sendAdmMsg(address, msg, type = 'message') {
-		if (msg && !config.isDev || true) {
-			try {
-				return api.send(config.passPhrase, address, msg, type).success || false;
-			} catch (e) {
-				return false;
-			}
-		}
-	},
 	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {
-		try {
-			if (this.isERC20(coin)) {
-				coin = 'ETH';
-			}
-			const resp = await api.syncGet(`/api/states/get?senderId=${admAddress}&key=${coin.toLowerCase()}:address`);
-			if (resp && resp.success) {
-				if (resp.transactions.length) {
-					return resp.transactions[0].asset.state.value;
-				} else {
-					return 'none';
-				};
-			};
-		} catch (e) {
-			log.error(' in getAddressCryptoFromAdmAddressADM(): ' + e);
-			return null;
+
+		if (this.isERC20(coin)) {
+			coin = 'ETH';
 		}
+		const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ":address" });
+		if (kvsRecords.success) {
+			if (kvsRecords.data.transactions.length) {
+				return kvsRecords.data.transactions[0].asset.state.value;
+			} else {
+				return 'none';
+			};
+		} else {
+			log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getAddressCryptoFromAdmAddressADM() of ${utils.getModuleName()} module. ${kvsRecords.errorMessage}.`);
+		}
+
 	},
 	async userDailyValue(senderId) {
 		return (await db.paymentsDb.find({
@@ -57,11 +47,11 @@ module.exports = {
 	},
 	async getLastBlocksNumbers() {
 		const data = {
-			ETH: await this.ETH.getLastBlockNumber(),
-			ADM: await this.ADM.getLastBlockNumber(),
+			ETH: await this.ETH.getLastBlock(),
+			ADM: await this.ADM.getLastBlock(),
 		};
 		for (const t of config.erc20) { 
-			// data[t] = await this[t].getLastBlockNumber(); // Don't do unnecessary requests
+			// data[t] = await this[t].getLastBlock(); // Don't do unnecessary requests
 			data[t] = data['ETH'];
 		}
 		return data;

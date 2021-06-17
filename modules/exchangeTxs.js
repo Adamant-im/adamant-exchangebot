@@ -8,6 +8,7 @@ const log = require('../helpers/log');
 const config = require('./configReader');
 const Store = require('./Store');
 const deepExchangeValidator = require('./deepExchangeValidator');
+const api = require('./api');
 
 module.exports = async (itx, tx) => {
 	const {paymentsDb} = db;
@@ -182,7 +183,7 @@ module.exports = async (itx, tx) => {
 	await itx.update({isProcessed: true}, true);
 
 	notify(msgNotify, notifyType);
-	exchangerUtils.sendAdmMsg(tx.senderId, msgSendBack);
+	api.sendMessage(config.passPhrase, tx.senderId, msgSendBack);
 
 	if (!pay.isFinished){
 		deepExchangeValidator(pay, tx);
