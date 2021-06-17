@@ -1,10 +1,11 @@
 const config = require('../../modules/configReader');
 const log = require('../log');
-const Web3 = require('web3');
-const web3 = new Web3(config.node_ETH[0]);// TODO: health check
-const {eth} = web3;
+const Eth = require('web3-eth');
+const ethUtils = require('web3-utils');
+const eth = new Eth(config.node_ETH[0]);// TODO: health check
+// const {eth} = eth;
 const Store = require('../../modules/Store');
-const EthereumTx = require('ethereumjs-tx').Transaction;
+// const EthereumTx = require('ethereumjs-tx').Transaction;
 const ethSat = 1000000000000000000;
 const User = Store.user.ETH;
 eth.defaultAccount = User.address;
@@ -14,7 +15,7 @@ const privateKey = Buffer.from(
 	'hex',
 );
 
-Store.web3 = web3;
+Store.web3 = eth;
 module.exports = {
 	syncGetTransaction(hash) {
 		return new Promise(resolve => {
@@ -68,7 +69,7 @@ module.exports = {
 		return new Promise(resolve => {
 			eth.getGasPrice().then(price => {
 				if (price) {
-					this.gasPrice = web3.utils.toHex(price);
+					this.gasPrice = ethUtils.toHex(price);
 				}
 				resolve();
 			}).catch(e=>{
@@ -106,7 +107,7 @@ module.exports = {
 			const txParams = {
 				nonce: this.currentNonce++,
 				gasPrice: this.gasPrice,
-				gas: web3.utils.toHex(22000 * 2),
+				gas: ethUtils.toHex(22000 * 2),
 				to: params.address,
 				value: params.value * ethSat
 			};
@@ -117,26 +118,26 @@ module.exports = {
 				txParams.gas *= 2;
 			}
 
-			const tx = new EthereumTx(txParams);
-			tx.sign(privateKey);
-			const serializedTx = '0x' + tx.serialize().toString('hex');
-			return new Promise(resolve => {
-				eth.sendSignedTransaction(serializedTx)
-					.on('transactionHash', (hash) => {
-						resolve({
-							success: true,
-							hash
-						});
-					}).on('error', (error) => {  // If out of gas error, the second parameter is the receipt
-						resolve({
-							success: false,
-							error
-						});
-					}).catch(e => {
-						if (!e.toString().includes('Failed to check for transaction receipt')) // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error('Error while sending ETH tx: ' + e);
-					});
-			});
+			// const tx = new EthereumTx(txParams);
+			// tx.sign(privateKey);
+			// const serializedTx = '0x' + tx.serialize().toString('hex');
+			// return new Promise(resolve => {
+			// 	eth.sendSignedTransaction(serializedTx)
+			// 		.on('transactionHash', (hash) => {
+			// 			resolve({
+			// 				success: true,
+			// 				hash
+			// 			});
+			// 		}).on('error', (error) => {  // If out of gas error, the second parameter is the receipt
+			// 			resolve({
+			// 				success: false,
+			// 				error
+			// 			});
+			// 		}).catch(e => {
+			// 			if (!e.toString().includes('Failed to check for transaction receipt')) // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
+			// 				log.error('Error while sending ETH tx: ' + e);
+			// 		});
+			// });
 		} catch (e) {
 			log.error('Error while executing Ethereum transaction: ' + e);
 		}

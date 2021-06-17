@@ -13,7 +13,7 @@ class erc20 {
 		this.address = this.User.address;
 		const {web3} = Store;
 		this.web3 = web3;
-		this.contract = new web3.eth.Contract(abiArray, this.model.sc, {from: this.User.address});
+		this.contract = new web3.Contract(abiArray, this.model.sc, {from: this.User.address});
 		exchangerUtils[token] = this;
 		log.info(`Created ERC-20 token: ${token}`);
 		this.updateBalance();
@@ -40,7 +40,7 @@ class erc20 {
 
 	async syncGetTransaction(hash) {
 		return new Promise(resolve => {
-			this.web3.eth.getTransactionReceipt(hash, (err, tx) => {
+			this.web3.getTransactionReceipt(hash, (err, tx) => {
 				try {
 					if (err || !tx.logs) {
 						resolve(false);
