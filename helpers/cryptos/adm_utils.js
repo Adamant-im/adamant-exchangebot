@@ -56,7 +56,7 @@ module.exports = {
 				hash: payment.data.transactionId
 			};
 		} else {
-			log.warn(`Failed to send ${value} ADM to ${address} with comment ${comment} in send() of ${utils.getModuleName(module.id)} module. ${account.errorMessage}.`);
+			log.warn(`Failed to send ${value} ADM to ${address} with comment ${comment} in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`);
 			return {
 				success: false
 			};
