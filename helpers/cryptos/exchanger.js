@@ -21,7 +21,7 @@ module.exports = {
 				return 'none';
 			};
 		} else {
-			log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getAddressCryptoFromAdmAddressADM() of ${utils.getModuleName()} module. ${kvsRecords.errorMessage}.`);
+			log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getAddressCryptoFromAdmAddressADM() of ${utils.getModuleName(module.id)} module. ${kvsRecords.errorMessage}.`);
 		}
 
 	},

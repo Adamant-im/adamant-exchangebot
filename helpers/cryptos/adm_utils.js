@@ -25,7 +25,7 @@ module.exports = {
 		if (blocks.success) {
 			return blocks.data.blocks[0].height
 		} else {
-			log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName()} module. ${blocks.errorMessage}.`);
+			log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. ${blocks.errorMessage}.`);
 		}
 	},
 	async getTransactionStatus(txid) {
@@ -36,7 +36,7 @@ module.exports = {
 				status: true
 			};
 		} else {
-			log.warn(`Failed to get Tx ${txid} in getTransactionStatus() of ${utils.getModuleName()} module. ${tx.errorMessage}.`);
+			log.warn(`Failed to get Tx ${txid} in getTransactionStatus() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
 		}
 	},
 	async updateBalance() {
@@ -44,7 +44,7 @@ module.exports = {
 		if (account.success) {
 			User.balance = account.data.account.balance / SAT
 		} else {
-			log.warn(`Failed to get account info in updateBalance() of ${utils.getModuleName()} module. ${account.errorMessage}.`);
+			log.warn(`Failed to get account info in updateBalance() of ${utils.getModuleName(module.id)} module. ${account.errorMessage}.`);
 		}
 	},
 	async send(params) {
@@ -56,7 +56,7 @@ module.exports = {
 				hash: payment.data.transactionId
 			};
 		} else {
-			log.warn(`Failed to send ${value} ADM to ${address} with comment ${comment} in send() of ${utils.getModuleName()} module. ${account.errorMessage}.`);
+			log.warn(`Failed to send ${value} ADM to ${address} with comment ${comment} in send() of ${utils.getModuleName(module.id)} module. ${account.errorMessage}.`);
 			return {
 				success: false
 			};

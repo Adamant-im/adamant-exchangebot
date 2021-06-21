@@ -17,14 +17,14 @@ async function check() {
 		if (txChat.success) {
 			txs = txs.concat(txChat.data.transactions);
 		} else {
-			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName()} module. ${txChat.errorMessage}.`);
+			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName(module.id)} module. ${txChat.errorMessage}.`);
 		}
 
 		const txTrx = await api.get('transactions', { fromHeight: Store.lastHeight - 5, 'and:recipientId': config.address, 'and:type': 0 });
 		if (txTrx.success) {
 			txs = txs.concat(txTrx.data.transactions);
 		} else {
-			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName()} module. ${txTrx.errorMessage}.`);
+			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);
 		}
 
 		txs.forEach(tx => {

@@ -45,7 +45,7 @@ module.exports = {
 		if (blocks.success) {
 			this.updateSystem('lastBlock', blocks.data.blocks[0]);
 		} else {
-			log.warn(`Failed to get last block in updateLastBlock() of ${utils.getModuleName()} module. ${blocks.errorMessage}.`);
+			log.warn(`Failed to get last block in updateLastBlock() of ${utils.getModuleName(module.id)} module. ${blocks.errorMessage}.`);
 		}
 	},
 	async updateCurrencies() {
@@ -55,13 +55,13 @@ module.exports = {
 				return response.data && response.data.result ? response.data.result : undefined
       })
       .catch(function (error) {
-				logger.warn(`Error in updateCurrencies() of ${utils.getModuleName()} module: Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
+				logger.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
 			});
 		
 		if (data) {
 			this.currencies = data;
 		} else {
-			logger.warn(`Error in updateCurrencies() of ${utils.getModuleName()} module: Request to ${url} returned empty result.`);
+			logger.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} returned empty result.`);
 		}
 
 	},

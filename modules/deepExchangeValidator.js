@@ -138,7 +138,7 @@ setInterval(async ()=>{
 			module.exports(pay, tx.data.transaction);
 		} else {
 			module.exports(pay, null);
-			log.warn(`Failed to get Tx ${pay.admTxId} info in setInterval() of ${utils.getModuleName()} module. ${tx.errorMessage}.`);
+			log.warn(`Failed to get Tx ${pay.admTxId} info in setInterval() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
 		}
 	});
 }, 60 * 1000);

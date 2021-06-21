@@ -82,6 +82,8 @@ module.exports = {
   },
 
   getModuleName(id) {
+    if (!id)
+      return '';
     let n = id.lastIndexOf("\\");
     if (n === -1)
       n = id.lastIndexOf("/");
