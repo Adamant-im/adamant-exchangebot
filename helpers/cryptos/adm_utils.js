@@ -49,7 +49,7 @@ module.exports = {
 	},
 	async send(params) {
 		const { address, value, comment } = params;
-		let payment = await api.sendMessage(config.passPhrase, address, comment, 'rich', value);
+		let payment = await api.sendMessage(config.passPhrase, address, comment, 'basic', value);
 		if (payment.success) {
 			return {
 				success: payment.data.success,
