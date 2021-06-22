@@ -1,15 +1,14 @@
 const db = require('./DB');
 const log = require('../helpers/log');
-const exchangerUtils = require('../helpers/cryptos/exchanger');
+const notify = require('../helpers/notify');
 const utils = require('../helpers/utils');
 const api = require('./api');
 const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
-const notify = require('../helpers/notify');
 
-const processedTxs = { }; // cache for processed transactions
+const processedTxs = {}; // cache for processed transactions
 
 module.exports = async (tx) => {
 
@@ -20,38 +19,36 @@ module.exports = async (tx) => {
 	if (processedTxs[tx.id]) {
 		return;
 	}
-
-	const {incomingTxsDb} = db;
-	const checkedTx = await incomingTxsDb.findOne({txid: tx.id});
+	const { incomingTxsDb } = db;
+	const checkedTx = await incomingTxsDb.findOne({ txid: tx.id });
 	if (checkedTx !== null) {
 		return;
 	};
 
-	log.info(`New incoming transaction: ${tx.id}`);
-	let msg = '';
-	console.log('tx', tx)
-	const chat = tx.asset.chat;
-	if (chat){
-		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
-	}
+	log.log(`Processing new incoming transaction ${tx.id} from ${tx.recipientId}…`);
 
-	if (msg === '') {
-		msg = 'NONE';
+	let decryptedMessage = '';
+	const chat = tx.asset ? tx.asset.chat : '';
+	if (chat) {
+		decryptedMessage = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 	}
-
+	if (decryptedMessage === '') {
+		decryptedMessage = 'NONE';
+	}
 
 	let messageDirective = 'unknown';
-	if (msg.includes('_transaction') || tx.amount > 0) {
+	if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
 		messageDirective = 'exchange';
-	} else if (msg.startsWith('/')){
+	} else if (decryptedMessage.startsWith('/')) {
 		messageDirective = 'command';
 	}
 
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
 		senderId: tx.senderId,
 		isSpam: true,
-		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
+		date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
 	});
+
 	const itx = new incomingTxsDb({
 		_id: tx.id,
 		txid: tx.id,
@@ -60,13 +57,13 @@ module.exports = async (tx) => {
 		amount: tx.amount,
 		fee: tx.fee,
 		type: tx.type,
-		encrypted_content: msg,
-		spam: false,
 		senderId: tx.senderId,
 		senderPublicKey: tx.senderPublicKey,
 		recipientId: tx.recipientId, // it is me!
 		recipientPublicKey: tx.recipientPublicKey,
 		messageDirective, // command, exchange or unknown
+		decryptedMessage,
+		spam: false,
 		isProcessed: false,
 		// these will be undefined, when we get Tx via socket. Actually we don't need them, store them for a reference
 		blockId: tx.blockId,
@@ -78,15 +75,17 @@ module.exports = async (tx) => {
 		receivedAt: tx.receivedAt
 	});
 
-	if (msg.toLowerCase().trim() === 'deposit') {
-		itx.update({isProcessed: true}, true);
+	if (decryptedMessage.toLowerCase() === 'deposit') {
+		itx.update({ isProcessed: true }, true);
 		processedTxs[tx.id] = utils.unix();
+		api.sendMessage(config.passPhrase, tx.senderPublicKey, `I've got a top-up transfer from you. Thanks, bro.`);
+		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'info');	
 		return;
 	}
 
 	const countRequestsUser = (await incomingTxsDb.find({
 		senderId: tx.senderId,
-		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
+		date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
 	})).length;
 
 	if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
@@ -97,9 +96,6 @@ module.exports = async (tx) => {
 	}
 
 	await itx.save();
-	if (processedTxs[tx.id]) {
-		return;
-	}
 	processedTxs[tx.id] = utils.unix();
 
 	if (itx.isSpam && !spamerIsNotyfy) {
@@ -109,14 +105,15 @@ module.exports = async (tx) => {
 	}
 
 	switch (messageDirective) {
-	case ('exchange'):
-		exchangeTxs(itx, tx);
-		break;
-	case ('command'):
-		commandTxs(msg, tx, itx);
-		break;
-	default:
-		unknownTxs(tx, itx);
-		break;
+		case ('exchange'):
+			exchangeTxs(itx, tx);
+			break;
+		case ('command'):
+			commandTxs(decryptedMessage, tx, itx);
+			break;
+		default:
+			unknownTxs(tx, itx);
+			break;
 	}
+
 };

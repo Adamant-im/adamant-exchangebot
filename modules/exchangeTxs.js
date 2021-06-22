@@ -12,7 +12,7 @@ const api = require('./api');
 
 module.exports = async (itx, tx) => {
 	const {paymentsDb} = db;
-	const msg = itx.encrypted_content;
+	const msg = itx.decryptedMessage;
 	let inCurrency,
 		outCurrency,
 		inTxid,
