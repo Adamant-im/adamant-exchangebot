@@ -9,7 +9,7 @@ module.exports = async (tx, itx) => {
 	incomingTxsDb.db
 		.find({
 			senderId: tx.senderId,
-			type: 'unknown',
+			messageDirective: 'unknown',
 			date: {$gt: (utils.unix() - 24 * 3600 * 1000)}, // last 24h
 		}).sort({date: -1}).toArray((err, docs) => {
 			const twoHoursAgo = utils.unix() - 2 * 3600 * 1000;

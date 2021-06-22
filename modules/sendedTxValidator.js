@@ -30,7 +30,7 @@ module.exports = async () => {
 
 		pay.tryCounterCheckOutTX = ++pay.tryCounterCheckOutTX || 0;
 		
-		let type,
+		let direction,
 			sendCurrency,
 			sendTxId,
 			sendAmount,
@@ -38,12 +38,12 @@ module.exports = async () => {
 			notifyType;
 
 		if (pay.outTxid){
-			type = 'exchange';
+			direction = 'exchange';
 			sendCurrency = outCurrency;
 			sendTxId = pay.outTxid;
 			sendAmount = outAmount;
 		} else {
-			type = 'back';
+			direction = 'back';
 			sendCurrency = inCurrency;
 			sendTxId = pay.sentBackTx;
 			sendAmount = sentBackAmount;
@@ -71,12 +71,12 @@ module.exports = async () => {
 						isFinished: true,
 						needHumanCheck: true
 					});
-					if (type === 'exchange') {
+					if (direction === 'exchange') {
 						notifyType = 'error';
 						msgNotify = `${config.notifyName} unable to verify exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 						msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 	
-					} else { // type === 'back'
+					} else { // direction === 'back'
 						notifyType = 'error';
 						msgNotify = `${config.notifyName} unable to verify sent back of _${inAmountMessage} ${inCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${Store.user[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 						msgSendBack = `I’ve tried to send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
@@ -101,7 +101,7 @@ module.exports = async () => {
 
 			if (status === false) {
 				notifyType = 'error';
-				if (type === 'exchange') {
+				if (direction === 'exchange') {
 					pay.update({
 						errorValidatorSend: 21,
 						outTxid: null
@@ -124,12 +124,12 @@ module.exports = async () => {
 
 			} else if (status && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]){
 
-				if (type === 'exchange') {
+				if (direction === 'exchange') {
 					notifyType = 'info';
 					msgNotify = `${config.notifyName} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 					msgSendBack = 'Done! Thank you for business. Hope to see you again.';
 
-				} else { // type === 'back'
+				} else { // direction === 'back'
 					notifyType = 'log';
 					msgNotify = `${config.notifyName} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
 					msgSendBack = 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!';
@@ -148,7 +148,7 @@ module.exports = async () => {
 				notify(msgNotify, notifyType);
 			}
 		} catch (e) {
-			log.error('Error in sendedTxValidator module ', {type, sendAmount, sendCurrency, sendTxId}, e);
+			log.error('Error in sendedTxValidator module ', {direction, sendAmount, sendCurrency, sendTxId}, e);
 		}
 	});
 

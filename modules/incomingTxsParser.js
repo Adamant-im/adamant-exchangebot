@@ -40,11 +40,11 @@ module.exports = async (tx) => {
 	}
 
 
-	let type = 'unknown';
+	let messageDirective = 'unknown';
 	if (msg.includes('_transaction') || tx.amount > 0) {
-		type = 'exchange';
+		messageDirective = 'exchange';
 	} else if (msg.startsWith('/')){
-		type = 'command';
+		messageDirective = 'command';
 	}
 
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
@@ -56,12 +56,26 @@ module.exports = async (tx) => {
 		_id: tx.id,
 		txid: tx.id,
 		date: utils.unix(),
-		blockId: tx.blockId,
+		timestamp: tx.timestamp,
+		amount: tx.amount,
+		fee: tx.fee,
+		type: tx.type,
 		encrypted_content: msg,
 		spam: false,
 		senderId: tx.senderId,
-		type, // command, exchange or unknown
-		isProcessed: false
+		senderPublicKey: tx.senderPublicKey,
+		recipientId: tx.recipientId, // it is me!
+		recipientPublicKey: tx.recipientPublicKey,
+		messageDirective, // command, exchange or unknown
+		isProcessed: false,
+		// these will be undefined, when we get Tx via socket. Actually we don't need them, store them for a reference
+		blockId: tx.blockId,
+		height: tx.height,
+		block_timestamp: tx.block_timestamp,
+		confirmations: tx.confirmations,
+		// these will be undefined, when we get Tx via REST
+		relays: tx.relays,
+		receivedAt: tx.receivedAt
 	});
 
 	if (msg.toLowerCase().trim() === 'deposit') {
@@ -94,7 +108,7 @@ module.exports = async (tx) => {
 		return;
 	}
 
-	switch (type) {
+	switch (messageDirective) {
 	case ('exchange'):
 		exchangeTxs(itx, tx);
 		break;
