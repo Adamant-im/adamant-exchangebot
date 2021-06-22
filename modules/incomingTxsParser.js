@@ -8,16 +8,16 @@ const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
 const notify = require('../helpers/notify');
-const Store = require('./Store');
 
-const historyTxs = {}; // catch saved txs. Defender duplicated TODO: clear uptime
+const processedTxs = { }; // cache for processed transactions
 
 module.exports = async (tx) => {
-	if (!tx){
+
+	if (!tx) {
 		return;
 	}
 
-	if (historyTxs[tx.id]) {
+	if (processedTxs[tx.id]) {
 		return;
 	}
 
@@ -26,8 +26,10 @@ module.exports = async (tx) => {
 	if (checkedTx !== null) {
 		return;
 	};
+
 	log.info(`New incoming transaction: ${tx.id}`);
 	let msg = '';
+	console.log('tx', tx)
 	const chat = tx.asset.chat;
 	if (chat){
 		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
@@ -46,7 +48,7 @@ module.exports = async (tx) => {
 	}
 
 	const spamerIsNotyfy = await incomingTxsDb.findOne({
-		sender: tx.senderId,
+		senderId: tx.senderId,
 		isSpam: true,
 		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
 	});
@@ -54,22 +56,22 @@ module.exports = async (tx) => {
 		_id: tx.id,
 		txid: tx.id,
 		date: utils.unix(),
-		block_id: tx.blockId,
+		blockId: tx.blockId,
 		encrypted_content: msg,
 		spam: false,
-		sender: tx.senderId,
+		senderId: tx.senderId,
 		type, // command, exchange or unknown
 		isProcessed: false
 	});
 
 	if (msg.toLowerCase().trim() === 'deposit') {
 		itx.update({isProcessed: true}, true);
-		historyTxs[tx.id] = utils.unix();
+		processedTxs[tx.id] = utils.unix();
 		return;
 	}
 
 	const countRequestsUser = (await incomingTxsDb.find({
-		sender: tx.senderId,
+		senderId: tx.senderId,
 		date: {$gt: (utils.unix() - 24 * 3600 * 1000)} // last 24h
 	})).length;
 
@@ -81,10 +83,10 @@ module.exports = async (tx) => {
 	}
 
 	await itx.save();
-	if (historyTxs[tx.id]) {
+	if (processedTxs[tx.id]) {
 		return;
 	}
-	historyTxs[tx.id] = utils.unix();
+	processedTxs[tx.id] = utils.unix();
 
 	if (itx.isSpam && !spamerIsNotyfy) {
 		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');

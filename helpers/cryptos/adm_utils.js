@@ -20,10 +20,10 @@ module.exports = new class admCoin extends baseCoin {
 
 	syncGetTransaction(hash, tx){
 		return {
-			blockNumber: tx.blockId,
+			blockId: tx.blockId,
 			hash: tx.id,
-			sender: tx.senderId,
-			recipient: tx.recipientId,
+			senderId: tx.senderId,
+			recipientId: tx.recipientId,
 			amount: +(tx.amount / SAT).toFixed(8)
 		};
 	}
@@ -51,7 +51,7 @@ module.exports = new class admCoin extends baseCoin {
 		const tx = await api.get('transactions/get', { id: txid });
 		if (tx.success) {
 			return {
-				blockNumber: tx.data.transaction.height,
+				blockId: tx.data.transaction.height,
 				status: true
 			};
 		} else {

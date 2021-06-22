@@ -22,6 +22,7 @@ async function check() {
 
 		const txTrx = await api.get('transactions', { fromHeight: Store.lastHeight - 5, 'and:recipientId': config.address, 'and:type': 0 });
 		if (txTrx.success) {
+			console.log(txTrx.data.transactions);
 			txs = txs.concat(txTrx.data.transactions);
 		} else {
 			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);

@@ -32,10 +32,10 @@ module.exports = new class ethCoin extends baseCoin {
 					resolve(null);
 				} else {
 					resolve({
-						blockNumber: tx.blockNumber,
+						blockId: tx.blockNumber,
 						hash: tx.hash,
-						sender: tx.from,
-						recipient: tx.to,
+						senderId: tx.from,
+						recipientId: tx.to,
 						amount: +(tx.value / ethSat).toFixed(8)
 					});
 				}
@@ -51,7 +51,7 @@ module.exports = new class ethCoin extends baseCoin {
 					resolve(null);
 				} else {
 					resolve({
-						blockNumber: tx.blockNumber,
+						blockId: tx.blockNumber,
 						status: tx.status
 					});
 				}

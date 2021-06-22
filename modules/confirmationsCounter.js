@@ -36,14 +36,14 @@ module.exports = async () => {
 				return;
 			}
 			const txData = (await exchangerUtils[inCurrency].getTransactionStatus(inTxid));
-			if (!txData || !txData.blockNumber){
+			if (!txData || !txData.blockId){
 				return;
 			}
-			const {status, blockNumber} = txData;
+			const {status, blockId} = txData;
 
 			pay.update({
 				inTxStatus: status,
-				inConfirmations: lastBlockHeight - blockNumber
+				inConfirmations: lastBlockHeight - blockId
 			});
 			if (status === false){
 				pay.update({

@@ -54,10 +54,10 @@ class erc20coin {
 					}
 					const info = tx.logs[0];
 					resolve({
-						blockNumber: tx.blockNumber,
+						blockId: tx.blockNumber,
 						hash: hash,
-						sender: tx.from,
-						recipient: info.topics[2].replace('000000000000000000000000', ''),
+						senderId: tx.from,
+						recipientId: info.topics[2].replace('000000000000000000000000', ''),
 						contract: tx.to,
 						amount: +info.data / this.model.sat
 					});

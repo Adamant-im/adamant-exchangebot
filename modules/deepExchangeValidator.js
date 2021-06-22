@@ -74,28 +74,28 @@ module.exports = async (pay, tx) => {
 				msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
 			} else {
 				pay.update({
-					sender: in_tx.sender,
-					recipient: in_tx.recipient,
+					senderId: in_tx.senderId,
+					recipientId: in_tx.recipientId,
 					inAmountReal: in_tx.amount
 				});
 
-				if (String(pay.sender).toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
+				if (String(pay.senderId).toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
 						error: 11
 					});
 					notifyType = 'warn';
-					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.sender}_.`;
+					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.senderId}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-				} else if (String(pay.recipient).toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
+				} else if (String(pay.recipientId).toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
 						error: 12
 					});
 					notifyType = 'warn';
-					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipient}_.`;
+					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipientId}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
