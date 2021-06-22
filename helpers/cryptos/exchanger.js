@@ -47,8 +47,8 @@ module.exports = {
 	},
 	async getLastBlocksNumbers() {
 		const data = {
-			ETH: await this.ETH.getLastBlock(),
-			ADM: await this.ADM.getLastBlock(),
+			ETH: await this.ETH.getLastBlockHeight(),
+			ADM: await this.ADM.getLastBlockHeight(),
 		};
 		for (const t of config.erc20) { 
 			// data[t] = await this[t].getLastBlock(); // Don't do unnecessary requests

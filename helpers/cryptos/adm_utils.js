@@ -6,11 +6,18 @@ const config = require('../../modules/configReader');
 const utils = require('../utils');
 const User = Store.user.ADM;
 
-module.exports = {
+const baseCoin = require('./baseCoin');
+module.exports = new class admCoin extends baseCoin {
 
+	constructor () {
+    super()
+		this.cache.lastBlock = { lifetime: 5000 };
+  }
+	
 	get FEE() {
 		return Store.comissions.ADM;
-	},
+	}
+
 	syncGetTransaction(hash, tx){
 		return {
 			blockNumber: tx.blockId,
@@ -19,15 +26,28 @@ module.exports = {
 			recipient: tx.recipientId,
 			amount: +(tx.amount / SAT).toFixed(8)
 		};
-	},
+	}
+
 	async getLastBlock() {
+		let cached = this.cache.getData('lastBlock');
+		if (cached) {
+			console.log('cached adm!');
+			return cached;
+		}
 		const blocks = await api.get('blocks', { limit: 1 });
 		if (blocks.success) {
-			return blocks.data.blocks[0].height
+			this.cache.cacheData('lastBlock', blocks.data.blocks[0]);
+			return blocks.data.blocks[0]
 		} else {
 			log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. ${blocks.errorMessage}.`);
 		}
-	},
+	}
+
+	async getLastBlockHeight() {
+		const block = await this.getLastBlock();
+		return block ? block.height : undefined;
+	}
+
 	async getTransactionStatus(txid) {
 		const tx = await api.get('transactions/get', { id: txid });
 		if (tx.success) {
@@ -38,7 +58,8 @@ module.exports = {
 		} else {
 			log.warn(`Failed to get Tx ${txid} in getTransactionStatus() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
 		}
-	},
+	}
+
 	async updateBalance() {
 		const account = await api.get('accounts', { address: config.address });
 		if (account.success) {
@@ -46,7 +67,8 @@ module.exports = {
 		} else {
 			log.warn(`Failed to get account info in updateBalance() of ${utils.getModuleName(module.id)} module. ${account.errorMessage}.`);
 		}
-	},
+	}
+
 	async send(params) {
 		const { address, value, comment } = params;
 		let payment = await api.sendMessage(config.passPhrase, address, comment, 'basic', value);
@@ -56,7 +78,7 @@ module.exports = {
 				hash: payment.data.transactionId
 			};
 		} else {
-			log.warn(`Failed to send ${value} ADM to ${address} with comment ${comment} in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`);
+			log.warn(`Failed to send ${value} ADM to ${address} with comment '${comment}' in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`);
 			return {
 				success: false
 			};

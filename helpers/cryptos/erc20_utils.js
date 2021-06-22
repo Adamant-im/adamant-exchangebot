@@ -5,7 +5,9 @@ const config = require('./../../modules/configReader');
 const eth = require('./eth_utils');
 const exchangerUtils = require('./exchanger');
 
-class erc20 {
+const baseCoin = require('./baseCoin');
+class erc20coin {
+
 	constructor(token) {
 		this.token = token;
 		this.model = models[token];
@@ -36,6 +38,10 @@ class erc20 {
 
 	async getLastBlock() {
 		return await eth.getLastBlock();
+	}
+
+	async getLastBlockHeight() {
+		return await eth.getLastBlockHeight();
 	}
 
 	async syncGetTransaction(hash) {
@@ -298,5 +304,5 @@ const abiArray = [{
 }];
 
 config.erc20.forEach(async t=> { // Create all of ERC-20 tokens
-	new erc20(t);
+	new erc20coin(t);
 });

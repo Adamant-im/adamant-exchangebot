@@ -16,7 +16,14 @@ const privateKey = Buffer.from(
 );
 
 Store.web3 = eth;
-module.exports = {
+
+const baseCoin = require('./baseCoin');
+module.exports = new class ethCoin extends baseCoin {
+
+	constructor () {
+    super()
+		this.cache.lastBlock = { lifetime: 10000 };
+  }
 	syncGetTransaction(hash) {
 		return new Promise(resolve => {
 			eth.getTransaction(hash, (err, tx) => {
@@ -35,7 +42,7 @@ module.exports = {
 				log.warn(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
 			});
 		});
-	},
+	}
 	getTransactionStatus(hash) {
 		return new Promise(resolve => {
 			eth.getTransactionReceipt(hash, (err, tx) => {
@@ -51,20 +58,31 @@ module.exports = {
 				log.error(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
 			});
 		});
-	},
+	}
+
 	getLastBlock() {
+		let cached = this.cache.getData('lastBlock');
+		if (cached) {
+			console.log('cached eth!');
+			return cached;
+		}
 		return new Promise(resolve => {
 			eth.getBlock('latest').then(block => {
 				if (block) {
-					resolve(block.number);
-				} else {
-					resolve(null);
+					this.cache.cacheData('lastBlock', block);
+					resolve(block);
 				}
-			}).catch(e=>{
-				log.error('Error while getting ETH last block: ' + e);
+			}).catch(e => {
+				log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Error: ` + e);
 			});
 		});
-	},
+	}
+
+	async getLastBlockHeight() {
+		const block = await this.getLastBlock();
+		return block ? block.number : undefined;
+	}
+
 	updateGasPrice() {
 		return new Promise(resolve => {
 			eth.getGasPrice().then(price => {
@@ -76,7 +94,8 @@ module.exports = {
 				log.error('Error while updating Ether gas price: ' + e);
 			});
 		});
-	},
+	}
+
 	updateBalance(){
 		eth.getBalance(User.address).then(balance => {
 			if (balance){
@@ -85,10 +104,12 @@ module.exports = {
 		}).catch(e=>{
 			log.error('Error while updating ETH balance: ' + e);
 		});
-	},
+	}
+
 	get FEE() {
 		return this.gasPrice * 22000 / ethSat * 2;
-	},
+	}
+
 	getNonce() {
 		return new Promise(resolve => {
 			eth.getTransactionCount(User.address).then(nonce => {
@@ -101,7 +122,8 @@ module.exports = {
 				}, 2000);
 			});
 		});
-	},
+	}
+
 	async send(params, contract) {
 		try {
 			const txParams = {
@@ -141,8 +163,10 @@ module.exports = {
 		} catch (e) {
 			log.error('Error while executing Ethereum transaction: ' + e);
 		}
-	},
-	lastNonce: 0,
+	}
+
+	lastNonce = 0
+
 };
 
 // Init
