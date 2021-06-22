@@ -13,7 +13,7 @@ module.exports = new class admCoin extends baseCoin {
     super()
 		this.cache.lastBlock = { lifetime: 5000 };
   }
-	
+
 	get FEE() {
 		return Store.comissions.ADM;
 	}
@@ -31,7 +31,6 @@ module.exports = new class admCoin extends baseCoin {
 	async getLastBlock() {
 		let cached = this.cache.getData('lastBlock');
 		if (cached) {
-			console.log('cached adm!');
 			return cached;
 		}
 		const blocks = await api.get('blocks', { limit: 1 });

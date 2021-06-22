@@ -5,11 +5,11 @@ const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const api = require('./api');
+const utils = require('../helpers/utils');
 
 module.exports = async () => {
-	const {paymentsDb} = db;
-	const lastBlockNumber = await exchangerUtils.getLastBlocksNumbers();
 
+	const { paymentsDb } = db;
 	(await paymentsDb.find({
 		$and: [
 			{isFinished: false},
@@ -57,8 +57,9 @@ module.exports = async () => {
 				etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
 			}
 
-			if (!lastBlockNumber[sendCurrency]) {
-				log.warn('Cannot get lastBlockNumber for ' + sendCurrency + '. Waiting for next try.');
+			const lastBlockHeight = await exchangerUtils[sendCurrency].getLastBlockHeight();
+			if (!lastBlockHeight) {
+				log.warn(`Unable get last block height for ${sendCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 				return;
 			}
 
@@ -95,7 +96,7 @@ module.exports = async () => {
 
 			pay.update({
 				outTxStatus: status,
-				outConfirmations: lastBlockNumber[sendCurrency] - blockNumber
+				outConfirmations: lastBlockHeight - blockNumber
 			});
 
 			if (status === false) {

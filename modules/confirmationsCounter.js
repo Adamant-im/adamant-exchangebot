@@ -1,15 +1,14 @@
 const db = require('./DB');
 const config = require('./configReader');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
-const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const api = require('./api');
+const utils = require('../helpers/utils');
 
 module.exports = async () => {
-	const {paymentsDb} = db;
-	const lastBlockNumber = await exchangerUtils.getLastBlocksNumbers();
 
+	const { paymentsDb } = db;
 	(await paymentsDb.find({
 		transactionIsValid: true,
 		isFinished: false,
@@ -31,8 +30,9 @@ module.exports = async () => {
 				return;
 			}
 
-			if (!lastBlockNumber[inCurrency]){
-				log.warn('Cannot get lastBlockNumber for ' + inCurrency + '. Waiting for next try.');
+			const lastBlockHeight = await exchangerUtils[inCurrency].getLastBlockHeight();
+			if (!lastBlockHeight) {
+				log.warn(`Unable to get last block height for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 				return;
 			}
 			const txData = (await exchangerUtils[inCurrency].getTransactionStatus(inTxid));
@@ -43,7 +43,7 @@ module.exports = async () => {
 
 			pay.update({
 				inTxStatus: status,
-				inConfirmations: lastBlockNumber[inCurrency] - blockNumber
+				inConfirmations: lastBlockHeight - blockNumber
 			});
 			if (status === false){
 				pay.update({
@@ -60,12 +60,14 @@ module.exports = async () => {
 				notify(msgNotify, 'error');
 				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
 			}
+
 		} catch (e) {
 			log.error('Error in ConformationsCounter module: ' + e);
 		}
 	});
 
 };
+
 setInterval(() => {
 	module.exports();
 }, 10 * 1000);

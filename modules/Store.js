@@ -5,6 +5,7 @@ const api = require('./api');
 const {version} = require('../package.json');
 const config = require('./configReader');
 const axios = require('axios');
+const utils = require('../helpers/utils');
 
 // ADM data
 const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
@@ -55,13 +56,13 @@ module.exports = {
 				return response.data && response.data.result ? response.data.result : undefined
       })
       .catch(function (error) {
-				logger.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
+				log.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
 			});
 		
 		if (data) {
 			this.currencies = data;
 		} else {
-			logger.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} returned empty result.`);
+			log.warn(`Error in updateCurrencies() of ${utils.getModuleName(module.id)} module: Request to ${url} returned empty result.`);
 		}
 
 	},

@@ -2,6 +2,7 @@ const config = require('../../modules/configReader');
 const log = require('../log');
 const Eth = require('web3-eth');
 const ethUtils = require('web3-utils');
+const utils = require('../utils');
 const eth = new Eth(config.node_ETH[0]);// TODO: health check
 // const {eth} = eth;
 const Store = require('../../modules/Store');
@@ -63,7 +64,6 @@ module.exports = new class ethCoin extends baseCoin {
 	getLastBlock() {
 		let cached = this.cache.getData('lastBlock');
 		if (cached) {
-			console.log('cached eth!');
 			return cached;
 		}
 		return new Promise(resolve => {

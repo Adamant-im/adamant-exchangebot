@@ -5,6 +5,7 @@ const adm_utils = require('./adm_utils');
 const log = require('../log');
 const db = require('../../modules/DB');
 const Store = require('../../modules/Store');
+const utils = require('../utils');
 
 module.exports = {
 
@@ -44,17 +45,6 @@ module.exports = {
 				await this[t].updateBalance();
 			}
 		} catch (e){}
-	},
-	async getLastBlocksNumbers() {
-		const data = {
-			ETH: await this.ETH.getLastBlockHeight(),
-			ADM: await this.ADM.getLastBlockHeight(),
-		};
-		for (const t of config.erc20) { 
-			// data[t] = await this[t].getLastBlock(); // Don't do unnecessary requests
-			data[t] = data['ETH'];
-		}
-		return data;
 	},
 	isKnown(coin) {
 		return config.known_crypto.includes(coin);
