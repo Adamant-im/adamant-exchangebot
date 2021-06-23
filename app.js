@@ -27,16 +27,8 @@ function init() {
 			db.paymentsDb.db.drop();
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
-
-			db.systemDb.findOne().then(system => {
-				if (system) {
-					Store.lastBlock = system.lastBlock;
-				} else { // if 1st start
-					Store.updateLastBlock();
-				}
-				checker();
-				notify(`*${config.notifyName} started* for address _${Store.user.ADM.address}_ (ver. ${Store.version}).`, 'info');
-			});
+			checker();
+			notify(`*${config.notifyName} started* for address _${Store.user.ADM.address}_ (ver. ${Store.version}).`, 'info');
 		}
 
 	} catch (e) {

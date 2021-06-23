@@ -7,25 +7,29 @@ const config = require('./configReader');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
+const Store = require('./Store');
 
 const processedTxs = {}; // cache for processed transactions
 
 module.exports = async (tx) => {
 
-	if (!tx) {
-		return;
-	}
-
+	// do not process one Tx twice: first check in cache, then check in DB
 	if (processedTxs[tx.id]) {
+		if (!processedTxs[tx.id].height) {
+			await updateProcessedTx(tx, null, true); // update height of Tx and last processed block
+		}
 		return;
 	}
 	const { incomingTxsDb } = db;
-	const checkedTx = await incomingTxsDb.findOne({ txid: tx.id });
-	if (checkedTx !== null) {
+	const knownTx = await incomingTxsDb.findOne({ txid: tx.id });
+	if (knownTx !== null) {
+		if (!knownTx.height || !processedTxs[tx.id]) {
+			await updateProcessedTx(tx, knownTx, knownTx.height && processedTxs[tx.id]); // update height of Tx and last processed block
+		}
 		return;
 	};
 
-	log.log(`Processing new incoming transaction ${tx.id} from ${tx.recipientId}…`);
+	log.log(`Processing new incoming transaction ${tx.id} from ${tx.recipientId} via ${tx.height ? 'REST' : 'socket'}…`);
 
 	let decryptedMessage = '';
 	const chat = tx.asset ? tx.asset.chat : '';
@@ -76,8 +80,8 @@ module.exports = async (tx) => {
 	});
 
 	if (decryptedMessage.toLowerCase() === 'deposit') {
-		itx.update({ isProcessed: true }, true);
-		processedTxs[tx.id] = utils.unix();
+		await itx.update({ isProcessed: true }, true);
+		await updateProcessedTx(tx, itx, false);
 		api.sendMessage(config.passPhrase, tx.senderPublicKey, `I've got a top-up transfer from you. Thanks, bro.`);
 		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'info');	
 		return;
@@ -89,14 +93,14 @@ module.exports = async (tx) => {
 	})).length;
 
 	if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
-		itx.update({
+		await itx.update({
 			isProcessed: true,
 			isSpam: true
 		});
 	}
 
 	await itx.save();
-	processedTxs[tx.id] = utils.unix();
+	await updateProcessedTx(tx, itx, false);
 
 	if (itx.isSpam && !spamerIsNotyfy) {
 		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
@@ -117,3 +121,27 @@ module.exports = async (tx) => {
 	}
 
 };
+
+async function updateProcessedTx(tx, itx, updateDb) {
+
+	processedTxs[tx.id] = {
+		updated: utils.unix(),
+		height: tx.height
+	}
+
+	if (updateDb && !itx) {
+		itx = await db.incomingTxsDb.findOne({ txid: tx.id });
+	}
+
+	if (updateDb && itx) {
+		await itx.update({
+			blockId: tx.blockId,
+			height: tx.height,
+			block_timestamp: tx.block_timestamp,
+			confirmations: tx.confirmations
+		}, true);
+	}
+	
+	await Store.updateLastProcessedBlockHeight(tx.height);
+
+}

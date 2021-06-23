@@ -30,23 +30,43 @@ module.exports = {
 	comissions: {
 		ADM: 0.5 // This is a stub. Ether fee returned with FEE() method in separate module
 	},
-	lastBlock: null,
-	get lastHeight() {
-		return this.lastBlock && this.lastBlock.height || false;
+
+	lastProcessedBlockHeight: undefined,
+	async getLastProcessedBlockHeight() {
+
+		const exchangerUtils = require('../helpers/cryptos/exchanger');
+		if (this.lastProcessedBlockHeight) {
+			return this.lastProcessedBlockHeight
+		}
+
+		// try to get lastProcessedBlockHeight from DB
+		const systemDbData = await db.systemDb.findOne();
+		if (systemDbData && systemDbData.lastProcessedBlockHeight) {
+			this.lastProcessedBlockHeight = systemDbData.lastProcessedBlockHeight;
+			return this.lastProcessedBlockHeight
+		}
+
+		// it seems we run for a first time
+		const lastBlock = await exchangerUtils.ADM.getLastBlockHeight();
+		if (lastBlock) {
+			await this.updateSystemDbField('lastProcessedBlockHeight', lastBlock);
+			return this.lastProcessedBlockHeight
+		}
+
+		log.warn(`Unable to store last ADM block in getLastProcessedBlockHeight() of ${utils.getModuleName(module.id)} module. Will try next time.`);
+
 	},
-	updateSystem(field, data) {
+	async updateSystemDbField(field, data) {
 		const $set = {};
 		$set[field] = data;
-		db.systemDb.db.updateOne({}, {$set}, {upsert: true});
+		await db.systemDb.db.updateOne({}, {$set}, {upsert: true});
 		this[field] = data;
 	},
-	async updateLastBlock() {
-		// TEMP
-		const blocks = await api.get('blocks', { limit: 1 });
-		if (blocks.success) {
-			this.updateSystem('lastBlock', blocks.data.blocks[0]);
-		} else {
-			log.warn(`Failed to get last block in updateLastBlock() of ${utils.getModuleName(module.id)} module. ${blocks.errorMessage}.`);
+	async updateLastProcessedBlockHeight(height) {
+		if (height) {
+			if (!this.lastProcessedBlockHeight || height > this.lastProcessedBlockHeight) {
+				await this.updateSystemDbField('lastProcessedBlockHeight', height);
+			}
 		}
 	},
 	async updateCurrencies() {

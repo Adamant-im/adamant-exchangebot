@@ -6,40 +6,38 @@ const config = require('./configReader');
 const utils = require('../helpers/utils')
 
 async function check() {
+
 	try {
 
-		if (!Store.lastHeight) {
+		const lastProcessedBlockHeight = await Store.getLastProcessedBlockHeight();
+		if (!lastProcessedBlockHeight) {
+			log.warn(`Unable to get last processed ADM block in check() of ${utils.getModuleName(module.id)} module. Will try next time.`);
 			return;
 		}
 
-		let txs = [];
-		const txChat = await api.get('chats/get', { recipientId: config.address, orderBy: 'timestamp:desc', fromHeight: Store.lastHeight - 5 });
-		if (txChat.success) {
-			txs = txs.concat(txChat.data.transactions);
-		} else {
-			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName(module.id)} module. ${txChat.errorMessage}.`);
+		const queryParams = {
+			'and:recipientId': config.address, // get only Txs for the bot
+			'and:types': '2,8', // get direct transfers and messages
+			'and:fromHeight': lastProcessedBlockHeight + 1, // from current height if the first run, or from the last processed block
+			returnAsset: '1', // get messages' contents
+			orderBy: 'timestamp:desc' // latest Txs
 		}
 
-		const txTrx = await api.get('transactions', { fromHeight: Store.lastHeight - 5, 'and:recipientId': config.address, 'and:type': 0 });
+		const txTrx = await api.get('transactions', queryParams);
 		if (txTrx.success) {
-			console.log(txTrx.data.transactions);
-			txs = txs.concat(txTrx.data.transactions);
+			for (const tx of txTrx.data.transactions) {
+				await txParser(tx);	
+			}
 		} else {
-			log.warn(`Failed to chat Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);
-		}
-
-		txs.forEach(tx => {
-			txParser(tx);
-		});
-		if (txChat.success && txTrx.success) {
-			Store.updateLastBlock();
+			log.warn(`Failed to get Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);
 		}
 
 	} catch (e) {
 		log.error('Error while checking new transactions: ' + e);
 	}
+
 }
 
 module.exports = () => {
-	setInterval(check, 2500);
+	setInterval(check, 3500);
 };
