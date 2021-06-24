@@ -304,5 +304,5 @@ const abiArray = [{
 }];
 
 config.erc20.forEach(async t=> { // Create all of ERC-20 tokens
-	new erc20coin(t);
+	// new erc20coin(t);
 });

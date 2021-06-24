@@ -39,13 +39,13 @@ module.exports = async () => {
 		let sentBackAmount;
 
 		if (exchangerUtils.isERC20(inCurrency)) {
-			etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
+			etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
 			sentBackAmount = +(inAmountReal - exchangerUtils[inCurrency].FEEinToken).toFixed(8);
-			isNotEnoughBalance = (sentBackAmount > Store.user[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > Store.user['ETH'].balance);
+			isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > exchangerUtils['ETH'].balance);
 		} else {
 			etherString = '';
 			sentBackAmount = +(inAmountReal - outFee).toFixed(8);
-			isNotEnoughBalance = sentBackAmount > Store.user[inCurrency].balance;
+			isNotEnoughBalance = sentBackAmount > exchangerUtils[inCurrency].balance;
 		}
 
 		const sentBackAmountUsd = Store.mathEqual(inCurrency, 'USD', sentBackAmount).outAmount;
@@ -64,7 +64,7 @@ module.exports = async () => {
 			msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
 		} else if (isNotEnoughBalance){
 			notifyType = 'error';
-			msgNotify = `${config.notifyName} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${Store.user[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
+			msgNotify = `${config.notifyName} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
 			msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			pay.update({
 				errorSendBack: 18,
@@ -82,10 +82,10 @@ module.exports = async () => {
 				pay.sentBackTx = result.hash;
 
 				if (exchangerUtils.isERC20(inCurrency)) {
-					Store.user[inCurrency].balance -= sentBackAmount;
-					Store.user['ETH'].balance -= outFee;
+					exchangerUtils[inCurrency].balance -= sentBackAmount;
+					exchangerUtils['ETH'].balance -= outFee;
 				} else {
-					Store.user[inCurrency].balance -= sentBackAmount;
+					exchangerUtils[inCurrency].balance -= sentBackAmount;
 				}
 
 				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
@@ -103,11 +103,11 @@ module.exports = async () => {
 				});
 				notifyType = 'error';
 				log.error(`Failed to send back of ${sentBackAmount} ${inCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
-				msgNotify = `${config.notifyName} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${Store.user[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
+				msgNotify = `${config.notifyName} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`;
 				msgSendBack = 'I’ve tried to send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
 			}
 		}
-		log.info(`[sendBack logs] Coin: ${inCurrency}, tx: ${pay.sentBackTx}, error: ${pay.errorSendBack}, balance: ${Store.user[inCurrency].balance}, fee: ${outFee}, amount: ${sentBackAmount}, eqUsd: ${sentBackAmountUsd}`);
+		log.info(`[sendBack logs] Coin: ${inCurrency}, tx: ${pay.sentBackTx}, error: ${pay.errorSendBack}, balance: ${exchangerUtils[inCurrency].balance}, fee: ${outFee}, amount: ${sentBackAmount}, eqUsd: ${sentBackAmountUsd}`);
 		pay.save();
 		if (msgNotify){
 			notify(msgNotify, notifyType);

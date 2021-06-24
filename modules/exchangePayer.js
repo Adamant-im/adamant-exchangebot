@@ -1,7 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
-const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const api = require('./api');
@@ -33,25 +32,25 @@ module.exports = async () => {
 			let isNotEnoughBalance;
 			
 			if (exchangerUtils.isERC20(outCurrency)) {
-				etherString = `Ether balance: ${Store.user['ETH'].balance}. `;
-				isNotEnoughBalance = (outAmount > Store.user[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > Store.user['ETH'].balance);
+				etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
+				isNotEnoughBalance = (outAmount > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
 			} else {
 				etherString = '';				
-				isNotEnoughBalance = outAmount + exchangerUtils[outCurrency].FEE > Store.user[outCurrency].balance;
+				isNotEnoughBalance = outAmount + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
 			}
 
 			if (isNotEnoughBalance) {
-				log.warn('needToSendBack, not enough balance for exchange', outCurrency, outAmount, Store.user[outCurrency].balance);
+				log.warn('needToSendBack, not enough balance for exchange', outCurrency, outAmount, exchangerUtils[outCurrency].balance);
 				pay.update({
 					error: 15,
 					needToSendBack: true
 				}, true);
-				notify(`${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
+				notify(`${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
 				api.sendMessage(config.passPhrase, pay.senderId, `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with **/balances** command. I will try to send transfer back to you.`);
 				return;
 			}
 
-			log.info(`Attempt number ${pay.counterSendExchange} to send exchange payment. Coin: ${outCurrency}, address: ${senderKvsOutAddress}, value: ${outAmount}, balance: ${Store.user[outCurrency].balance}`);
+			log.info(`Attempt number ${pay.counterSendExchange} to send exchange payment. Coin: ${outCurrency}, address: ${senderKvsOutAddress}, value: ${outAmount}, balance: ${exchangerUtils[outCurrency].balance}`);
 			const result = await exchangerUtils[outCurrency].send({
 				address: senderKvsOutAddress,
 				value: outAmount,
@@ -65,10 +64,10 @@ module.exports = async () => {
 				}, true);
 				// Update local balances without unnecessary requests
 				if (exchangerUtils.isERC20(outCurrency)) {
-					Store.user[outCurrency].balance -= outAmount;
-					Store.user['ETH'].balance -= exchangerUtils[outCurrency].FEE;
+					exchangerUtils[outCurrency].balance -= outAmount;
+					exchangerUtils['ETH'].balance -= exchangerUtils[outCurrency].FEE;
 				} else {
-					Store.user[outCurrency].balance -= (outAmount + exchangerUtils[outCurrency].FEE);
+					exchangerUtils[outCurrency].balance -= (outAmount + exchangerUtils[outCurrency].FEE);
 				}
 				log.info(`Successful exchange payment of ${outAmount} ${outCurrency}. Hash: ${result.hash}.`);
 			} else { // Can't make a transaction
@@ -81,7 +80,7 @@ module.exports = async () => {
 					needToSendBack: true,
 				}, true);
 				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
-				notify(`${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${Store.user[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'error');
+				notify(`${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'error');
 				api.sendMessage(config.passPhrase, pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send payment back to you.`);
 			}
 		});

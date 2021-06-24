@@ -185,13 +185,13 @@ async function test(arr, tx) {
 	let isNotEnoughBalance;
 	
 	if (exchangerUtils.isERC20(outCurrency)) {
-		isNotEnoughBalance = (result > Store.user[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > Store.user['ETH'].balance);
-		if (exchangerUtils[outCurrency].FEE > Store.user['ETH'].balance) {
+		isNotEnoughBalance = (result > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
+		if (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance) {
 			etherString = `Not enough Ether to pay fees. `;
 		}
 	} else {
 		etherString = '';				
-		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > Store.user[outCurrency].balance;
+		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
 	}
 
 
@@ -203,9 +203,9 @@ async function test(arr, tx) {
 }
 
 function balances() {
-	return config.exchange_crypto.reduce((str, c) => {
+	return config.exchange_crypto.reduce((str, crypto) => {
 		return str + `
-		${utils.thousandSeparator(+Store.user[c].balance.toFixed(8), true)} _${c}_`;
+		${utils.thousandSeparator(+exchangerUtils[crypto].balance.toFixed(8), true)} _${crypto}_`;
 	}, 'My crypto balances:');
 }
 

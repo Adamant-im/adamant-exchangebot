@@ -94,6 +94,7 @@ try {
 		exit(`Bot's config is wrong. Invalid passPhrase. Error: ${e}. Cannot start the Bot.`);
 	}
 	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
+	config.keysPair = keysPair;
 	config.publicKey = keysPair.publicKey.toString('hex');
 	config.address = address;
 

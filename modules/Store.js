@@ -16,17 +16,6 @@ const ethData = api.eth.keys(config.passPhrase);
 module.exports = {
 	version,
 	botName: AdmAddress,
-	user: {
-		ADM: {
-			passPhrase: config.passPhrase,
-			keysPair: AdmKeysPair,
-			address: AdmAddress
-		},
-		ETH: {
-			address: ethData.address,
-			privateKey: ethData.privateKey,
-		}
-	},
 
 	lastProcessedBlockHeight: undefined,
 	async getLastProcessedBlockHeight() {

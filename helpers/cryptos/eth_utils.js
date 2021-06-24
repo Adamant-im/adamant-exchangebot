@@ -1,5 +1,8 @@
 const config = require('../../modules/configReader');
 const log = require('../log');
+const api = require('../../modules/api');
+const constants = require('../const');
+
 const Eth = require('web3-eth');
 const ethUtils = require('web3-utils');
 const utils = require('../utils');
@@ -8,14 +11,6 @@ const eth = new Eth(config.node_ETH[0]);// TODO: health check
 const Store = require('../../modules/Store');
 // const EthereumTx = require('ethereumjs-tx').Transaction;
 const ethSat = 1000000000000000000;
-const User = Store.user.ETH;
-eth.defaultAccount = User.address;
-eth.defaultBlock = 'latest';
-const privateKey = Buffer.from(
-	User.privateKey.replace('0x', ''),
-	'hex',
-);
-
 Store.web3 = eth;
 
 const baseCoin = require('./baseCoin');
@@ -23,7 +18,16 @@ module.exports = new class ethCoin extends baseCoin {
 
 	constructor () {
     super()
+		this.token = 'ETH';
 		this.cache.lastBlock = { lifetime: 10000 };
+		this.cache.balance = { lifetime: 30000 };
+		this.account.keysPair = api.eth.keys(config.passPhrase);
+		this.account.address = this.account.keysPair.address;
+		this.account.privateKey = this.account.keysPair.privateKey;
+		this.account.privateKeyBuffer = Buffer.from(this.account.privateKey.replace('0x', ''), 'hex');
+		eth.defaultAccount = this.account.address;
+		eth.defaultBlock = 'latest';
+		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance.toFixed(constants.PRINT_DECIMALS)}`));
   }
 	syncGetTransaction(hash) {
 		return new Promise(resolve => {
@@ -83,6 +87,57 @@ module.exports = new class ethCoin extends baseCoin {
 		return block ? block.number : undefined;
 	}
 
+  /**
+   * Returns balance in ETH from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   */
+	async getBalance() {
+		try {
+
+			let cached = this.cache.getData('balance');
+			if (cached) {
+				return +ethUtils.fromWei(cached);
+			}
+			const balance = await eth.getBalance(this.account.address);
+			if (balance) {
+				this.cache.cacheData('balance', balance);
+				return +ethUtils.fromWei(balance);
+			} else {
+				log.warn(`Failed to get balance in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+				return +ethUtils.fromWei(cached);
+			}
+
+		} catch (e) {
+			log.warn(`Error while getting balance in getBalance() of ${utils.getModuleName(module.id)} module: ` + e);
+		}
+	}
+
+  /**
+   * Returns balance in ETH from cache. It may be outdated.
+   * @returns {Number} cached value; it may be undefined
+   */
+	get balance() {
+		try {
+			return +ethUtils.fromWei(this.cache.getData('balance'));
+		} catch (e) {
+			log.warn(`Error while getting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
+		}
+	}
+
+  /**
+   * Updates balance in ETH manually from cache. Useful when we don't want to wait for network update.
+	 * @param {Number} value New balance in ETH
+   */
+	set balance(value) {
+		try {
+			if (utils.isPositiveOrZeroNumber(value)) {
+				this.cache.cacheData('balance', ethUtils.toWei(String(value)));
+			}
+		} catch (e) {
+			log.warn(`Error setting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
+		}		
+	}
+
 	updateGasPrice() {
 		return new Promise(resolve => {
 			eth.getGasPrice().then(price => {
@@ -96,23 +151,13 @@ module.exports = new class ethCoin extends baseCoin {
 		});
 	}
 
-	updateBalance(){
-		eth.getBalance(User.address).then(balance => {
-			if (balance){
-				User.balance = balance / ethSat;
-			}
-		}).catch(e=>{
-			log.error('Error while updating ETH balance: ' + e);
-		});
-	}
-
 	get FEE() {
 		return this.gasPrice * 22000 / ethSat * 2;
 	}
 
 	getNonce() {
 		return new Promise(resolve => {
-			eth.getTransactionCount(User.address).then(nonce => {
+			eth.getTransactionCount(this.account.address).then(nonce => {
 				this.currentNonce = nonce;
 				resolve(nonce);
 			}).catch(e =>{
@@ -141,7 +186,7 @@ module.exports = new class ethCoin extends baseCoin {
 			}
 
 			// const tx = new EthereumTx(txParams);
-			// tx.sign(privateKey);
+			// tx.sign(this.account.privateKeyBuffer);
 			// const serializedTx = '0x' + tx.serialize().toString('hex');
 			// return new Promise(resolve => {
 			// 	eth.sendSignedTransaction(serializedTx)
@@ -171,7 +216,7 @@ module.exports = new class ethCoin extends baseCoin {
 
 // Init
 module.exports.updateGasPrice();
-module.exports.updateBalance();
+// module.exports.updateBalance();
 module.exports.getNonce();
 
 setInterval(() => {
@@ -179,5 +224,5 @@ setInterval(() => {
 }, 10 * 1000);
 
 setInterval(() => {
-	module.exports.updateBalance();
+	// module.exports.updateBalance();
 }, 60 * 1000);

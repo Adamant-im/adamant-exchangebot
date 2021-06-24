@@ -1,17 +1,22 @@
 const Store = require('../../modules/Store');
 const api = require('../../modules/api');
 const log = require('../../helpers/log');
-const {SAT} = require('../const');
+const constants = require('../const');
 const config = require('../../modules/configReader');
 const utils = require('../utils');
-const User = Store.user.ADM;
 
 const baseCoin = require('./baseCoin');
 module.exports = new class admCoin extends baseCoin {
 
 	constructor () {
     super()
+		this.token = 'ADM';
 		this.cache.lastBlock = { lifetime: 5000 };
+		this.cache.balance = { lifetime: 10000 };
+		this.account.passPhrase = config.passPhrase;
+		this.account.keysPair = config.keysPair;
+		this.account.address = config.address;
+		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance.toFixed(constants.PRINT_DECIMALS)}`));
   }
 
 	get FEE() {
@@ -24,10 +29,14 @@ module.exports = new class admCoin extends baseCoin {
 			hash: tx.id,
 			senderId: tx.senderId,
 			recipientId: tx.recipientId,
-			amount: +(tx.amount / SAT).toFixed(8)
+			amount: +(tx.amount / constants.SAT).toFixed(8)
 		};
 	}
 
+  /**
+   * Returns last block from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @returns {Object} or undefined, if unable to fetch data
+   */
 	async getLastBlock() {
 		let cached = this.cache.getData('lastBlock');
 		if (cached) {
@@ -42,9 +51,50 @@ module.exports = new class admCoin extends baseCoin {
 		}
 	}
 
+  /**
+   * Returns last block height from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @returns {Number} or undefined, if unable to fetch data
+   */
 	async getLastBlockHeight() {
 		const block = await this.getLastBlock();
 		return block ? block.height : undefined;
+	}
+
+  /**
+   * Returns balance in ADM from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   */
+	async getBalance() {
+		let cached = this.cache.getData('balance');
+		if (cached) {
+			return utils.satsToADM(cached);
+		}
+		const account = await api.get('accounts', { address: config.address });
+		if (account.success) {
+			this.cache.cacheData('balance', account.data.account.balance);
+			return utils.satsToADM(account.data.account.balance)
+		} else {
+			log.warn(`Failed to get account info in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+			return utils.satsToADM(cached); 
+		}
+	}
+
+  /**
+   * Returns balance in ADM from cache. It may be outdated.
+   * @returns {Number} cached value; it may be undefined
+   */
+	get balance() {
+		return utils.satsToADM(this.cache.getData('balance'))
+	}
+
+  /**
+   * Updates balance in ADM manually from cache. Useful when we don't want to wait for network update.
+	 * @param {Number} value New balance in ADM
+   */
+	set balance(value) {
+		if (utils.isPositiveOrZeroNumber(value)) {
+			this.cache.cacheData('balance', utils.AdmToSats(value));		
+		}
 	}
 
 	async getTransactionStatus(txid) {
@@ -56,15 +106,6 @@ module.exports = new class admCoin extends baseCoin {
 			};
 		} else {
 			log.warn(`Failed to get Tx ${txid} in getTransactionStatus() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
-		}
-	}
-
-	async updateBalance() {
-		const account = await api.get('accounts', { address: config.address });
-		if (account.success) {
-			User.balance = account.data.account.balance / SAT
-		} else {
-			log.warn(`Failed to get account info in updateBalance() of ${utils.getModuleName(module.id)} module. ${account.errorMessage}.`);
 		}
 	}
 

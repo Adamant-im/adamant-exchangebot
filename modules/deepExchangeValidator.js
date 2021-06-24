@@ -1,7 +1,6 @@
 const log = require('../helpers/log');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const notify = require('../helpers/notify');
-const Store = require('./Store');
 const config = require('./configReader');
 const db = require('./DB');
 const api = require('./api');
@@ -88,14 +87,14 @@ module.exports = async (pay, tx) => {
 					notifyType = 'warn';
 					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.senderId}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-				} else if (String(pay.recipientId).toLowerCase() !== Store.user[pay.inCurrency].address.toLowerCase()) {
+				} else if (String(pay.recipientId).toLowerCase() !== exchangerUtils[pay.inCurrency].account.address.toLowerCase()) {
 					pay.update({
 						transactionIsValid: false,
 						isFinished: true,
 						error: 12
 					});
 					notifyType = 'warn';
-					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${Store.user[pay.inCurrency].address}_, but real recipient is _${pay.recipientId}_.`;
+					msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.recipientId}_.`;
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * 0.005) {
 					pay.update({
@@ -138,7 +137,7 @@ setInterval(async ()=>{
 			module.exports(pay, tx.data.transaction);
 		} else {
 			module.exports(pay, null);
-			log.warn(`Failed to get Tx ${pay.admTxId} info in setInterval() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
+			log.warn(`Unable to fetch Tx ${pay.admTxId} in setInterval() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
 		}
 	});
-}, 60 * 1000);
+}, 30 * 1000);
