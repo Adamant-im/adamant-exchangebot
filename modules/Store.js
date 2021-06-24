@@ -27,9 +27,6 @@ module.exports = {
 			privateKey: ethData.privateKey,
 		}
 	},
-	comissions: {
-		ADM: 0.5 // This is a stub. Ether fee returned with FEE() method in separate module
-	},
 
 	lastProcessedBlockHeight: undefined,
 	async getLastProcessedBlockHeight() {

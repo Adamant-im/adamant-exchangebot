@@ -15,7 +15,7 @@ module.exports = new class admCoin extends baseCoin {
   }
 
 	get FEE() {
-		return Store.comissions.ADM;
+		return 0.5;
 	}
 
 	syncGetTransaction(hash, tx){
