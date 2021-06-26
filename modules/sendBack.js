@@ -58,7 +58,7 @@ module.exports = async () => {
 			isNotEnoughBalance = sentBackAmount > exchangerUtils[inCurrency].balance;
 		}
 
-		const sentBackAmountUsd = Store.mathEqual(inCurrency, 'USD', sentBackAmount).outAmount;
+		const sentBackAmountUsd = Store.convertCryptos(inCurrency, 'USD', sentBackAmount).outAmount;
 		pay.update({
 			outFee,
 			sentBackAmount,

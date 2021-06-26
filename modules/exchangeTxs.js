@@ -137,7 +137,7 @@ module.exports = async (itx, tx) => {
 		msgSendBack = `I don’t have rates of crypto _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 	} else {
 		// need some calculate
-		pay.inAmountMessageUsd = Store.mathEqual(inCurrency, 'USD', inAmountMessage, true).outAmount.toFixed(2);
+		pay.inAmountMessageUsd = Store.convertCryptos(inCurrency, 'USD', inAmountMessage).outAmount.toFixed(2);
 
 		const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 		log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
@@ -163,7 +163,7 @@ module.exports = async (itx, tx) => {
 	}
 
 	if (!pay.isFinished && !pay.needToSendBack){// if Ok checks tx
-		pay.update(Store.mathEqual(inCurrency, outCurrency, inAmountMessage));
+		pay.update(Store.convertCryptos(inCurrency, outCurrency, inAmountMessage, true));
 		if (!pay.outAmount){ // Error while calculating outAmount
 			pay.update({
 				needToSendBack: true,

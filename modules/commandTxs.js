@@ -117,7 +117,7 @@ function calc(arr) {
 	if (!exchangerUtils.isHasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
-	let result = Store.mathEqual(inCurrency, outCurrency, amount, true).outAmount;
+	let result = Store.convertCryptos(inCurrency, outCurrency, amount).outAmount;
 
 	if (amount <= 0 || result <= 0 || !result) {
 		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
@@ -163,12 +163,12 @@ async function test(arr, tx) {
 		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
-	let result = Store.mathEqual(inCurrency, outCurrency, amount).outAmount;
+	let result = Store.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
 	if (amount <= 0 || result <= 0 || !result) {
 		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 
-	const usdEqual = Store.mathEqual(inCurrency, 'USD', amount, true).outAmount;
+	const usdEqual = Store.convertCryptos(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}

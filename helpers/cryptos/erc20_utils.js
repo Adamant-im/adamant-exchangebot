@@ -80,7 +80,7 @@ class erc20coin {
 
 	get FEEinToken() {
 		let inEth = eth.FEE * 2;
-		let inToken = inEth * Store.mathEqual('ETH', this.token, 1, true).exchangePrice;
+		let inToken = inEth * Store.convertCryptos('ETH', this.token).exchangePrice;
 		// console.log(`Fee in eth: ${inEth}`)
 		// console.log(`Fee in token: ${inToken}`)
 		return inToken			
