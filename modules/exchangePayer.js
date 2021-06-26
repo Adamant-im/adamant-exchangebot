@@ -6,9 +6,8 @@ const notify = require('../helpers/notify');
 const api = require('./api');
 
 module.exports = async () => {
-	const {paymentsDb} = db;
-	await exchangerUtils.updateAllBalances();
 
+	const {paymentsDb} = db;
 	(await paymentsDb.find({
 		transactionIsValid: true,
 		isFinished: false,
@@ -30,8 +29,19 @@ module.exports = async () => {
 
 			let etherString = '';
 			let isNotEnoughBalance;
+
+			const outCryptoBalance = await exchangerUtils[outCurrency].getBalance();
+			if (!outCryptoBalance) {
+				log.warn(`Unable to update balance for ${outCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
+				return;
+			}
 			
 			if (exchangerUtils.isERC20(outCurrency)) {
+				const ethBalance = await exchangerUtils['ETH'].getBalance();
+				if (!ethBalance) {
+					log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
+					return;
+				}
 				etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
 				isNotEnoughBalance = (outAmount > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
 			} else {

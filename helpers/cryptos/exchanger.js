@@ -38,16 +38,7 @@ module.exports = {
 			return +r + +c.inAmountMessageUsd;
 		}, 0);
 	},
-	
-	async updateAllBalances() {
-		try {
-			await this.ETH.updateBalance();
-			await this.ADM.updateBalance();
-			for (const t of config.erc20) {
-				await this[t].updateBalance();
-			}
-		} catch (e) { }
-	},
+
 	isKnown(coin) {
 		return config.known_crypto.includes(coin);
 	},
