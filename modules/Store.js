@@ -1,21 +1,10 @@
 const db = require('./DB');
 const log = require('../helpers/log');
-const keys = require('adamant-api/helpers/keys');
-const api = require('./api');
-const {version} = require('../package.json');
 const config = require('./configReader');
 const axios = require('axios');
 const utils = require('../helpers/utils');
 
-// ADM data
-const AdmKeysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
-const AdmAddress = keys.createAddressFromPublicKey(AdmKeysPair.publicKey);
-// ETH data
-const ethData = api.eth.keys(config.passPhrase);
-
 module.exports = {
-	version,
-	botName: AdmAddress,
 
 	lastProcessedBlockHeight: undefined,
 	async getLastProcessedBlockHeight() {
@@ -107,7 +96,6 @@ module.exports = {
 	}
 };
 
-config.notifyName = `${config.bot_name} (${module.exports.botName})`;
 module.exports.updateCurrencies();
 
 setInterval(() => {

@@ -97,6 +97,8 @@ try {
 	config.keysPair = keysPair;
 	config.publicKey = keysPair.publicKey.toString('hex');
 	config.address = address;
+	config.notifyName = `${config.bot_name} (${config.address})`;
+	config.version = require('../package.json').version;
 
 	['min_confirmations', 'exchange_fee', 'min_value_usd'].forEach(param => {
 		config.known_crypto.forEach(coin => {

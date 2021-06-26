@@ -29,7 +29,7 @@ function init() {
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
 			checker();
-			notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${Store.version}).`, 'info');
+			notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
 		}
 
 	} catch (e) {

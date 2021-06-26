@@ -210,7 +210,7 @@ function balances() {
 }
 
 function version(){
-	return `I am running on _adamant-exchangebot_ software version _${Store.version}_. Revise code on ADAMANT's GitHub.`;
+	return `I am running on _adamant-exchangebot_ software version _${config.version}_. Revise code on ADAMANT's GitHub.`;
 }
 
 
