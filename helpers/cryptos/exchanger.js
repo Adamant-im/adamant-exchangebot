@@ -9,7 +9,7 @@ const utils = require('../utils');
 
 module.exports = {
 
-	async getAddressCryptoFromAdmAddressADM(coin, admAddress) {
+	async getKvsCryptoAddress(coin, admAddress) {
 
 		if (this.isERC20(coin)) {
 			coin = 'ETH';
@@ -22,29 +22,31 @@ module.exports = {
 				return 'none';
 			};
 		} else {
-			log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getAddressCryptoFromAdmAddressADM() of ${utils.getModuleName(module.id)} module. ${kvsRecords.errorMessage}.`);
+			log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getKvsCryptoAddress() of ${utils.getModuleName(module.id)} module. ${kvsRecords.errorMessage}.`);
 		}
 
 	},
+
 	async userDailyValue(senderId) {
 		return (await db.paymentsDb.find({
 			transactionIsValid: true,
 			senderId: senderId,
 			needToSendBack: false,
-			inAmountMessageUsd: {$ne: null},
-			date: {$gt: (this.unix() - 24 * 3600 * 1000)} // last 24h
+			inAmountMessageUsd: { $ne: null },
+			date: { $gt: (this.unix() - 24 * 3600 * 1000) } // last 24h
 		})).reduce((r, c) => {
 			return +r + +c.inAmountMessageUsd;
 		}, 0);
 	},
+	
 	async updateAllBalances() {
 		try {
 			await this.ETH.updateBalance();
 			await this.ADM.updateBalance();
-			for (const t of config.erc20){
+			for (const t of config.erc20) {
 				await this[t].updateBalance();
 			}
-		} catch (e){}
+		} catch (e) { }
 	},
 	isKnown(coin) {
 		return config.known_crypto.includes(coin);

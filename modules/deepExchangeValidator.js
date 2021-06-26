@@ -15,9 +15,9 @@ module.exports = async (pay, tx) => {
 	// Fetching addresses from ADAMANT KVS
 	try {
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
-			await exchangerUtils.getAddressCryptoFromAdmAddressADM(pay.inCurrency, tx.senderId);
+			await exchangerUtils.getKvsCryptoAddress(pay.inCurrency, tx.senderId);
 		let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
-			await exchangerUtils.getAddressCryptoFromAdmAddressADM(pay.outCurrency, tx.senderId);
+			await exchangerUtils.getKvsCryptoAddress(pay.outCurrency, tx.senderId);
 
 		pay.update({
 			senderKvsInAddress,
