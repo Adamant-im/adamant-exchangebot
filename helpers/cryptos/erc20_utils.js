@@ -44,7 +44,7 @@ class erc20coin {
 		return await eth.getLastBlockHeight();
 	}
 
-	async syncGetTransaction(hash) {
+	async getTransactionDetails(hash) {
 		return new Promise(resolve => {
 			this.web3.getTransactionReceipt(hash, (err, tx) => {
 				try {

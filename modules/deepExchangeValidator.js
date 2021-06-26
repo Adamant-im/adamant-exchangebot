@@ -57,7 +57,7 @@ module.exports = async (pay, tx) => {
 
 		// Validating incoming TX in blockchain of inCurrency
 		try {
-			const in_tx = await exchangerUtils[pay.inCurrency].syncGetTransaction(pay.inTxid, tx);
+			const in_tx = await exchangerUtils[pay.inCurrency].getTransactionDetails(pay.inTxid, tx); 
 			if (!in_tx) {
 				if (pay.counterTxDeepValidator < 20){
 					pay.save();

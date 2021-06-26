@@ -16,6 +16,8 @@ Store.web3 = eth;
 const baseCoin = require('./baseCoin');
 module.exports = new class ethCoin extends baseCoin {
 
+	lastNonce = 0
+
 	constructor () {
     super()
 		this.token = 'ETH';
@@ -29,38 +31,20 @@ module.exports = new class ethCoin extends baseCoin {
 		eth.defaultBlock = 'latest';
 		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance.toFixed(constants.PRINT_DECIMALS)}`));
   }
-	syncGetTransaction(hash) {
-		return new Promise(resolve => {
-			eth.getTransaction(hash, (err, tx) => {
-				if (err) {
-					resolve(null);
-				} else {
-					resolve({
-						blockId: tx.blockNumber,
-						hash: tx.hash,
-						senderId: tx.from,
-						recipientId: tx.to,
-						amount: +(tx.value / ethSat).toFixed(8)
-					});
-				}
-			}).catch(e=> {
-				log.warn(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
-			});
-		});
+
+	get FEE() {
+		return this.gasPrice * 22000 / ethSat * 2;
 	}
-	getTransactionStatus(hash) {
+
+	updateGasPrice() {
 		return new Promise(resolve => {
-			eth.getTransactionReceipt(hash, (err, tx) => {
-				if (err || !tx) {
-					resolve(null);
-				} else {
-					resolve({
-						blockId: tx.blockNumber,
-						status: tx.status
-					});
+			eth.getGasPrice().then(price => {
+				if (price) {
+					this.gasPrice = ethUtils.toHex(price);
 				}
-			}).catch(e=> {
-				log.error(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
+				resolve();
+			}).catch(e=>{
+				log.error('Error while updating Ether gas price: ' + e);
 			});
 		});
 	}
@@ -138,21 +122,41 @@ module.exports = new class ethCoin extends baseCoin {
 		}		
 	}
 
-	updateGasPrice() {
+	getTransactionDetails(hash) {
 		return new Promise(resolve => {
-			eth.getGasPrice().then(price => {
-				if (price) {
-					this.gasPrice = ethUtils.toHex(price);
+			eth.getTransaction(hash, (err, tx) => {
+				if (err) {
+					resolve(null);
+				} else {
+					resolve({
+						blockId: tx.blockNumber,
+						hash: tx.hash,
+						senderId: tx.from,
+						recipientId: tx.to,
+						amount: +(tx.value / ethSat).toFixed(8)
+					});
 				}
-				resolve();
-			}).catch(e=>{
-				log.error('Error while updating Ether gas price: ' + e);
+			}).catch(e=> {
+				log.warn(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
 			});
 		});
 	}
-
-	get FEE() {
-		return this.gasPrice * 22000 / ethSat * 2;
+	
+	getTransactionStatus(hash) {
+		return new Promise(resolve => {
+			eth.getTransactionReceipt(hash, (err, tx) => {
+				if (err || !tx) {
+					resolve(null);
+				} else {
+					resolve({
+						blockId: tx.blockNumber,
+						status: tx.status
+					});
+				}
+			}).catch(e=> {
+				log.error(`Error while getting Tx ${hash} (if Tx is new, just wait). ${e}`);
+			});
+		});
 	}
 
 	getNonce() {
@@ -209,8 +213,6 @@ module.exports = new class ethCoin extends baseCoin {
 			log.error('Error while executing Ethereum transaction: ' + e);
 		}
 	}
-
-	lastNonce = 0
 
 };
 
