@@ -147,7 +147,7 @@ module.exports = async () => {
 				notify(msgNotify, notifyType);
 			}
 		} catch (e) {
-			log.error('Error in sendedTxValidator module ', {direction, sendAmount, sendCurrency, sendTxId}, e);
+			log.error('Error in sentTxChecker module ', {direction, sendAmount, sendCurrency, sendTxId}, e);
 		}
 	});
 

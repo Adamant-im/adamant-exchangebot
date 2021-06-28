@@ -32,7 +32,7 @@ module.exports = async (cmd, tx, itx) => {
 		}
 	} catch (e){
 		tx = tx || {};
-		log.error('Error while processing command ' + cmd + ' from sendedId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
+		log.error('Error while processing command ' + cmd + ' from senderId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
 	}
 };
 

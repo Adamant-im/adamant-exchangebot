@@ -18,7 +18,7 @@ function init() {
 	require('./modules/confirmationsCounter');
 	require('./modules/exchangePayer');
 	require('./modules/sendBack');
-	require('./modules/sendedTxValidator');
+	require('./modules/sentTxChecker');
 	try {
 
 		if (doClearDB) {
