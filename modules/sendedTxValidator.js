@@ -62,8 +62,8 @@ module.exports = async () => {
 				return;
 			}
 
-			const txData = (await exchangerUtils[sendCurrency].getTransactionStatus(sendTxId));
-			if (!txData || !txData.blockId) {
+			const txData = (await exchangerUtils[sendCurrency].getTransaction(sendTxId));
+			if (!txData || !txData.height) {
 				if (pay.tryCounterCheckOutTX > 50) {
 					pay.update({
 						errorCheckOuterTX: 24,
@@ -87,15 +87,15 @@ module.exports = async () => {
 				pay.save();
 				return;
 			}
-			const {status, blockId} = txData;
+			const {status, height} = txData;
 
-			if (!blockId) {
+			if (!height) {
 				return;
 			}
 
 			pay.update({
 				outTxStatus: status,
-				outConfirmations: lastBlockHeight - blockId
+				outConfirmations: lastBlockHeight - height
 			});
 
 			if (status === false) {

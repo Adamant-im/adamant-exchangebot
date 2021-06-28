@@ -231,6 +231,28 @@ module.exports = {
    */
   isArraysEqual(array1, array2) {
 		return array1.length === array2.length && array1.sort().every(function(value, index) { return value === array2.sort()[index]});
-	}
+	},
+
+  /**
+   * Compares two strings, case sensitive
+   * @param {string} string1
+   * @param {string} string2
+   * @returns {boolean} True, if strings are equal
+   */
+  isStringEqual(string1, string2) {
+    if (typeof string1 !== 'string' || typeof string2 !== 'string') return false
+    return string1 === string2
+  },
+
+  /**
+   * Compares two strings, case insensitive
+   * @param {string} string1
+   * @param {string} string2
+   * @returns {boolean} True, if strings are equal, case insensitive
+   */
+  isStringEqualCI(string1, string2) {
+    if (typeof string1 !== 'string' || typeof string2 !== 'string') return false
+    return string1.toUpperCase() === string2.toUpperCase()
+  }
 
 };

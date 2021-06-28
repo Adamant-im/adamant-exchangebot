@@ -15,7 +15,7 @@ module.exports = new class admCoin extends baseCoin {
 		this.account.passPhrase = config.passPhrase;
 		this.account.keysPair = config.keysPair;
 		this.account.address = config.address;
-		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance.toFixed(constants.PRINT_DECIMALS)}`));
+		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`));
 	}
 
 	get FEE() {
@@ -86,25 +86,33 @@ module.exports = new class admCoin extends baseCoin {
 		}
 	}
 
-	getTransactionDetails(hash, admTx) {
-		return {
-			blockId: admTx.blockId,
-			hash: admTx.id,
-			senderId: admTx.senderId,
-			recipientId: admTx.recipientId,
-			amount: utils.satsToADM(admTx.amount)
-		};
-	}
-
-	async getTransactionStatus(txid) {
+	/**
+	 * Returns Tx status and details from the blockchain
+	 * @param {String} txid Tx ID to fetch
+	 * @returns {Object}
+	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
+	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
+	 * Not used, additional info: hash (already known), blockId, fee
+	 */
+	async getTransaction(txid) {
 		const tx = await api.get('transactions/get', { id: txid });
 		if (tx.success) {
+			log.log(`Tx status: ${this.formTxMessage(tx.data.transaction)}.`);
 			return {
-				blockId: tx.data.transaction.height,
-				status: true
+				status: tx.data.transaction.confirmations > 0 ? true : undefined,
+				height: tx.data.transaction.height,
+				blockId: tx.data.transaction.blockId,
+				timestamp: tx.data.transaction.timestamp,
+				hash: tx.data.transaction.id,
+				senderId: tx.data.transaction.senderId,
+				recipientId: tx.data.transaction.recipientId,
+				confirmations: tx.data.transaction.confirmations,
+				amount: utils.satsToADM(tx.data.transaction.amount), // in ADM
+				fee: utils.satsToADM(tx.data.transaction.fee) // in ADM
 			};
 		} else {
-			log.warn(`Failed to get Tx ${txid} in getTransactionStatus() of ${utils.getModuleName(module.id)} module. ${tx.errorMessage}.`);
+			log.warn(`Unable to get Tx ${txid} in getTransaction() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ${tx.errorMessage}.`);
+			return null;
 		}
 	}
 
@@ -112,6 +120,7 @@ module.exports = new class admCoin extends baseCoin {
 		const { address, value, comment } = params;
 		let payment = await api.sendMessage(config.passPhrase, address, comment, 'basic', value);
 		if (payment.success) {
+			log.log(`Successfully sent ${value} ADM to ${address} with comment '${comment}', Tx hash: ${payment.data.transactionId}.`);
 			return {
 				success: payment.data.success,
 				hash: payment.data.transactionId
@@ -119,9 +128,17 @@ module.exports = new class admCoin extends baseCoin {
 		} else {
 			log.warn(`Failed to send ${value} ADM to ${address} with comment '${comment}' in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`);
 			return {
-				success: false
+				success: false,
+				error: payment.errorMessage
 			};
 		}
+	}
+
+	formTxMessage(tx) {
+		let senderId = tx.senderId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.senderId;
+		let recipientId = tx.recipientId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.recipientId;		
+		let message = `Tx ${tx.id} for ${utils.satsToADM(tx.amount)} ADM from ${senderId} to ${recipientId} included at ${tx.height} blockchain height and has ${tx.confirmations} confirmations, ${utils.satsToADM(tx.fee)} ADM fee`
+		return message
 	}
 
 };

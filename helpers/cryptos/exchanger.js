@@ -33,7 +33,7 @@ module.exports = {
 			senderId: senderId,
 			needToSendBack: false,
 			inAmountMessageUsd: { $ne: null },
-			date: { $gt: (this.unix() - 24 * 3600 * 1000) } // last 24h
+			date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
 		})).reduce((r, c) => {
 			return +r + +c.inAmountMessageUsd;
 		}, 0);

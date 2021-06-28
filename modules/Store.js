@@ -50,18 +50,19 @@ module.exports = {
 	async updateCryptoRates() {
 
 		let url = config.infoservice + '/get';
-		await axios.get(url, {})
+		let rates = await axios.get(url, {})
 			.then(function (response) {
-				let rates = response.data && response.data.result ? response.data.result : undefined
-				if (rates) {
-					this.currencies = rates;
-				} else {
-					log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request was successfull, but got unexpected results: ` + response.data);
-				}
+				return response.data ? response.data.result : undefined
 			})
 			.catch(function (error) {
 				log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
 			});
+
+		if (rates) {
+			this.currencies = rates;
+		} else {
+			log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request was successfull, but got unexpected results: ` + rates);
+		}
 
 	},
 

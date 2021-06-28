@@ -35,15 +35,15 @@ module.exports = async () => {
 				log.warn(`Unable to get last block height for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 				return;
 			}
-			const txData = (await exchangerUtils[inCurrency].getTransactionStatus(inTxid));
-			if (!txData || !txData.blockId){
+			const txData = (await exchangerUtils[inCurrency].getTransaction(inTxid));
+			if (!txData || !txData.height){
 				return;
 			}
-			const {status, blockId} = txData;
+			const {status, height} = txData;
 
 			pay.update({
 				inTxStatus: status,
-				inConfirmations: lastBlockHeight - blockId
+				inConfirmations: lastBlockHeight - height
 			});
 			if (status === false){
 				pay.update({

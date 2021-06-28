@@ -57,7 +57,7 @@ module.exports = async (pay, tx) => {
 
 		// Validating incoming TX in blockchain of inCurrency
 		try {
-			const in_tx = await exchangerUtils[pay.inCurrency].getTransactionDetails(pay.inTxid, tx); 
+			const in_tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid); 
 			if (!in_tx) {
 				if (pay.counterTxDeepValidator < 20){
 					pay.save();
@@ -75,7 +75,9 @@ module.exports = async (pay, tx) => {
 				pay.update({
 					senderId: in_tx.senderId,
 					recipientId: in_tx.recipientId,
-					inAmountReal: in_tx.amount
+					inAmountReal: in_tx.amount,
+					inTxStatus: in_tx.status,
+					inConfirmations: in_tx.confirmations
 				});
 
 				if (String(pay.senderId).toLowerCase() !== String(pay.senderKvsInAddress).toLowerCase()) {
@@ -107,8 +109,7 @@ module.exports = async (pay, tx) => {
 					msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 				} else { // Transaction is valid
 					pay.update({
-						transactionIsValid: true,
-						inConfirmations: 0
+						transactionIsValid: true
 					});
 				}
 			}
