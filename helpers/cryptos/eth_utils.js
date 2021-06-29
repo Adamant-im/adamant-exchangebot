@@ -140,13 +140,41 @@ module.exports = new class ethCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns Tx receipt and details from the blockchain
+	 * Returns block details from the blockchain
+	 * @param {String} blockHashOrBlockNumber Block ID or its height to fetch
+	 * @returns {Object}
+	 * Used for income Tx security validation (deepExchangeValidator): timestamp
+	 * getBlock doesn't provide confirmations (calc it from height)
+	 */
+	 getBlock(blockHashOrBlockNumber) {
+		return new Promise(resolve => {
+			eth.getBlock(blockHashOrBlockNumber, false, (error, block) => {
+				if (error || !block) {
+					log.warn(`Unable to get block ${blockHashOrBlockNumber} info in getBlock() of ${utils.getModuleName(module.id)} module. ` + error);
+					resolve(null);
+				} else {
+					log.log(`Block info: block ${block.hash} forged at ${block.number} blockchain height on ${utils.formatDate(block.timestamp*1000).YYYY_MM_DD_hh_mm} (${block.timestamp}).`);
+					resolve({
+						height: block.number,
+						blockId: block.hash,
+						hash: block.hash,
+						timestamp: block.timestamp * 1000
+					});
+				}
+			}).catch(e => {
+				log.warn(`Error while getting block ${blockHashOrBlockNumber} info in getBlock() of ${utils.getModuleName(module.id)} module. ` + e);
+			});
+		});
+	}
+
+	/**
+	 * Returns Tx receipt and some details from the blockchain
 	 * @param {String} hash Tx ID to fetch
 	 * @returns {Object}
-	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
+	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount (ERC20 only)
 	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
-	 * Not used, additional info: hash (already known), blockId, gasUsed
-	 * getTransactionReceipt doesn't provide amount, input, gasPrice, confirmations (calc it from height)
+	 * Not used, additional info: hash (already known), blockId, logs, gasUsed, contract (ERC20)
+	 * getTransactionReceipt doesn't provide amount (ETH), input (ERC20), gasPrice, nonce, confirmations (calc it from height)
 	 */
 	getTransactionReceipt(hash) {
 		return new Promise(resolve => {
@@ -187,6 +215,15 @@ module.exports = new class ethCoin extends baseCoin {
 		});
 	}
 
+	/**
+	 * Returns Tx details from the blockchain
+	 * @param {String} hash Tx ID to fetch
+	 * @returns {Object}
+	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount
+	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): confirmations || height
+	 * Not used, additional info: hash (already known), blockId, gasPrice, contract (ERC20), nonce
+	 * getTransactionReceipt doesn't provide status, gasUsed, confirmations (calc it from height)
+	 */	
 	getTransactionDetails(hash) {
 		return new Promise((resolve) => {
 			eth.getTransaction(hash, (error, txDetails) => {
@@ -229,14 +266,23 @@ module.exports = new class ethCoin extends baseCoin {
 		});
 	}
 
+	/**
+	 * Integrates getTransactionReceipt(), getTransactionDetails(), getBlock() to fetch all available info from the blockchain
+	 * @param {String} hash Tx ID to fetch
+	 * @returns {Object}
+	 */	
 	async getTransaction(hash) {
-		let txReceipt, txDetails, tx;
+		let txReceipt, txDetails, blockInfo, tx;
 		txReceipt = await this.getTransactionReceipt(hash);
 		if (txReceipt) {
 			tx = txReceipt;
 			txDetails = await this.getTransactionDetails(hash);
 			if (txDetails) {
 				tx = {...tx, ...txDetails};
+				blockInfo = await this.getBlock(tx.blockId);
+				if (blockInfo) {
+					tx.timestamp = blockInfo.timestamp;
+				}
 			}
 		}
 		if (tx) {
@@ -336,6 +382,7 @@ module.exports = new class ethCoin extends baseCoin {
 		let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : ''; 
 		let amount = tx.amount ? ` for ${tx.amount} ${tx.isAmountPlain ? '(plain contract value)' : token}` : '';
 		let height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
+		let time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
 		let hash = tx.hash;
 		let gasUsed = tx.gasUsed ? `, ${tx.gasUsed} gas used` : '';
 		let gasPrice = tx.gasPrice ? `, gas price is ${tx.gasPrice}` : '';
@@ -348,7 +395,7 @@ module.exports = new class ethCoin extends baseCoin {
 		let senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
 		let recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
 		let contract = tx.contract ? ` via ${token} contract` : '';
-		let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${gasUsed}${gasPrice}${fee}${nonce}`
+		let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`
 		return message
 	}
 
