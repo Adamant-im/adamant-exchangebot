@@ -2,7 +2,7 @@ module.exports = {
 
 	HOUR: 60 * 60 * 1000,
 	SAT: 100000000, // 1 ADM = 100000000
-	ADM_EXPLORER_URL: 'https://explorer.adamant.im', //,${constants.ADM_EXPLORER_URL}
+	ADM_EXPLORER_URL: 'https://explorer.adamant.im',
 	EPOCH: Date.UTC(2017, 8, 2, 17, 0, 0, 0), // ADAMANT's epoch time
 	FORMAT_TRANS: 'YYYY-MM-DD HH:mm',
 	FORMAT_PAYOUT: 'YYYY-MM-DD',

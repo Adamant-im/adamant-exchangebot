@@ -6,6 +6,7 @@ const utils = require('../helpers/utils');
 const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const Store = require('./Store');
 const deepExchangeValidator = require('./deepExchangeValidator');
 const api = require('./api');
@@ -73,7 +74,7 @@ module.exports = async (itx, tx) => {
 			pay.isFinished = true;
 			pay.error = 1;
 			notifyType = 'error';
-			msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
 		}
 		else if (!exchangerUtils.isKnown(inCurrency)){
@@ -81,14 +82,14 @@ module.exports = async (itx, tx) => {
 			pay.needHumanCheck = true;
 			pay.isFinished = true;
 			notifyType = 'error';
-			msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I don’t know crypto _${inCurrency}_. If you think it’s a mistake, contact my master.`;
 		}
 		else if (!exchangerUtils.isKnown(outCurrency)){
 			pay.error = 3;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
-			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I don’t know crypto _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 		else if (inCurrency === outCurrency){
@@ -96,7 +97,7 @@ module.exports = async (itx, tx) => {
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 
-			msgNotify = `${config.notifyName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_. But I think you made a request by mistake. Better I will try to send transfer back to you. I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 		else if (!exchangerUtils.isAccepted(inCurrency)){
@@ -104,7 +105,7 @@ module.exports = async (itx, tx) => {
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 
-			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `Crypto _${inCurrency}_ is not accepted. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		}
 		else if (!exchangerUtils.isExchanged(outCurrency)){
@@ -112,7 +113,7 @@ module.exports = async (itx, tx) => {
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 
-			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		} 
 		else if (!exchangerUtils.isHasTicker(inCurrency)){
@@ -121,13 +122,13 @@ module.exports = async (itx, tx) => {
 				pay.needHumanCheck = true;
 				pay.isFinished = true;
 				notifyType = 'error';
-				msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${inCurrency}_. Incoming transfer: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${inCurrency}_. Incoming transfer: _${inAmountMessage}_ _${inCurrency}_. Attention needed. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `I don’t have rates of crypto _${inCurrency}_ and unable to send payment back. If you think it’s a mistake, contact my master.`;
 			} else { // We can send payment back
 				pay.error = 32;
 				pay.needToSendBack = true;
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${inCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${inCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;	
 			}
 		}
@@ -135,7 +136,7 @@ module.exports = async (itx, tx) => {
 			pay.error = 33;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
-			msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+			msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I don’t have rates of crypto _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		} else {
 			// need some calculate
@@ -150,7 +151,7 @@ module.exports = async (itx, tx) => {
 				});
 				notifyType = 'warn';
 
-				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 			} else if (!pay.inAmountMessageUsd || pay.inAmountMessageUsd < min_value_usd){
 				pay.update({
@@ -158,7 +159,7 @@ module.exports = async (itx, tx) => {
 					needToSendBack: true
 				});
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 			}
 
@@ -172,11 +173,11 @@ module.exports = async (itx, tx) => {
 					error: 7
 				});
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} unable to calculate _outAmount_ value for payment of _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} unable to calculate _outAmount_ value for payment of _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange _${inAmountMessage}_ _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 			} else { // Transaction is fine
 				notifyType = 'log';
-				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 				msgSendBack = `I understood your request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 			}
 		}

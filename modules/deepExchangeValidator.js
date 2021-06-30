@@ -10,7 +10,7 @@ const api = require('./api');
 module.exports = async (pay, tx) => {
 	try {
 
-		const admTxDescription = `Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id} from $${tx.senderId}`;
+		const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from $${tx.senderId}`;
 		log.error(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
 
 		pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;

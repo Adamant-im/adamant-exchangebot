@@ -1,5 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
@@ -72,12 +73,12 @@ module.exports = async () => {
 					});
 					if (direction === 'exchange') {
 						notifyType = 'error';
-						msgNotify = `${config.notifyName} unable to verify exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+						msgNotify = `${config.notifyName} unable to verify exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 						msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 	
 					} else { // direction === 'back'
 						notifyType = 'error';
-						msgNotify = `${config.notifyName} unable to verify sent back of _${inAmountMessage} ${inCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+						msgNotify = `${config.notifyName} unable to verify sent back of _${inAmountMessage} ${inCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 						msgSendBack = `I’ve tried to send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 					}
 					
@@ -106,7 +107,7 @@ module.exports = async () => {
 						outTxid: null
 					});
 
-					msgNotify = `${config.notifyName} notifies that exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+					msgNotify = `${config.notifyName} notifies that exchange transfer of _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 					msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 
 				} else {
@@ -115,7 +116,7 @@ module.exports = async () => {
 						sentBackTx: null
 					});
 
-					msgNotify = `${config.notifyName} sent back of _${inAmountMessage} ${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+					msgNotify = `${config.notifyName} sent back of _${inAmountMessage} ${inCurrency}_ failed. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
 				}
 
@@ -125,12 +126,12 @@ module.exports = async () => {
 
 				if (direction === 'exchange') {
 					notifyType = 'info';
-					msgNotify = `${config.notifyName} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+					msgNotify = `${config.notifyName} successfully exchanged _${inAmountMessage} ${inCurrency}_ for _${outAmount} ${outCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 					msgSendBack = 'Done! Thank you for business. Hope to see you again.';
 
 				} else { // direction === 'back'
 					notifyType = 'log';
-					msgNotify = `${config.notifyName} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+					msgNotify = `${config.notifyName} successfully sent back _${inAmountMessage} ${inCurrency}_ with Tx hash: _${sendTxId}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 					msgSendBack = 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!';
 				}
 

@@ -1,5 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
@@ -51,7 +52,7 @@ module.exports = async () => {
 					transactionIsFailed: true,
 					isFinished: true
 				});
-				msgNotify = `${config.notifyName} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: https://explorer.adamant.im/tx/${admTxId}.`;
+				msgNotify = `${config.notifyName} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
 				msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
 			}
 

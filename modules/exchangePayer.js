@@ -1,5 +1,6 @@
 const db = require('./DB');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
@@ -55,7 +56,7 @@ module.exports = async () => {
 					error: 15,
 					needToSendBack: true
 				}, true);
-				notify(`${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'warn');
+				notify(`${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`, 'warn');
 				api.sendMessage(config.passPhrase, pay.senderId, `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with **/balances** command. I will try to send transfer back to you.`);
 				return;
 			}
@@ -89,8 +90,8 @@ module.exports = async () => {
 					error: 16,
 					needToSendBack: true,
 				}, true);
-				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`);
-				notify(`${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: https://explorer.adamant.im/tx/${pay.itxId}.`, 'error');
+				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`);
+				notify(`${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`, 'error');
 				api.sendMessage(config.passPhrase, pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send payment back to you.`);
 			}
 		});

@@ -4,6 +4,7 @@ const notify = require('../helpers/notify');
 const utils = require('../helpers/utils');
 const api = require('./api');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
@@ -83,7 +84,7 @@ module.exports = async (tx) => {
 		await itx.update({ isProcessed: true }, true);
 		await updateProcessedTx(tx, itx, false);
 		api.sendMessage(config.passPhrase, tx.senderPublicKey, `I've got a top-up transfer from you. Thanks, bro.`);
-		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'info');	
+		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'info');	
 		return;
 	}
 
@@ -103,7 +104,7 @@ module.exports = async (tx) => {
 	await updateProcessedTx(tx, itx, false);
 
 	if (itx.isSpam && !spamerIsNotyfy) {
-		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
+		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'warn');
 		api.sendMessage(config.passPhrase, tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`);
 		return;
 	}
