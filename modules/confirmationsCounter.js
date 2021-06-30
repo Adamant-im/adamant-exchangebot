@@ -9,7 +9,7 @@ const api = require('./api');
 
 module.exports = async (pay) => {
 
-	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from $${pay.senderId}`;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from ${pay.senderId}`;
 	try {
 
 		let msgNotify = null;
@@ -18,7 +18,10 @@ module.exports = async (pay) => {
 		log.log(`Updating Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
 
 		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
-			log.log(`No need to update confirmations for Tx ${pay.inTxid}, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
+			pay.update({
+				inTxConfirmed: true
+			}, true);
+			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
 			return;
 		}
 
@@ -74,7 +77,8 @@ setInterval(async () => {
 	(await paymentsDb.find({
 		transactionIsValid: true,
 		isFinished: false,
-		transactionIsFailed: false
+		transactionIsFailed: false,
+		inTxConfirmed: {$ne: true}
 	})).forEach(async pay => {
 			module.exports(pay);
 	});

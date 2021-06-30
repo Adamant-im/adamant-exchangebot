@@ -10,7 +10,7 @@ const confirmationsCounter = require('./confirmationsCounter');
 
 module.exports = async (pay, tx) => {
 
-	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from $${tx.senderId}`;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 	try {
 
 		log.log(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
@@ -107,16 +107,16 @@ module.exports = async (pay, tx) => {
 					isFinished: true,
 					error: constants.ERRORS.WRONG_SENDER
 				});
-				notifyType = 'warn';
+				notifyType = 'error';
 				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.senderId}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-			} else if (utils.isStringEqualCI(pay.recipientId, exchangerUtils[pay.inCurrency].account.address)) {
+			} else if (!utils.isStringEqualCI(pay.recipientId, exchangerUtils[pay.inCurrency].account.address)) {
 				pay.update({
 					transactionIsValid: false,
 					isFinished: true,
 					error: constants.ERRORS.WRONG_RECIPIENT
 				});
-				notifyType = 'warn';
+				notifyType = 'error';
 				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.recipientId}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 			} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * constants.VALIDATOR_AMOUNT_DEVIATION) {
@@ -125,7 +125,7 @@ module.exports = async (pay, tx) => {
 					isFinished: true,
 					error: constants.ERRORS.WRONG_AMOUNT
 				});
-				notifyType = 'warn';
+				notifyType = 'error';
 				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 			} else if (Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) > constants.VALIDATOR_TIMESTAMP_DEVIATION) {
@@ -134,7 +134,7 @@ module.exports = async (pay, tx) => {
 					isFinished: true,
 					error: constants.ERRORS.WRONG_TIMESTAMP
 				});
-				notifyType = 'warn';
+				notifyType = 'error';
 				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Tx's timestamp is _${(Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) / constants.HOUR).toFixed(0)}_ hours late.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 			} else { // Transaction is valid

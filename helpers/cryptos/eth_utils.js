@@ -205,7 +205,7 @@ module.exports = class ethCoin extends baseCoin {
 					log.warn(`Unable to get block ${blockHashOrBlockNumber} info in getBlock() of ${utils.getModuleName(module.id)} module. ` + error);
 					resolve(null);
 				} else {
-					log.log(`Block info: block ${block.hash} forged at ${block.number} blockchain height on ${utils.formatDate(block.timestamp*1000).YYYY_MM_DD_hh_mm} (${block.timestamp}).`);
+					// log.log(`Block info: block ${block.hash} forged at ${block.number} blockchain height on ${utils.formatDate(block.timestamp*1000).YYYY_MM_DD_hh_mm} (${block.timestamp}).`);
 					resolve({
 						height: block.number,
 						blockId: block.hash,
@@ -258,7 +258,7 @@ module.exports = class ethCoin extends baseCoin {
 							tx.isAmountPlain = true;
 						}
 					}
-					log.log(`Tx receipt: ${this.formTxMessage(tx)}.`);
+					// log.log(`Tx receipt: ${this.formTxMessage(tx)}.`);
 					resolve(tx);
 				}
 			}).catch(e => {
@@ -309,7 +309,7 @@ module.exports = class ethCoin extends baseCoin {
 							tx.isAmountPlain = true;
 						}
 					}
-					log.log(`Tx details: ${this.formTxMessage(tx)}.`);
+					// log.log(`Tx details: ${this.formTxMessage(tx)}.`);
 					resolve(tx);
 				}
 			}).catch(e => {
@@ -331,9 +331,11 @@ module.exports = class ethCoin extends baseCoin {
 			txDetails = await this.getTransactionDetails(hash);
 			if (txDetails) {
 				tx = {...tx, ...txDetails};
-				blockInfo = await this.getBlock(tx.blockId);
-				if (blockInfo) {
-					tx.timestamp = blockInfo.timestamp;
+				if (tx.blockId) {
+					blockInfo = await this.getBlock(tx.blockId);
+					if (blockInfo) {
+						tx.timestamp = blockInfo.timestamp;
+					}
 				}
 			}
 		}
