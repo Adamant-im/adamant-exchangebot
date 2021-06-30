@@ -102,7 +102,7 @@ module.exports = class admCoin extends baseCoin {
 				status: tx.data.transaction.confirmations > 0 ? true : undefined,
 				height: tx.data.transaction.height,
 				blockId: tx.data.transaction.blockId,
-				timestamp: tx.data.transaction.timestamp,
+				timestamp: utils.toTimestamp(tx.data.transaction.timestamp),
 				hash: tx.data.transaction.id,
 				senderId: tx.data.transaction.senderId,
 				recipientId: tx.data.transaction.recipientId,
