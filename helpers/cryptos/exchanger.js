@@ -1,11 +1,12 @@
 const api = require('../../modules/api');
 const config = require('../../modules/configReader');
-const eth_utils = require('./eth_utils');
-const adm_utils = require('./adm_utils');
 const log = require('../log');
 const db = require('../../modules/DB');
 const Store = require('../../modules/Store');
 const utils = require('../utils');
+const adm_utils = require('./adm_utils');
+const eth_utils = require('./eth_utils');
+const erc20_utils = require('./erc20_utils');
 
 module.exports = {
 
@@ -39,6 +40,12 @@ module.exports = {
 		}, 0);
 	},
 
+	createErc20tokens() {
+		config.erc20.forEach(async t=> {
+			this[t] = new erc20_utils(t, this.ETH);
+		});		
+	},
+
 	isKnown(coin) {
 		return config.known_crypto.includes(coin);
 	},
@@ -58,7 +65,8 @@ module.exports = {
 	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
 	},
-	ETH: eth_utils,
-	ADM: adm_utils,
+
+	ETH: new eth_utils('ETH'),
+	ADM: new adm_utils(),
 	
 };

@@ -11,42 +11,56 @@ const eth = new Eth(config.node_ETH[0]); // TODO: health check
 const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
 
 const baseCoin = require('./baseCoin');
-module.exports = new class ethCoin extends baseCoin {
+module.exports = class ethCoin extends baseCoin {
 
 	lastNonce = 0
 	gasPrice = '0' // in wei, string
 	gasLimit = 22000 // const gas limit in wei
-	reliebilityCoef = 1.3 // make sure exchanger's Tx will be accepted for ETH
-	contractCoef = 1.8 // make sure exchanger's Tx will be accepted for contract (token)
 
-	constructor() {
+	constructor(token) {
 		super()
-		this.token = 'ETH';
-		this.cache.lastBlock = { lifetime: 10000 };
+		this.token = token;
 		this.cache.balance = { lifetime: 30000 }; // in wei, string
-		this.account.keysPair = api.eth.keys(config.passPhrase);
-		this.account.address = this.account.keysPair.address;
-		this.account.privateKey = this.account.keysPair.privateKey;
-		this.account.privateKeyBuffer = Buffer.from(this.account.privateKey.replace('0x', ''), 'hex');
-		eth.accounts.wallet.add(this.account.privateKey);
-		eth.defaultAccount = this.account.address;
-		eth.defaultBlock = 'latest';
-		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`));
-		this.updateGasPrice().then(() => {
-			log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? (+ethUtils.fromWei(this.gasPrice)).toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
-			log.log(`Estimate ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
-		});
+
+		if (token === 'ETH') {
+			this.reliabilityCoef = 1.3 // make sure exchanger's Tx will be accepted for ETH
+			this.cache.lastBlock = { lifetime: 10000 };
+			this.account.keysPair = api.eth.keys(config.passPhrase);
+			this.account.address = this.account.keysPair.address;
+			this.account.privateKey = this.account.keysPair.privateKey;
+			eth.accounts.wallet.add(this.account.privateKey);
+			eth.defaultAccount = this.account.address;
+			eth.defaultBlock = 'latest';
+			this.updateGasPrice().then(() => {
+				log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? this.fromSat(this.gasPrice).toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
+				log.log(`Estimate ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
+			});
+			setInterval(() => {
+				this.updateGasPrice();
+			}, updateGasPriceInterval);			
+		} else {
+			this.reliabilityCoef = 1.8 // make sure exchanger's Tx will be accepted for ERC20
+			this.erc20model = erc20models[token];
+			this.contract = new eth.Contract(abiArray, this.erc20model.sc, {from: this.account.address});	
+		}
+		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
 	}
 
+	/**
+	 * Returns estimate Tx fee in ETH for regular or contract Tx
+	 * @returns {Number}
+	 */
 	get FEE() {
 		try {
-			// IF CONTRACT
-			return +ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliebilityCoef;
+			return +ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliabilityCoef;
 		} catch (e) {
 			log.warn(`Error while calculating Tx fee in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
+	/**
+	 * Caches gas price in wei. For ETH only, ERC20 tokens don't call it.
+	 */
 	updateGasPrice() {
 		return new Promise(resolve => {
 			eth.getGasPrice().then(price => {
@@ -63,6 +77,10 @@ module.exports = new class ethCoin extends baseCoin {
 		});
 	}
 
+	/**
+	 * Returns last block of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
+	 * @returns {Object}
+	 */
 	getLastBlock() {
 		let cached = this.cache.getData('lastBlock');
 		if (cached) {
@@ -83,13 +101,42 @@ module.exports = new class ethCoin extends baseCoin {
 		});
 	}
 
+	/**
+	 * Returns last block height of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
+	 * @returns {Number}
+	 */
 	async getLastBlockHeight() {
 		const block = await this.getLastBlock();
 		return block ? block.number : undefined;
 	}
 
 	/**
-	 * Returns balance in ETH from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * Converts amount in sat to token. ERC20 overrides this method.
+	 * @returns {Number}
+	 */
+	fromSat(satValue) {
+		try {
+			return +ethUtils.fromWei(String(satValue))
+		} catch (e) {
+			log.warn(`Error while converting fromSat(${satValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+		}
+	}
+
+	/**
+	 * Converts amount in token to sat. ERC20 overrides this method.
+	 * @returns {String}
+	 */
+	toSat(tokenValue) {
+		try {
+			return ethUtils.toWei(String(tokenValue))
+		} catch (e) {
+			log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+		}
+	}
+
+	/**
+	 * Returns ETH or ERC20 balance from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * Cache stores balance in wei (string)
 	 * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
 	 */
 	async getBalance() {
@@ -97,15 +144,20 @@ module.exports = new class ethCoin extends baseCoin {
 
 			let cached = this.cache.getData('balance');
 			if (cached) {
-				return +ethUtils.fromWei(cached);
+				return this.fromSat(cached);
 			}
-			const balance = await eth.getBalance(this.account.address);
+			let balance;
+			if (this.contract) {
+				balance = await this.contract.methods.balanceOf(this.account.address).call()
+			} else {
+				balance = await eth.getBalance(this.account.address);
+			}
 			if (balance) {
 				this.cache.cacheData('balance', balance);
-				return +ethUtils.fromWei(balance);
+				return this.fromSat(balance);
 			} else {
 				log.warn(`Failed to get balance in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
-				return +ethUtils.fromWei(cached);
+				return this.fromSat(cached);
 			}
 
 		} catch (e) {
@@ -114,25 +166,25 @@ module.exports = new class ethCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns balance in ETH from cache. It may be outdated.
+	 * Returns balance ETH or ERC20 balance from cache. It may be outdated.
 	 * @returns {Number} cached value; it may be undefined
 	 */
 	get balance() {
 		try {
-			return +ethUtils.fromWei(this.cache.getData('balance'));
+			return this.fromSat(this.cache.getData('balance'));
 		} catch (e) {
 			log.warn(`Error while getting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
 	/**
-	 * Updates balance in ETH manually from cache. Useful when we don't want to wait for network update.
-	 * @param {Number} value New balance in ETH
+	 * Updates ETH or ERC20 balance in cache. Useful when we don't want to wait for network update.
+	 * @param {Number} value New balance in ETH or token
 	 */
 	set balance(value) {
 		try {
 			if (utils.isPositiveOrZeroNumber(value)) {
-				this.cache.cacheData('balance', ethUtils.toWei(String(value)));
+				this.cache.cacheData('balance', this.toSat(value));
 			}
 		} catch (e) {
 			log.warn(`Error setting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
@@ -293,49 +345,46 @@ module.exports = new class ethCoin extends baseCoin {
 		return tx
 	}
 
-	async send(params, contract) {
-
-		let token = 'ETH';
+	async send(params) {
 		try {
 
 			const txParams = {
 				// nonce: this.currentNonce++, // set as default
 				// gasPrice: this.gasPrice, // set as default
-				gas: Math.round(this.gasLimit * this.reliebilityCoef),
-				to: params.address,
-				value: ethUtils.toWei(String(params.value))
+				gas: Math.round(this.gasLimit * this.reliabilityCoef),
 			};
-			if (contract) { // ERC20
-				token = contract.coin; // REMEMBER !!!!!!!!!!!!!!!!!!!!!!!!!
+			if (this.contract) {
 				txParams.value = '0x0';
-				txParams.data = contract.data;
-				txParams.to = contract.address;
-				txParams.gas *= 2;
+				txParams.to = this.erc20model.sc,
+				txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
+			} else {
+				txParams.value = this.toSat(params.value);
+				txParams.to = params.address;
 			}
 
 			return new Promise(resolve => {
 				eth.sendTransaction(txParams)
 					.on('transactionHash', (hash) => {
-						log.log(`Formed Tx to send ${params.value} ${token} to ${params.address}, Tx hash: ${hash}.`);
+						log.log(`Formed Tx to send ${params.value} ${this.token} to ${params.address}, Tx hash: ${hash}.`);
 						resolve({
 							success: true,
 							hash
 						});
 					})
 					.on('receipt', (receipt) => {
-						log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${token} to ${params.address}: ${this.formTxMessage(receipt)}.`);						
+						log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(receipt)}.`);						
 					})
 					.on('confirmation', (confirmationNumber, receipt) => {
 						if (confirmationNumber === 0) {
-							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);						
+							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);						
 						}
 					})
 					.on('error', (error, receipt) => {  // If out of gas error, the second parameter is the receipt
 						if (receipt && receipt.transactionHash) {
 							if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-								log.error(`Unable to send ${receipt.transactionHash} Tx, ${params.value} ${token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}. ` + error);
+								log.error(`Unable to send ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}. ` + error);
 								} else {
-									log.error(`Unable to send ${params.value} ${token} to ${params.address}. No Tx receipt. ` + error);						
+									log.error(`Unable to send ${params.value} ${this.token} to ${params.address}. No Tx receipt. ` + error);						
 								}
 								resolve({
 									success: false,
@@ -344,7 +393,7 @@ module.exports = new class ethCoin extends baseCoin {
 							}
 					}).catch(e => {
 						if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error(`(Exception) Failed to send ${params.value} ${token} to ${params.address}. ` + e);						
+							log.error(`(Exception) Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);						
 							resolve({
 								success: false,
 								error: e.toString()
@@ -354,7 +403,7 @@ module.exports = new class ethCoin extends baseCoin {
 			});
 
 		} catch (e) {
-			log.warn(`Error while sending ${params.value} ${token} to ${params.address} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
+			log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
 			return {
 				success: false,
 				error: e.toString()
@@ -401,6 +450,217 @@ module.exports = new class ethCoin extends baseCoin {
 
 };
 
-setInterval(() => {
-	module.exports.updateGasPrice();
-}, updateGasPriceInterval);
+const abiArray = [{
+	'constant': true,
+	'inputs': [],
+	'name': 'name',
+	'outputs': [{
+		'name': '',
+		'type': 'string'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': false,
+	'inputs': [{
+		'name': '_spender',
+		'type': 'address'
+	}, {
+		'name': '_value',
+		'type': 'uint256'
+	}],
+	'name': 'approve',
+	'outputs': [{
+		'name': '',
+		'type': 'bool'
+	}],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [],
+	'name': 'totalSupply',
+	'outputs': [{
+		'name': '',
+		'type': 'uint256'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': false,
+	'inputs': [{
+		'name': '_from',
+		'type': 'address'
+	}, {
+		'name': '_to',
+		'type': 'address'
+	}, {
+		'name': '_value',
+		'type': 'uint256'
+	}],
+	'name': 'transferFrom',
+	'outputs': [{
+		'name': '',
+		'type': 'bool'
+	}],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [],
+	'name': 'INITIAL_SUPPLY',
+	'outputs': [{
+		'name': '',
+		'type': 'uint256'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [],
+	'name': 'decimals',
+	'outputs': [{
+		'name': '',
+		'type': 'uint8'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': false,
+	'inputs': [{
+		'name': '_spender',
+		'type': 'address'
+	}, {
+		'name': '_subtractedValue',
+		'type': 'uint256'
+	}],
+	'name': 'decreaseApproval',
+	'outputs': [{
+		'name': '',
+		'type': 'bool'
+	}],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [{
+		'name': '_owner',
+		'type': 'address'
+	}],
+	'name': 'balanceOf',
+	'outputs': [{
+		'name': 'balance',
+		'type': 'uint256'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [],
+	'name': 'symbol',
+	'outputs': [{
+		'name': '',
+		'type': 'string'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'constant': false,
+	'inputs': [{
+		'name': '_to',
+		'type': 'address'
+	}, {
+		'name': '_value',
+		'type': 'uint256'
+	}],
+	'name': 'transfer',
+	'outputs': [{
+		'name': '',
+		'type': 'bool'
+	}],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'function'
+}, {
+	'constant': false,
+	'inputs': [{
+		'name': '_spender',
+		'type': 'address'
+	}, {
+		'name': '_addedValue',
+		'type': 'uint256'
+	}],
+	'name': 'increaseApproval',
+	'outputs': [{
+		'name': '',
+		'type': 'bool'
+	}],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'function'
+}, {
+	'constant': true,
+	'inputs': [{
+		'name': '_owner',
+		'type': 'address'
+	}, {
+		'name': '_spender',
+		'type': 'address'
+	}],
+	'name': 'allowance',
+	'outputs': [{
+		'name': '',
+		'type': 'uint256'
+	}],
+	'payable': false,
+	'stateMutability': 'view',
+	'type': 'function'
+}, {
+	'inputs': [],
+	'payable': false,
+	'stateMutability': 'nonpayable',
+	'type': 'constructor'
+}, {
+	'anonymous': false,
+	'inputs': [{
+		'indexed': true,
+		'name': 'owner',
+		'type': 'address'
+	}, {
+		'indexed': true,
+		'name': 'spender',
+		'type': 'address'
+	}, {
+		'indexed': false,
+		'name': 'value',
+		'type': 'uint256'
+	}],
+	'name': 'Approval',
+	'type': 'event'
+}, {
+	'anonymous': false,
+	'inputs': [{
+		'indexed': true,
+		'name': 'from',
+		'type': 'address'
+	}, {
+		'indexed': true,
+		'name': 'to',
+		'type': 'address'
+	}, {
+		'indexed': false,
+		'name': 'value',
+		'type': 'uint256'
+	}],
+	'name': 'Transfer',
+	'type': 'event'
+}];
