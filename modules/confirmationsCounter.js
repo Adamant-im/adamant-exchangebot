@@ -1,74 +1,81 @@
-const db = require('./DB');
 const config = require('./configReader');
-const constants = require('../helpers/const');
-const exchangerUtils = require('../helpers/cryptos/exchanger');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
-const api = require('./api');
+const constants = require('../helpers/const');
 const utils = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
+const db = require('./DB');
+const api = require('./api');
 
-module.exports = async () => {
+module.exports = async (pay) => {
 
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from $${pay.senderId}`;
+	try {
+
+		let msgNotify = null;
+		let msgSendBack = null;
+
+		log.log(`Updating Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
+
+		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
+			log.log(`No need to update confirmations for Tx ${pay.inTxid}, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
+			return;
+		}
+
+		if (pay.status === false) {
+			pay.update({
+				error: constants.ERRORS.TX_FAILED,
+				transactionIsFailed: true,
+				isFinished: true
+			});
+			msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
+			msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
+		}
+
+		const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
+		if (!tx) {
+			log.warn(`Unable to fetch validated Tx ${pay.inTxid} info. Will try again next time. ${admTxDescription}.`);
+			return;
+		}
+		if (!tx.height) {
+			log.warn(`Unable to get Tx ${pay.inTxid} height. Will try again next time. ${admTxDescription}.`);
+			return;
+		}
+
+		let confirmations = tx.confirmations;
+		if (!tx.confirmations) {
+			const lastBlockHeight = await exchangerUtils[pay.inCurrency].getLastBlockHeight();
+			if (!lastBlockHeight) {
+				log.warn(`Unable to get last block height for ${pay.inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
+				return;
+			}
+			confirmations = lastBlockHeight - tx.height;
+		}
+
+		pay.update({
+			inTxStatus: tx.status,
+			inConfirmations: confirmations
+		});
+
+		await pay.save();
+		if (msgSendBack) {
+			notify(msgNotify, 'error');
+			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
+		}
+
+	} catch (e) {
+		log.error(`Failed to get Tx ${pay.inTxid} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+	}
+
+};
+
+setInterval(async () => {
 	const { paymentsDb } = db;
 	(await paymentsDb.find({
 		transactionIsValid: true,
 		isFinished: false,
 		transactionIsFailed: false
 	})).forEach(async pay => {
-		try {
-			let msgNotify = null;
-			let msgSendBack = null;
-
-			const {
-				inConfirmations,
-				inCurrency,
-				inTxid,
-				inTxStatus,
-				admTxId
-			} = pay;
-
-			if (inTxStatus && inConfirmations >= config['min_confirmations_' + inCurrency]){
-				return;
-			}
-
-			const lastBlockHeight = await exchangerUtils[inCurrency].getLastBlockHeight();
-			if (!lastBlockHeight) {
-				log.warn(`Unable to get last block height for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
-				return;
-			}
-			const txData = (await exchangerUtils[inCurrency].getTransaction(inTxid));
-			if (!txData || !txData.height){
-				return;
-			}
-			const {status, height} = txData;
-
-			pay.update({
-				inTxStatus: status,
-				inConfirmations: lastBlockHeight - height
-			});
-			if (status === false){
-				pay.update({
-					error: 14,
-					transactionIsFailed: true,
-					isFinished: true
-				});
-				msgNotify = `${config.notifyName} notifies transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. Tx hash: _${inTxid}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${admTxId}.`;
-				msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
-			}
-
-			await pay.save();
-			if (msgSendBack) {
-				notify(msgNotify, 'error');
-				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
-			}
-
-		} catch (e) {
-			log.error('Error in ConformationsCounter module: ' + e);
-		}
+			module.exports(pay);
 	});
-
-};
-
-setInterval(() => {
-	module.exports();
-}, 10 * 1000);
+}, constants.CONFIRMATIONS_INTERVAL);

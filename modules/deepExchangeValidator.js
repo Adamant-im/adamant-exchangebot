@@ -6,12 +6,14 @@ const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const api = require('./api');
+const confirmationsCounter = require('./confirmationsCounter');
 
 module.exports = async (pay, tx) => {
+
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from $${tx.senderId}`;
 	try {
 
-		const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from $${tx.senderId}`;
-		log.error(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
+		log.log(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
 
 		pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
 
@@ -143,6 +145,10 @@ module.exports = async (pay, tx) => {
 		} // We got incomeTx details
 
 		await pay.save();
+		if (pay.transactionIsValid) {
+			confirmationsCounter(pay);
+		}
+
 		if (msgSendBack) {
 			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);
 			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack);
