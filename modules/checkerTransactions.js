@@ -3,6 +3,7 @@ const api = require('./api');
 const txParser = require('./incomingTxsParser');
 const log = require('../helpers/log');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const utils = require('../helpers/utils')
 
 async function check() {
@@ -26,7 +27,7 @@ async function check() {
 		const txTrx = await api.get('transactions', queryParams);
 		if (txTrx.success) {
 			for (const tx of txTrx.data.transactions) {
-				await txParser(tx);	
+				await txParser(tx);
 			}
 		} else {
 			log.warn(`Failed to get Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);
@@ -39,5 +40,5 @@ async function check() {
 }
 
 module.exports = () => {
-	setInterval(check, 3500);
+	setInterval(check, constants.TX_CHECKER_INTERVAL);
 };

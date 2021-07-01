@@ -84,7 +84,7 @@ module.exports = async (tx) => {
 		await itx.update({ isProcessed: true }, true);
 		await updateProcessedTx(tx, itx, false);
 		api.sendMessage(config.passPhrase, tx.senderPublicKey, `I've got a top-up transfer from you. Thanks, bro.`);
-		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'info');	
+		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'info');
 		return;
 	}
 
@@ -142,7 +142,7 @@ async function updateProcessedTx(tx, itx, updateDb) {
 			confirmations: tx.confirmations
 		}, true);
 	}
-	
+
 	await Store.updateLastProcessedBlockHeight(tx.height);
 
 }

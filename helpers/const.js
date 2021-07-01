@@ -8,6 +8,7 @@ module.exports = {
 	FORMAT_PAYOUT: 'YYYY-MM-DD',
 	PRECISION_DECIMALS: 8, // Accuracy for converting cryptos, 9.12345678 ETH
 	PRINT_DECIMALS: 8, // For pretty print, 9.12345678 ETH
+	TX_CHECKER_INTERVAL: 4 * 1000, // Check for new Txs every 4 seconds; additionally Exchanger receives new Txs instantly via socket
 	UPDATE_CRYPTO_RATES_INVERVAL: 60 * 1000, // Update crypto rates every minute
 	VALIDATOR_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in deepExchangeValidator
 	VALIDATOR_GET_TX_RETRIES: 30, // Retries to get Tx in deepExchangeValidator. In 10 minutes Tx must appear in a blockchain, otherwise Exchanger will decline it.
