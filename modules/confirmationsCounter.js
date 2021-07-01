@@ -17,8 +17,37 @@ module.exports = async (pay) => {
 
 		log.log(`Updating Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
 
+		const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
+		if (!tx) {
+			log.warn(`Unable to fetch validated Tx ${pay.inTxid} info. Will try again next time. ${admTxDescription}.`);
+			return;
+		}
+		if (!tx.height && !tx.confirmations) {
+			log.warn(`Unable to get Tx ${pay.inTxid} height and confirmations. Will try again next time. ${admTxDescription}.`);
+			return;
+		}
+
+		let confirmations = tx.confirmations;
+		if (!tx.confirmations) {
+			const lastBlockHeight = await exchangerUtils[pay.inCurrency].getLastBlockHeight();
+			if (!lastBlockHeight) {
+				log.warn(`Unable to get last block height for ${pay.inCurrency} to count Tx ${pay.inTxid} confirmations in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
+				return;
+			}
+			confirmations = lastBlockHeight - tx.height;
+		}
+
+		pay.update({
+			inTxStatus: tx.status,
+			inConfirmations: confirmations
+		});
+
+		console.log('confirmations')
+		console.log(confirmations)
+		console.log(pay.inConfirmations)
+
 		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
-			pay.update({
+			await pay.update({
 				inTxConfirmed: true
 			}, true);
 			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
@@ -34,31 +63,6 @@ module.exports = async (pay) => {
 			msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
 			msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
 		}
-
-		const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
-		if (!tx) {
-			log.warn(`Unable to fetch validated Tx ${pay.inTxid} info. Will try again next time. ${admTxDescription}.`);
-			return;
-		}
-		if (!tx.height) {
-			log.warn(`Unable to get Tx ${pay.inTxid} height. Will try again next time. ${admTxDescription}.`);
-			return;
-		}
-
-		let confirmations = tx.confirmations;
-		if (!tx.confirmations) {
-			const lastBlockHeight = await exchangerUtils[pay.inCurrency].getLastBlockHeight();
-			if (!lastBlockHeight) {
-				log.warn(`Unable to get last block height for ${pay.inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
-				return;
-			}
-			confirmations = lastBlockHeight - tx.height;
-		}
-
-		pay.update({
-			inTxStatus: tx.status,
-			inConfirmations: confirmations
-		});
 
 		await pay.save();
 		if (msgSendBack) {
