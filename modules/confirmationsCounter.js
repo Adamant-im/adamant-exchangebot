@@ -15,7 +15,7 @@ module.exports = async (pay) => {
 		let msgNotify = null;
 		let msgSendBack = null;
 
-		log.log(`Updating Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
+		log.log(`Updating incoming Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
 
 		const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
 		if (!tx) {
@@ -41,10 +41,6 @@ module.exports = async (pay) => {
 			inTxStatus: tx.status,
 			inConfirmations: confirmations
 		});
-
-		console.log('confirmations')
-		console.log(confirmations)
-		console.log(pay.inConfirmations)
 
 		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
 			await pay.update({

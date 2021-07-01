@@ -30,9 +30,7 @@ function init() {
 			db.paymentsDb.db.drop();
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
-			// require('./helpers/cryptos/exchanger').ETH.getTransactionReceipt('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
-			// require('./helpers/cryptos/exchanger').ETH.getTransactionDetails('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
-			require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
+			// require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
 			checker();
 			notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
 		}

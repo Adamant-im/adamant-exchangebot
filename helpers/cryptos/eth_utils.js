@@ -342,7 +342,7 @@ module.exports = class ethCoin extends baseCoin {
 		if (tx) {
 			log.log(`getTransaction(): ${this.formTxMessage(tx)}.`);
 		} else {
-			log.warn(`Unable to get Tx ${hash} in getTransaction() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + e);
+			log.warn(`Unable to get Tx ${hash} in getTransaction() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new.`);
 		}
 		return tx
 	}
@@ -383,7 +383,7 @@ module.exports = class ethCoin extends baseCoin {
 					})
 					.on('error', (error, receipt) => {  // If out of gas error, the second parameter is the receipt
 						if (receipt && receipt.transactionHash) {
-							if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
+							if (!error.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
 								log.error(`Unable to send ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}. ` + error);
 								} else {
 									log.error(`Unable to send ${params.value} ${this.token} to ${params.address}. No Tx receipt. ` + error);						

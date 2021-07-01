@@ -14,16 +14,21 @@ module.exports = {
 	VALIDATOR_AMOUNT_DEVIATION: 0.001, // 0.1% can be a precision error
 	VALIDATOR_TIMESTAMP_DEVIATION: 3 * 24 * this.HOUR, // Difference between ADAMANT's token transfer message and real Tx can be up to 3 days. Duplicate Txs are filtered additionally.
 	CONFIRMATIONS_INTERVAL: 20 * 1000, // Update Tx confirmations every 20 sec in confirmationsCounter
+	SENDER_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in sentTxChecker
+	SENDER_GET_TX_RETRIES: 60, // Retries to get Tx in sentTxChecker. In 20 minutes Tx must appear in a blockchain, otherwise Exchanger will notify master and user to check it manually.
 	
 	ERRORS: {
 		UNABLE_TO_FETCH_TX: 10,
 		WRONG_SENDER: 11,
 		WRONG_RECIPIENT: 12,
 		WRONG_AMOUNT: 13,
-		WRONG_TIMESTAMP: 24,
+		WRONG_TIMESTAMP: 34,
 		NO_IN_KVS_ADDRESS: 8,
 		NO_OUT_KVS_ADDRESS: 9,
-		TX_FAILED: 14
+		TX_FAILED: 14,
+		UNABLE_TO_FETCH_SENT_TX: 14,
+		SENT_EXCHANGE_TX_FAILED: 21,
+		SENT_BACK_TX_FAILED: 22
 	}
 
 }
