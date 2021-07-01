@@ -15,10 +15,10 @@ module.exports = class baseCoin {
 	}
 
 	account = {
-		passPhrase: undefined, // ADM
-		privateKey: undefined, // ETH
-		keysPair: undefined, // ADM, ETH
-		address: undefined // ADM, ETH
+		passPhrase: undefined,
+		privateKey: undefined,
+		keysPair: undefined,
+		address: undefined
 	}
 
 };

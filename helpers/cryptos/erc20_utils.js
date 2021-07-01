@@ -11,12 +11,10 @@ module.exports = class erc20coin extends ethCoin {
 	}
 
 	getLastBlock() {
-		console.log('last block from eth')
 		return this.etherInstance.getLastBlock()
 	}
 
 	async getLastBlockHeight() {
-		console.log('last block from eth')
 		return this.etherInstance.getLastBlockHeight()
 	}
 

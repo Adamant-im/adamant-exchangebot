@@ -14,24 +14,24 @@ module.exports = (message, type, silent_mode = false) => {
 		log[type](removeMarkdown(message));
 
 		if (!silent_mode) {
-			
+
 			if (!slack && !adamant_notify) {
 				return;
 			}
 			let color;
 			switch (type) {
-			case ('error'):
-				color = '#FF0000';
-				break;
-			case ('warn'):
-				color = '#FFFF00';
-				break;
-			case ('info'):
-				color = '#00FF00';
-				break;
-			case ('log'):
-				color = '#FFFFFF';
-				break;
+				case ('error'):
+					color = '#FF0000';
+					break;
+				case ('warn'):
+					color = '#FFFF00';
+					break;
+				case ('info'):
+					color = '#00FF00';
+					break;
+				case ('log'):
+					color = '#FFFFFF';
+					break;
 			}
 
 			const params = {
@@ -45,7 +45,7 @@ module.exports = (message, type, silent_mode = false) => {
 
 			if (slack && slack.length > 34) {
 				axios.post(slack, params)
-					.catch(function(error) {
+					.catch(function (error) {
 						log.log(`Request to Slack with message ${message} failed. ${error}.`);
 					});
 			}
@@ -65,22 +65,22 @@ module.exports = (message, type, silent_mode = false) => {
 
 };
 
-function removeMarkdown (text) {
+function removeMarkdown(text) {
 	return doubleAsterisksToSingle(text).replace(/([_*]\b|\b[_*])/g, '');
 }
 
-function doubleAsterisksToSingle (text) {
+function doubleAsterisksToSingle(text) {
 	return text.replace(/(\*\*\b|\b\*\*)/g, '*');
 }
 
-function singleAsteriskToDouble (text) {
+function singleAsteriskToDouble(text) {
 	return text.replace(/(\*\b|\b\*)/g, '**');
 }
 
-function makeBoldForMarkdown (text) {
+function makeBoldForMarkdown(text) {
 	return singleAsteriskToDouble(doubleAsterisksToSingle(text))
 }
 
-function makeBoldForSlack (text) {
+function makeBoldForSlack(text) {
 	return doubleAsterisksToSingle(text)
 }

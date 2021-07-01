@@ -37,11 +37,11 @@ module.exports = class ethCoin extends baseCoin {
 			});
 			setInterval(() => {
 				this.updateGasPrice();
-			}, updateGasPriceInterval);			
+			}, updateGasPriceInterval);
 		} else {
 			this.reliabilityCoef = 1.8 // make sure exchanger's Tx will be accepted for ERC20
 			this.erc20model = erc20models[token];
-			this.contract = new eth.Contract(abiArray, this.erc20model.sc, {from: this.account.address});	
+			this.contract = new eth.Contract(abiArray, this.erc20model.sc, { from: this.account.address });
 		}
 		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
 	}
@@ -198,7 +198,7 @@ module.exports = class ethCoin extends baseCoin {
 	 * Used for income Tx security validation (deepExchangeValidator): timestamp
 	 * getBlock doesn't provide confirmations (calc it from height)
 	 */
-	 getBlock(blockHashOrBlockNumber) {
+	getBlock(blockHashOrBlockNumber) {
 		return new Promise(resolve => {
 			eth.getBlock(blockHashOrBlockNumber, false, (error, block) => {
 				if (error || !block) {
@@ -275,7 +275,7 @@ module.exports = class ethCoin extends baseCoin {
 	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): confirmations || height
 	 * Not used, additional info: hash (already known), blockId, gasPrice, contract (ERC20), nonce
 	 * getTransactionReceipt doesn't provide status, gasUsed, confirmations (calc it from height)
-	 */	
+	 */
 	getTransactionDetails(hash) {
 		return new Promise((resolve) => {
 			eth.getTransaction(hash, (error, txDetails) => {
@@ -322,7 +322,7 @@ module.exports = class ethCoin extends baseCoin {
 	 * Integrates getTransactionReceipt(), getTransactionDetails(), getBlock() to fetch all available info from the blockchain
 	 * @param {String} hash Tx ID to fetch
 	 * @returns {Object}
-	 */	
+	 */
 	async getTransaction(hash) {
 		let txReceipt, txDetails, blockInfo, tx;
 		txReceipt = await this.getTransactionReceipt(hash);
@@ -330,7 +330,7 @@ module.exports = class ethCoin extends baseCoin {
 			tx = txReceipt;
 			txDetails = await this.getTransactionDetails(hash);
 			if (txDetails) {
-				tx = {...tx, ...txDetails};
+				tx = { ...tx, ...txDetails };
 				if (tx.blockId) {
 					blockInfo = await this.getBlock(tx.blockId);
 					if (blockInfo) {
@@ -358,7 +358,7 @@ module.exports = class ethCoin extends baseCoin {
 			if (this.contract) {
 				txParams.value = '0x0';
 				txParams.to = this.erc20model.sc,
-				txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
+					txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
 			} else {
 				txParams.value = this.toSat(params.value);
 				txParams.to = params.address;
@@ -374,28 +374,28 @@ module.exports = class ethCoin extends baseCoin {
 						});
 					})
 					.on('receipt', (receipt) => {
-						log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(receipt)}.`);						
+						log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(receipt)}.`);
 					})
 					.on('confirmation', (confirmationNumber, receipt) => {
 						if (confirmationNumber === 0) {
-							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);						
+							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);
 						}
 					})
 					.on('error', (error, receipt) => {  // If out of gas error, the second parameter is the receipt
 						if (receipt && receipt.transactionHash) {
 							if (!error.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
 								log.error(`Unable to send ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}. ` + error);
-								} else {
-									log.error(`Unable to send ${params.value} ${this.token} to ${params.address}. No Tx receipt. ` + error);						
-								}
-								resolve({
-									success: false,
-									error: error.toString()
-								});
+							} else {
+								log.error(`Unable to send ${params.value} ${this.token} to ${params.address}. No Tx receipt. ` + error);
 							}
+							resolve({
+								success: false,
+								error: error.toString()
+							});
+						}
 					}).catch(e => {
 						if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error(`(Exception) Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);						
+							log.error(`(Exception) Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);
 							resolve({
 								success: false,
 								error: e.toString()
@@ -430,7 +430,7 @@ module.exports = class ethCoin extends baseCoin {
 		} else {
 			token = tx.contract ? tx.contract : 'ETH';
 		}
-		let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : ''; 
+		let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
 		let amount = tx.amount ? ` for ${tx.amount} ${tx.isAmountPlain ? '(plain contract value)' : token}` : '';
 		let height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
 		let time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';

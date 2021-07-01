@@ -136,7 +136,7 @@ module.exports = class admCoin extends baseCoin {
 
 	formTxMessage(tx) {
 		let senderId = tx.senderId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.senderId;
-		let recipientId = tx.recipientId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.recipientId;		
+		let recipientId = tx.recipientId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.recipientId;
 		let message = `Tx ${tx.id} for ${utils.satsToADM(tx.amount)} ADM from ${senderId} to ${recipientId} included at ${tx.height} blockchain height and has ${tx.confirmations} confirmations, ${utils.satsToADM(tx.fee)} ADM fee`
 		return message
 	}

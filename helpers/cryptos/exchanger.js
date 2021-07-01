@@ -41,9 +41,9 @@ module.exports = {
 	},
 
 	createErc20tokens() {
-		config.erc20.forEach(async t=> {
+		config.erc20.forEach(async t => {
 			this[t] = new erc20_utils(t, this.ETH);
-		});		
+		});
 	},
 
 	isKnown(coin) {
@@ -68,5 +68,5 @@ module.exports = {
 
 	ETH: new eth_utils('ETH'),
 	ADM: new adm_utils(),
-	
+
 };

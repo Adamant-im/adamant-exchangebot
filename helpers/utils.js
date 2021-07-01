@@ -89,8 +89,8 @@ module.exports = {
    * @returns {boolean}
    */
   isInteger(value) {
-    if (typeof(value) !== 'number' || isNaN(value) || !Number.isSafeInteger(value))
-		  return false
+    if (typeof (value) !== 'number' || isNaN(value) || !Number.isSafeInteger(value))
+      return false
     else
       return true
   },
@@ -100,9 +100,9 @@ module.exports = {
    * @param {number} value Number to validate
    * @returns {boolean}
    */
-   isPositiveOrZeroInteger(value) {
+  isPositiveOrZeroInteger(value) {
     if (!this.isInteger(value) || value < 0)
-		  return false
+      return false
     else
       return true
   },
@@ -112,9 +112,9 @@ module.exports = {
    * @param {number} value Number to validate
    * @returns {boolean}
    */
-   isNumber(value) {
-    if (typeof(value) !== 'number' || isNaN(value) || !Number.isFinite(value))
-		  return false
+  isNumber(value) {
+    if (typeof (value) !== 'number' || isNaN(value) || !Number.isFinite(value))
+      return false
     else
       return true
   },
@@ -124,9 +124,9 @@ module.exports = {
    * @param {number} value Number to validate
    * @returns {boolean}
    */
-   isPositiveOrZeroNumber(value) {
+  isPositiveOrZeroNumber(value) {
     if (!this.isNumber(value) || value < 0)
-		  return false
+      return false
     else
       return true
   },
@@ -153,7 +153,7 @@ module.exports = {
    */
   formatDate(timestamp) {
     if (!timestamp) return false;
-    let formattedDate = { };
+    let formattedDate = {};
     let dateObject = new Date(timestamp);
     formattedDate.year = dateObject.getFullYear();
     formattedDate.month = ("0" + (dateObject.getMonth() + 1)).slice(-2);
@@ -230,8 +230,8 @@ module.exports = {
    * @returns {boolean} True, if arrays are equal
    */
   isArraysEqual(array1, array2) {
-		return array1.length === array2.length && array1.sort().every(function(value, index) { return value === array2.sort()[index]});
-	},
+    return array1.length === array2.length && array1.sort().every(function (value, index) { return value === array2.sort()[index] });
+  },
 
   /**
    * Compares two strings, case sensitive

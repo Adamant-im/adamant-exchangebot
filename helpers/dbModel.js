@@ -4,7 +4,7 @@ module.exports = (db) => {
 		constructor(data = {}, isSave) {
 			this.db = db;
 			Object.assign(this, data);
-			if (isSave){
+			if (isSave) {
 				this.save();
 			}
 		}
@@ -13,15 +13,15 @@ module.exports = (db) => {
 		}
 		static find(a) { // return Array
 			return new Promise((resolve, reject) => {
-				this.db.find(a).toArray((err, data) => {				
-					resolve(data.map(d=>new this(d)));
+				this.db.find(a).toArray((err, data) => {
+					resolve(data.map(d => new this(d)));
 				});
 			});
 		}
 		static aggregate(a) { // return Array
 			return new Promise((resolve, reject) => {
 				this.db.aggregate(a).toArray((err, data) => {
-					resolve(data.map(d=>new this(d)));
+					resolve(data.map(d => new this(d)));
 				});
 			});
 		}
@@ -38,16 +38,16 @@ module.exports = (db) => {
 		}
 		_data() {
 			const data = {};
-			for (let field in this){
-				if (!['db', '_id'].includes(field)){
+			for (let field in this) {
+				if (!['db', '_id'].includes(field)) {
 					data[field] = this[field];
 				}
 			}
 			return data;
 		}
-		async update(obj, isSave){
+		async update(obj, isSave) {
 			Object.assign(this, obj);
-			if (isSave){
+			if (isSave) {
 				await this.save();
 			}
 		}
@@ -59,9 +59,9 @@ module.exports = (db) => {
 						resolve(this._id);
 					});
 				} else {
-					db.updateOne({_id: this._id}, {
+					db.updateOne({ _id: this._id }, {
 						$set: this._data()
-					}, {upsert: true}).then(() => {
+					}, { upsert: true }).then(() => {
 						resolve(this._id);
 					});
 				}
