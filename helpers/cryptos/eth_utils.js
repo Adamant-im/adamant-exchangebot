@@ -9,13 +9,15 @@ const Eth = require('web3-eth');
 const ethUtils = require('web3-utils');
 const eth = new Eth(config.node_ETH[0]); // TODO: health check
 const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
+const reliabilityCoefEth = 1.3; // make sure exchanger's Tx will be accepted for ETH
+const reliabilityCoefErc20 = 2.4; // make sure exchanger's Tx will be accepted for ERC20
 
 const baseCoin = require('./baseCoin');
 module.exports = class ethCoin extends baseCoin {
 
 	lastNonce = 0
 	gasPrice = '0' // in wei, string
-	gasLimit = 22000 // const gas limit in wei
+	gasLimit = 22000 // const base gas limit in wei
 
 	constructor(token) {
 		super()
@@ -23,7 +25,7 @@ module.exports = class ethCoin extends baseCoin {
 		this.cache.balance = { lifetime: 30000 }; // in wei, string
 
 		if (token === 'ETH') {
-			this.reliabilityCoef = 1.3 // make sure exchanger's Tx will be accepted for ETH
+			this.reliabilityCoef = reliabilityCoefEth;
 			this.cache.lastBlock = { lifetime: 10000 };
 			this.account.keysPair = api.eth.keys(config.passPhrase);
 			this.account.address = this.account.keysPair.address;
@@ -39,7 +41,8 @@ module.exports = class ethCoin extends baseCoin {
 				this.updateGasPrice();
 			}, updateGasPriceInterval);
 		} else {
-			this.reliabilityCoef = 1.8 // make sure exchanger's Tx will be accepted for ERC20
+			this.reliabilityCoef = reliabilityCoefErc20;
+			this.reliabilityCoefFromEth = reliabilityCoefErc20 / reliabilityCoefEth;
 			this.erc20model = erc20models[token];
 			this.contract = new eth.Contract(abiArray, this.erc20model.sc, { from: this.account.address });
 		}
@@ -54,7 +57,7 @@ module.exports = class ethCoin extends baseCoin {
 		try {
 			return +ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliabilityCoef;
 		} catch (e) {
-			log.warn(`Error while calculating Tx fee in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
+			log.warn(`Error while calculating Tx fee for ${this.token} in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
@@ -79,10 +82,10 @@ module.exports = class ethCoin extends baseCoin {
 
 	/**
 	 * Returns last block of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
-	 * @returns {Object}
+	 * @returns {Object} or undefined, if unable to get block info
 	 */
 	getLastBlock() {
-		let cached = this.cache.getData('lastBlock');
+		let cached = this.cache.getData('lastBlock', true);
 		if (cached) {
 			return cached;
 		}
@@ -103,7 +106,7 @@ module.exports = class ethCoin extends baseCoin {
 
 	/**
 	 * Returns last block height of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
-	 * @returns {Number}
+	 * @returns {Number} or undefined, if unable to get block info
 	 */
 	async getLastBlockHeight() {
 		const block = await this.getLastBlock();
@@ -142,7 +145,7 @@ module.exports = class ethCoin extends baseCoin {
 	async getBalance() {
 		try {
 
-			let cached = this.cache.getData('balance');
+			let cached = this.cache.getData('balance', true);
 			if (cached) {
 				return this.fromSat(cached);
 			}
@@ -157,7 +160,7 @@ module.exports = class ethCoin extends baseCoin {
 				return this.fromSat(balance);
 			} else {
 				log.warn(`Failed to get balance in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
-				return this.fromSat(cached);
+				return this.fromSat(this.cache.getData('balance', false));
 			}
 
 		} catch (e) {
@@ -171,7 +174,7 @@ module.exports = class ethCoin extends baseCoin {
 	 */
 	get balance() {
 		try {
-			return this.fromSat(this.cache.getData('balance'));
+			return this.fromSat(this.cache.getData('balance', false));
 		} catch (e) {
 			log.warn(`Error while getting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
@@ -214,7 +217,7 @@ module.exports = class ethCoin extends baseCoin {
 					});
 				}
 			}).catch(e => {
-				log.warn(`Error while getting block ${blockHashOrBlockNumber} info in getBlock() of ${utils.getModuleName(module.id)} module. ` + e);
+				// Duplicate of error
 			});
 		});
 	}
@@ -262,7 +265,7 @@ module.exports = class ethCoin extends baseCoin {
 					resolve(tx);
 				}
 			}).catch(e => {
-				log.warn(`Error while getting Tx ${hash} receipt in getTransactionReceipt() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + e);
+				// Duplicate of error
 			});
 		});
 	}
@@ -313,7 +316,7 @@ module.exports = class ethCoin extends baseCoin {
 					resolve(tx);
 				}
 			}).catch(e => {
-				log.warn(`Error while getting Tx ${hash} details in getTransactionDetails() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + e);
+				// Duplicate of error
 			});
 		});
 	}
@@ -341,8 +344,6 @@ module.exports = class ethCoin extends baseCoin {
 		}
 		if (tx) {
 			log.log(`getTransaction(): ${this.formTxMessage(tx)}.`);
-		} else {
-			log.warn(`Unable to get Tx ${hash} in getTransaction() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new.`);
 		}
 		return tx
 	}
@@ -357,8 +358,8 @@ module.exports = class ethCoin extends baseCoin {
 			};
 			if (this.contract) {
 				txParams.value = '0x0';
-				txParams.to = this.erc20model.sc,
-					txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
+				txParams.to = this.erc20model.sc;
+				txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
 			} else {
 				txParams.value = this.toSat(params.value);
 				txParams.to = params.address;
@@ -381,26 +382,16 @@ module.exports = class ethCoin extends baseCoin {
 							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);
 						}
 					})
-					.on('error', (error, receipt) => {  // If out of gas error, the second parameter is the receipt
-						if (receipt && receipt.transactionHash) {
-							if (!error.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-								log.error(`Unable to send ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}. ` + error);
-							} else {
-								log.error(`Unable to send ${params.value} ${this.token} to ${params.address}. No Tx receipt. ` + error);
-							}
-							resolve({
-								success: false,
-								error: error.toString()
-							});
-						}
-					}).catch(e => {
+					.on('error', (e, receipt) => {  // If out of gas error, the second parameter is the receipt
 						if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error(`(Exception) Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);
+							log.error(`Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);
 							resolve({
 								success: false,
 								error: e.toString()
 							});
 						}
+					}).catch(e => {
+						// Duplicates on-error
 					});
 			});
 

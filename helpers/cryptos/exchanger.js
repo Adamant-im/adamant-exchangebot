@@ -65,6 +65,9 @@ module.exports = {
 	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
 	},
+	isEthOrERC20(coin) {
+		return coin.toUpperCase() === 'ETH' || config.erc20.includes(coin.toUpperCase());
+	},
 
 	ETH: new eth_utils('ETH'),
 	ADM: new adm_utils(),

@@ -80,11 +80,18 @@ module.exports = async (tx) => {
 		receivedAt: tx.receivedAt
 	});
 
+	let msgSendBack, msgNotify;
+
 	if (decryptedMessage.toLowerCase() === 'deposit') {
 		await itx.update({ isProcessed: true }, true);
 		await updateProcessedTx(tx, itx, false);
-		api.sendMessage(config.passPhrase, tx.senderPublicKey, `I've got a top-up transfer from you. Thanks, bro.`);
-		notify(`${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'info');
+		msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
+		msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
+		notify(msgNotify, 'info');
+		api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then(response => {
+			if (!response.success)
+				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+		});
 		return;
 	}
 
@@ -104,8 +111,13 @@ module.exports = async (tx) => {
 	await updateProcessedTx(tx, itx, false);
 
 	if (itx.isSpam && !spamerIsNotyfy) {
-		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`, 'warn');
-		api.sendMessage(config.passPhrase, tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`);
+		msgNotify = `${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
+		msgSendBack = `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`;
+		notify(msgNotify, 'warn');
+		api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
+			if (!response.success)
+				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+		});
 		return;
 	}
 

@@ -17,6 +17,7 @@ module.exports = {
 	CONFIRMATIONS_INTERVAL: 20 * 1000, // Update Tx confirmations every 20 sec in confirmationsCounter
 	SENDER_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in sentTxChecker
 	SENDER_GET_TX_RETRIES: 60, // Retries to get Tx in sentTxChecker. In 20 minutes Tx must appear in a blockchain, otherwise Exchanger will notify master and user to check it manually.
+	SENDER_RESEND_ETH_RETRIES: 1, // Retries to re-send failed Tx in sentTxChecker. F. e., out of gas for Ethereum and ERC20 transactions. Other coins have no limit on re-tries.
 	
 	ERRORS: {
 		UNABLE_TO_FETCH_TX: 10,
@@ -28,8 +29,8 @@ module.exports = {
 		NO_OUT_KVS_ADDRESS: 9,
 		TX_FAILED: 14,
 		UNABLE_TO_FETCH_SENT_TX: 14,
-		SENT_EXCHANGE_TX_FAILED: 21,
-		SENT_BACK_TX_FAILED: 22
+		SENT_TX_FAILED: 21,
+
 	}
 
 }

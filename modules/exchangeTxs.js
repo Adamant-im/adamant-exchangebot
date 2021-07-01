@@ -8,7 +8,6 @@ const log = require('../helpers/log');
 const config = require('./configReader');
 const constants = require('../helpers/const');
 const Store = require('./Store');
-const deepExchangeValidator = require('./deepExchangeValidator');
 const api = require('./api');
 
 module.exports = async (itx, tx) => {
@@ -186,11 +185,10 @@ module.exports = async (itx, tx) => {
 		await itx.update({isProcessed: true}, true);
 
 		notify(msgNotify, notifyType);
-		api.sendMessage(config.passPhrase, tx.senderId, msgSendBack);
-
-		if (!pay.isFinished){
-			deepExchangeValidator(pay, tx);
-		}
+		api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
+			if (!response.success)
+				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+		});
 
 	} catch (e) {
 		notify(`Error while processing exchange Tx ${tx ? tx.id : 'undefined'} from ${tx ? tx.senderId : 'undefined'} in ${utils.getModuleName(module.id)} module. You may need to process it manually, see logs. Error: ` + e, 'error');

@@ -47,7 +47,7 @@ module.exports = async () => {
 
 		try {
 
-			log.log(`Updating sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} confirmations… ${admTxDescription}.`)
+			log.log(`Updating sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} status and confirmations… ${admTxDescription}.`)
 
 			let msgNotify = null;
 			let msgSendBack = null;
@@ -67,22 +67,74 @@ module.exports = async () => {
 					});
 					if (direction === 'exchange') {
 						notifyType = 'error';
-						msgNotify = `${config.notifyName} unable to verify exchange transfer of _${sendAmount}_ _${sendCurrency}_ (got _${pay.inAmountMessage}_ _${pay.inCurrency}_ from user). Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
+						msgNotify = `${config.notifyName} unable to verify exchange transfer of _${sendAmount}_ _${sendCurrency}_ (got _${pay.inAmountMessage}_ _${pay.inCurrency}_ from user). Insufficient balance? **Attention needed**. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
 						msgSendBack = `I’ve tried to make transfer of _${sendAmount}_ _${sendCurrency}_ to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 					} else { // direction === 'back'
 						notifyType = 'error';
-						msgNotify = `${config.notifyName} unable to verify sent back of _${sendAmount}_ _${sendCurrency}_. Insufficient balance? Attention needed. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
+						msgNotify = `${config.notifyName} unable to verify sent back of _${sendAmount}_ _${sendCurrency}_. Insufficient balance? **Attention needed**. Tx hash: _${sendTxId}_. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
 						msgSendBack = `I’ve tried to send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 					}
 					notify(msgNotify, notifyType);
-					api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
+					api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+						if (!response.success)
+							log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+					});
 				}
 				pay.save();
 				return;
 			}
 
+			pay.inTxStatus = tx.status;
+			if (pay.inTxStatus === false) {
+
+				pay.outTxFailedCounter = ++pay.outTxFailedCounter || 1;
+				pay.errorValidatorSend = constants.ERRORS.SENT_TX_FAILED;
+				notifyType = 'error';
+				let willRetryString, msgNotifyIntro, msgSendBackIntro;
+
+				if (direction === 'exchange') {
+					msgNotifyIntro = `exchange transfer of _${sendAmount}_ _${sendCurrency}_ (got _${pay.inAmountMessage}_ _${pay.inCurrency}_ from user)`;
+					msgSendBackIntro = `I’ve tried to make transfer of _${sendAmount}_ _${sendCurrency}_ to you`;
+				} else { // direction === 'back'
+					msgNotifyIntro = `sent back of _${sendAmount}_ _${sendCurrency}_`;
+					msgSendBackIntro = `I’ve tried to send transfer back`;
+				}
+
+				if (exchangerUtils.isEthOrERC20(sendCurrency) && pay.outTxFailedCounter > constants.SENDER_RESEND_ETH_RETRIES) {
+					msgSendBack = `${msgSendBackIntro}, but my ${pay.outTxFailedCounter} tries failed. Last try Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;	
+					willRetryString = 'No retries left. **Attention needed**. ';
+					pay.update({
+						isFinished: true,
+						needHumanCheck: true
+					});	
+				} else {
+					if (exchangerUtils.isEthOrERC20(sendCurrency)) {
+						willRetryString = `I'll retry ${constants.SENDER_RESEND_ETH_RETRIES - pay.outTxFailedCounter + 1} more times. `;
+					} else {
+						willRetryString = `I'll try again. `;
+					}
+					if (direction === 'exchange') {
+						pay.outTxid = null;
+					} else { // direction === 'back'
+						pay.sentBackTx = null;
+					}
+				}
+				msgNotify = `${config.notifyName} notifies that ${msgNotifyIntro} **failed**. Tx hash: _${sendTxId}_. ${willRetryString}Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
+
+				await pay.save();
+				notify(msgNotify, notifyType);
+				if (msgSendBack) {
+					api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+						if (!response.success)
+							log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+					});
+				}
+				return;
+
+			}
+
 			if (!tx.height && !tx.confirmations) {
-				log.warn(`Unable to get sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} height and confirmations. Will try again next time. ${admTxDescription}.`);
+				log.warn(`Unable to get sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} height or confirmations. Will try again next time. ${admTxDescription}.`);
 				return;
 			}
 
@@ -95,33 +147,13 @@ module.exports = async () => {
 				}
 				confirmations = lastBlockHeight - tx.height;
 			}
-	
+
 			pay.update({
 				outTxStatus: tx.status,
 				outConfirmations: confirmations
 			});
 
-			if (pay.outTxStatus === false) {
-
-				notifyType = 'error';
-				if (direction === 'exchange') {
-					pay.update({
-						errorValidatorSend: constants.ERRORS.SENT_EXCHANGE_TX_FAILED,
-						outTxid: null
-					});
-					msgNotify = `${config.notifyName} notifies that exchange transfer of _${sendAmount}_ _${sendCurrency}_ (got _${pay.inAmountMessage}_ _${pay.inCurrency}_ from user) **failed**. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
-					msgSendBack = `I’ve tried to make transfer of _${sendAmount}_ _${sendCurrency}_ to you, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
-				} else { // direction === 'back'
-					pay.update({
-						errorValidatorSend: constants.ERRORS.SENT_BACK_TX_FAILED,
-						sentBackTx: null
-					});
-					msgNotify = `${config.notifyName} sent back of _${sendAmount}_ _${sendCurrency}_ **failed**. Tx hash: _${sendTxId}_. Will try again. Balance of _${sendCurrency}_ is _${exchangerUtils[sendCurrency].balance}_. ${etherString}${admTxDescription}.`;
-					msgSendBack = `I’ve tried to send transfer back, but it seems transaction failed. Tx hash: _${sendTxId}_. I will try again. If I’ve said the same several times already, please contact my master.`;
-				}
-				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
-
-			} else if (pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]) {
+			if (pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]) {
 
 				if (direction === 'exchange') {
 					notifyType = 'info';
@@ -133,9 +165,9 @@ module.exports = async () => {
 					msgSendBack = `Here is your refund. Note, I've spent some to cover blockchain fees. Try me again!`;
 				}
 
-				if (sendCurrency !== 'ADM') {
+				if (sendCurrency !== 'ADM') { 
 					msgSendBack = `{"type":"${sendCurrency.toLowerCase()}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
-					let message = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich').success;
+					let message = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich');
 					if (message.success) {
 						pay.isFinished = true;
 					} else {
@@ -143,7 +175,9 @@ module.exports = async () => {
 					}
 				} else {
 					pay.isFinished = true;
+					// Don't send ADM message, as if ADM, it is already sent with the payment
 				}
+
 			}
 
 			await pay.save();

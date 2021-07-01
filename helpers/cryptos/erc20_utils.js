@@ -1,5 +1,6 @@
 const Store = require('../../modules/Store');
 const log = require('../../helpers/log');
+const utils = require('../utils');
 
 const ethCoin = require('./eth_utils');
 module.exports = class erc20coin extends ethCoin {
@@ -34,8 +35,16 @@ module.exports = class erc20coin extends ethCoin {
 		}
 	}
 
+	get FEE() {
+		return this.etherInstance.FEE * this.reliabilityCoefFromEth
+	}
+
 	get FEEinToken() {
-		return Store.convertCryptos('ETH', this.token, this.FEE).exchangePrice;
+		try {
+			return Store.convertCryptos('ETH', this.token, this.FEE).outAmount;
+		} catch (e) {
+			log.warn(`Error while calculating Tx fee in FEEinToken() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+		}
 	}
 
 }

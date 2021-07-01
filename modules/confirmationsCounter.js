@@ -12,9 +12,6 @@ module.exports = async (pay) => {
 	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from ${pay.senderId}`;
 	try {
 
-		let msgNotify = null;
-		let msgSendBack = null;
-
 		log.log(`Updating incoming Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
 
 		const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
@@ -22,8 +19,26 @@ module.exports = async (pay) => {
 			log.warn(`Unable to fetch validated Tx ${pay.inTxid} info. Will try again next time. ${admTxDescription}.`);
 			return;
 		}
+
+		pay.inTxStatus = tx.status;
+		if (pay.inTxStatus === false) {
+			pay.update({
+				error: constants.ERRORS.TX_FAILED,
+				transactionIsFailed: true,
+				isFinished: true
+			}, true);
+			let msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
+			let msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
+			notify(msgNotify, 'error');
+			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+				if (!response.success)
+					log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+			});
+			return;
+		}
+
 		if (!tx.height && !tx.confirmations) {
-			log.warn(`Unable to get Tx ${pay.inTxid} height and confirmations. Will try again next time. ${admTxDescription}.`);
+			log.warn(`Unable to get Tx ${pay.inTxid} height or confirmations. Will try again next time. ${admTxDescription}.`);
 			return;
 		}
 
@@ -45,26 +60,11 @@ module.exports = async (pay) => {
 		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
 			await pay.update({
 				inTxConfirmed: true
-			}, true);
-			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
-			return;
-		}
-
-		if (pay.status === false) {
-			pay.update({
-				error: constants.ERRORS.TX_FAILED,
-				transactionIsFailed: true,
-				isFinished: true
 			});
-			msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
-			msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
+			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
 		}
 
 		await pay.save();
-		if (msgSendBack) {
-			notify(msgNotify, 'error');
-			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
-		}
 
 	} catch (e) {
 		log.error(`Failed to get Tx ${pay.inTxid} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`)

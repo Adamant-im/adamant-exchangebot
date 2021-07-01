@@ -124,7 +124,10 @@ module.exports = async () => {
 			notify(msgNotify, notifyType);
 		}
 		if (msgSendBack){
-			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack);
+			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+				if (!response.success)
+					log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+			});
 		}
 	}
 };

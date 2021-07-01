@@ -53,7 +53,7 @@ module.exports = (message, type, silent_mode = false) => {
 				let mdMessage = makeBoldForMarkdown(message);
 				api.sendMessage(config.passPhrase, adamant_notify, `${type}| ${mdMessage}`).then(response => {
 					if (!response.success)
-						log.warn(`Failed to send notification messsage '${mdMessage}' to ${adamant_notify}. ${response.errorMessage}.`);
+						log.warn(`Failed to send notification message '${mdMessage}' to ${adamant_notify}. ${response.errorMessage}.`);
 				});
 			}
 

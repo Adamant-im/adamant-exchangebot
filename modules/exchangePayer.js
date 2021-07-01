@@ -30,7 +30,9 @@ module.exports = async () => {
 
 			let etherString = '';
 			let isNotEnoughBalance;
-
+			let msgSendBack;
+			let msgNotify;
+	
 			const outCryptoBalance = await exchangerUtils[outCurrency].getBalance();
 			if (!outCryptoBalance) {
 				log.warn(`Unable to update balance for ${outCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
@@ -56,8 +58,13 @@ module.exports = async () => {
 					error: 15,
 					needToSendBack: true
 				}, true);
-				notify(`${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`, 'warn');
-				api.sendMessage(config.passPhrase, pay.senderId, `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with **/balances** command. I will try to send transfer back to you.`);
+				msgNotify = `${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`;
+				msgSendBack = `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with **/balances** command. I will try to send transfer back to you.`;
+				notify(msgNotify, 'warn');
+				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+					if (!response.success)
+						log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+				});
 				return;
 			}
 
@@ -90,9 +97,13 @@ module.exports = async () => {
 					error: 16,
 					needToSendBack: true,
 				}, true);
-				log.error(`Failed to make exchange payment of ${outAmount} ${outCurrency}. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`);
-				notify(`${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`, 'error');
-				api.sendMessage(config.passPhrase, pay.senderId, `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send payment back to you.`);
+				msgNotify = `${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`;
+				msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I will try to send payment back to you.`;
+				notify(msgNotify, 'error');
+				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+					if (!response.success)
+						log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+				});
 			}
 		});
 };

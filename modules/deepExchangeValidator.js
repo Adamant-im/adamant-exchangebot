@@ -6,7 +6,6 @@ const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const api = require('./api');
-const confirmationsCounter = require('./confirmationsCounter');
 
 module.exports = async (pay, tx) => {
 
@@ -16,6 +15,8 @@ module.exports = async (pay, tx) => {
 		log.log(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
 
 		pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
+		let msgSendBack = false;
+		let msgNotify = false;
 
 		// Fetching addresses from ADAMANT KVS
 		let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
@@ -48,13 +49,16 @@ module.exports = async (pay, tx) => {
 				needHumanCheck: true
 			}, true);
 			notifyType = 'error';
-			notify(`${config.notifyName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Attention needed. ${admTxDescription}.`, 'error');
-			api.sendMessage(config.passPhrase, tx.senderId, `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`);
+			msgNotify = `${config.notifyName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Attention needed. ${admTxDescription}.`;
+			msgSendBack = `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`;
+			notify(msgNotify, notifyType);
+			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
+				if (!response.success)
+					log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+			});
 			return;
 		};
 
-		let msgSendBack = false;
-		let msgNotify = false;
 		if (senderKvsOutAddress === 'none' && !pay.needToSendBack) {
 			pay.update({
 				needToSendBack: true,
@@ -85,8 +89,8 @@ module.exports = async (pay, tx) => {
 		} else { // We got incomeTx details
 
 			pay.update({
-				senderId: incomeTx.senderId,
-				recipientId: incomeTx.recipientId,
+				inTxSenderId: incomeTx.senderId,
+				inTxRecipientId: incomeTx.recipientId,
 				inAmountReal: incomeTx.amount,
 				inTxFee: incomeTx.fee,
 				inTxStatus: incomeTx.status,
@@ -95,29 +99,29 @@ module.exports = async (pay, tx) => {
 				inConfirmations: incomeTx.confirmations
 			});
 
-			if (!pay.senderId || !pay.recipientId || !pay.inAmountReal || !pay.inTxTimestamp) {
+			if (!pay.inTxSenderId || !pay.inTxRecipientId || !pay.inAmountReal || !pay.inTxTimestamp) {
 				pay.save();
-				log.warn(`Unable to get full details of transaction: senderId ${pay.senderId}, recipientId ${pay.recipientId}, inAmountReal ${pay.inAmountReal}, inTxTimestamp ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
+				log.warn(`Unable to get full details of transaction: inTxSenderId ${pay.inTxSenderId}, inTxRecipientId ${pay.inTxRecipientId}, inAmountReal ${pay.inAmountReal}, inTxTimestamp ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
 				return;
 			}
 
-			if (!utils.isStringEqualCI(pay.senderId, pay.senderKvsInAddress)) {
+			if (!utils.isStringEqualCI(pay.inTxSenderId, pay.senderKvsInAddress)) {
 				pay.update({
 					transactionIsValid: false,
 					isFinished: true,
 					error: constants.ERRORS.WRONG_SENDER
 				});
 				notifyType = 'error';
-				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.senderId}_.`;
+				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.inTxSenderId}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-			} else if (!utils.isStringEqualCI(pay.recipientId, exchangerUtils[pay.inCurrency].account.address)) {
+			} else if (!utils.isStringEqualCI(pay.inTxRecipientId, exchangerUtils[pay.inCurrency].account.address)) {
 				pay.update({
 					transactionIsValid: false,
 					isFinished: true,
 					error: constants.ERRORS.WRONG_RECIPIENT
 				});
 				notifyType = 'error';
-				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.recipientId}_.`;
+				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.inTxRecipientId}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
 			} else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * constants.VALIDATOR_AMOUNT_DEVIATION) {
 				pay.update({
@@ -145,13 +149,13 @@ module.exports = async (pay, tx) => {
 		} // We got incomeTx details
 
 		await pay.save();
-		if (pay.transactionIsValid) {
-			confirmationsCounter(pay);
-		}
 
 		if (msgSendBack) {
 			notify(msgNotify + ` Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);
-			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack);
+			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
+				if (!response.success)
+					log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+			});
 		}
 
 	} catch (e) {
