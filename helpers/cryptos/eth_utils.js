@@ -46,7 +46,7 @@ module.exports = class ethCoin extends baseCoin {
 			this.erc20model = erc20models[token];
 			this.contract = new eth.Contract(abiArray, this.erc20model.sc, { from: this.account.address });
 		}
-		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
+		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
 	}
 
 	/**
@@ -146,7 +146,7 @@ module.exports = class ethCoin extends baseCoin {
 		try {
 
 			let cached = this.cache.getData('balance', true);
-			if (cached) {
+			if (cached) { // balance is a wei string
 				return this.fromSat(cached);
 			}
 			let balance;
@@ -159,12 +159,12 @@ module.exports = class ethCoin extends baseCoin {
 				this.cache.cacheData('balance', balance);
 				return this.fromSat(balance);
 			} else {
-				log.warn(`Failed to get balance in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+				log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
 				return this.fromSat(this.cache.getData('balance', false));
 			}
 
 		} catch (e) {
-			log.warn(`Error while getting balance in getBalance() of ${utils.getModuleName(module.id)} module: ` + e);
+			log.warn(`Error while getting balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
@@ -176,7 +176,7 @@ module.exports = class ethCoin extends baseCoin {
 		try {
 			return this.fromSat(this.cache.getData('balance', false));
 		} catch (e) {
-			log.warn(`Error while getting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
+			log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
@@ -190,7 +190,7 @@ module.exports = class ethCoin extends baseCoin {
 				this.cache.cacheData('balance', this.toSat(value));
 			}
 		} catch (e) {
-			log.warn(`Error setting balance in balance() of ${utils.getModuleName(module.id)} module: ` + e);
+			log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
 		}
 	}
 
@@ -205,7 +205,7 @@ module.exports = class ethCoin extends baseCoin {
 		return new Promise(resolve => {
 			eth.getBlock(blockHashOrBlockNumber, false, (error, block) => {
 				if (error || !block) {
-					log.warn(`Unable to get block ${blockHashOrBlockNumber} info in getBlock() of ${utils.getModuleName(module.id)} module. ` + error);
+					log.warn(`Unable to get block ${blockHashOrBlockNumber} info for ${this.token} in getBlock() of ${utils.getModuleName(module.id)} module. ` + error);
 					resolve(null);
 				} else {
 					// log.log(`Block info: block ${block.hash} forged at ${block.number} blockchain height on ${utils.formatDate(block.timestamp*1000).YYYY_MM_DD_hh_mm} (${block.timestamp}).`);
@@ -235,7 +235,7 @@ module.exports = class ethCoin extends baseCoin {
 		return new Promise(resolve => {
 			eth.getTransactionReceipt(hash, (error, receipt) => {
 				if (error || !receipt) {
-					log.warn(`Unable to get Tx ${hash} receipt in getTransactionReceipt() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
+					log.warn(`Unable to get Tx ${hash} receipt for ${this.token} in getTransactionReceipt() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
 					resolve(null);
 				} else {
 					let tx = {
@@ -283,7 +283,7 @@ module.exports = class ethCoin extends baseCoin {
 		return new Promise((resolve) => {
 			eth.getTransaction(hash, (error, txDetails) => {
 				if (error || !txDetails) {
-					log.warn(`Unable to get Tx ${hash} details in getTransactionDetails() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
+					log.warn(`Unable to get Tx ${hash} details for ${this.token} in getTransactionDetails() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
 					resolve(null);
 				} else {
 					let tx = {

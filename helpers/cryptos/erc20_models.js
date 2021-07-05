@@ -14,6 +14,11 @@ module.exports = {
 		sat: 1000000000000000000, // 18 decimals
 		sc: '0x4375e7ad8a01b8ec3ed041399f62d9cd120e0063',
 		token: 'BZ'
+	},
+	BNB: {
+		sat: 1000000000000000000, // 18 decimals
+		sc: '0xB8c77482e45F1F44dE1745F52C74426C631bDD52',
+		token: 'BNB'
 	}
 
 };
