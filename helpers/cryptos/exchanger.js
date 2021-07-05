@@ -46,27 +46,53 @@ module.exports = {
 		});
 	},
 
-	isKnown(coin) {
-		return config.known_crypto.includes(coin);
-	},
-	isAccepted(coin) {
-		return config.accepted_crypto.includes(coin);
-	},
-	isExchanged(coin) {
-		return config.exchange_crypto.includes(coin);
-	},
-	isFiat(coin) {
-		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
-	},
-	isHasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
-		const pairs = Object.keys(Store.currencies).toString();
-		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
-	},
 	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
 	},
+
 	isEthOrERC20(coin) {
 		return coin.toUpperCase() === 'ETH' || config.erc20.includes(coin.toUpperCase());
+	},
+
+	isKnown(coin) {
+		return config.known_crypto.includes(coin);
+	},
+
+	isAccepted(coin) {
+		return config.accepted_crypto.includes(coin);
+	},
+
+	isExchanged(coin) {
+		return config.exchange_crypto.includes(coin);
+	},
+
+	isAcceptedAndExchangedEqual() {
+		return utils.isArraysEqual(config.accepted_crypto, config.exchange_crypto);
+	},
+
+	get acceptedCryptoList() {
+		return config.accepted_crypto.join(', ');
+	},
+
+	get exchangedCryptoList() {
+		return config.exchange_crypto.join(', ');
+	},
+
+	get iAcceptAndExchangeString() {
+		if (this.isAcceptedAndExchangedEqual()) {
+			return `I exchange anything between *${this.acceptedCryptoList}*`
+		} else {
+			return `I accept *${this.acceptedCryptoList}* for exchange to *${this.exchangedCryptoList}*`
+		}
+	},
+
+	isFiat(coin) {
+		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
+	},
+
+	hasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
+		const pairs = Object.keys(Store.currencies).toString();
+		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},
 
 	ETH: new eth_utils('ETH'),

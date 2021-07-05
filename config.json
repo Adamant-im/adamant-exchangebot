@@ -67,13 +67,13 @@
     **/
 	"exchange_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
 	
-	/** List of cryptocurrencies the bot can work with.
-			If the bot will receive or request for crypto not in list, it will not process payment and notify owner.
+	/** The bot can check and send transfers for these cryptos.
+			If the bot will receive or request for crypto not in list, it will not process a payment and notify owner.
 		**/
-	"known_crypto": ["ADM", "ETH", "USDS", "RES", "BZ"],
+	"known_crypto": ["ADM", "ETH", "USDS", "RES", "BZ", "BNB"],
 	
 	/** List of ERC-20 tokens **/
-	"erc20": ["USDS", "RES", "BZ"],
+	"erc20": ["USDS", "RES", "BZ", "BNB"],
 
 	/** Percentage you take as fee for the bot's service. **/
 	"exchange_fee": 5,

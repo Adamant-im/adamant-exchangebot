@@ -115,7 +115,7 @@ module.exports = async (itx, tx) => {
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
 			msgSendBack = `I don’t accept exchange to _${outCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 		} 
-		else if (!exchangerUtils.isHasTicker(inCurrency)){
+		else if (!exchangerUtils.hasTicker(inCurrency)){
 			if (exchangerUtils.isERC20(inCurrency)) { // Unable to send back, as we can't count fee in ETH
 				pay.error = 32;
 				pay.needHumanCheck = true;
@@ -131,7 +131,7 @@ module.exports = async (itx, tx) => {
 				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;	
 			}
 		}
-		else if (!exchangerUtils.isHasTicker(outCurrency)){
+		else if (!exchangerUtils.hasTicker(outCurrency)){
 			pay.error = 33;
 			pay.needToSendBack = true;
 			notifyType = 'warn';

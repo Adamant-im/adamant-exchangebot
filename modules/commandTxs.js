@@ -43,9 +43,9 @@ function help() {
 	let personalFee = [];
 	let personalFeeString = '';
 
-	config.known_crypto.forEach(c => {
-		if (config['exchange_fee_' + c] !== config.exchange_fee) {
-			personalFee.push(`*${c}*: *${config['exchange_fee_' + c]}%*`);
+	config.known_crypto.forEach(coin => {
+		if (config['exchange_fee_' + coin] !== config.exchange_fee) {
+			personalFee.push(`*${coin}*: *${config['exchange_fee_' + coin]}%*`);
 		};
 	});
 
@@ -55,16 +55,11 @@ function help() {
 		personalFeeString = `I take *${config.exchange_fee}%* for my work`;
 	}
 
-	let str = `I am **online** and ready for a deal. `;
-	if (utils.isArraysEqual(config.accepted_crypto, config.exchange_crypto)) {
-		str += `I exchange anything between *${config.accepted_crypto.join(', ')}*. `
-	} else {
-		str += `I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. `
-	}
+	let result = `I am **online** and ready for a deal. `;
+	result += exchangerUtils.iAcceptAndExchangeString() + '. ';
+	result += `${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
 
-	str += `${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
-
-	return str + `
+	return result + `
 
 I understand commands:
 
@@ -87,7 +82,7 @@ async function rates(params) {
 		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
 
-	if (!exchangerUtils.isHasTicker(coin)) {
+	if (!exchangerUtils.hasTicker(coin)) {
 		return `I don’t have rates of crypto *${coin}* from Infoservice.`;
 	}
 
@@ -123,17 +118,17 @@ function calc(params) {
 	if (!utils.isPositiveOrZeroNumber(amount)) {
 		return `Wrong amount: _${params[0]}_. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
-	if (!exchangerUtils.isHasTicker(inCurrency)) {
+	if (!exchangerUtils.hasTicker(inCurrency)) {
 		return `I don’t have rates of crypto *${inCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
-	if (!exchangerUtils.isHasTicker(outCurrency)) {
+	if (!exchangerUtils.hasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
 
 	let result = Store.convertCryptos(inCurrency, outCurrency, amount).outAmount;
 
 	if (!utils.isPositiveOrZeroNumber(result)) {
-		return `Unable to calc _${params[0]}_ ${inCurrency} in *${outCurrency}*.`;
+		return `Unable to calc _${params[0]}_ ${inCurrency} in ${outCurrency}.`;
 	}
 
 	let precision = exchangerUtils.isFiat(outCurrency) ? 2 : constants.PRECISION_DECIMALS;
@@ -141,56 +136,52 @@ function calc(params) {
 	return `Market value of ${utils.formatNumber(amount)} ${inCurrency} equals ${utils.formatNumber(result.toFixed(precision), true)} ${outCurrency}.`;
 }
 
-async function test(arr, tx) {
-	if (arr.length !== 4) { // error request
+async function test(params, tx) {
+
+	if (params.length !== 4) {
 		return 'Wrong arguments. Command works like this: */test 0.35 ETH to ADM*.';
 	}
 
-	const amount = +arr[0];
-	const inCurrency = arr[1].toUpperCase().trim();
-	const outCurrency = arr[3].toUpperCase().trim();
-	const { accepted_crypto, exchange_crypto, daily_limit_usd } = config;
+	const amount = +params[0];
+	const inCurrency = params[1].toUpperCase().trim();
+	const outCurrency = params[3].toUpperCase().trim();
 
-	if (!amount || amount === Infinity) {
-		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*.`;
+	if (!utils.isPositiveOrZeroNumber(amount)) {
+		return `Wrong amount: _${params[0]}_. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
-	if (!exchangerUtils.isKnown(inCurrency)) {
-		return `I don’t work with crypto *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
-	}
-	if (!exchangerUtils.isKnown(outCurrency)) {
-		return `I don’t work with crypto *${outCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
-	}
-	if (!exchangerUtils.isHasTicker(inCurrency)) {
+
+	if (!exchangerUtils.hasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
 	}
-	if (!exchangerUtils.isHasTicker(outCurrency)) {
-		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */test 0.35 ETH to ADM*.`;
+
+	if (!exchangerUtils.isAccepted(inCurrency)) {
+		return `I don't accept *${inCurrency}*. ${exchangerUtils.iAcceptAndExchangeString}.`;
 	}
-	if (!exchangerUtils.isExchanged(inCurrency)) {
-		return `Crypto *${inCurrency}* is not accepted. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
+
+	if (!exchangerUtils.isExchanged(outCurrency)) {
+		return `I don’t exchange to *${outCurrency}*. ${exchangerUtils.iAcceptAndExchangeString}.`;
 	}
-	if (!exchangerUtils.isAccepted(outCurrency)) {
-		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
-	}
+
 	if (inCurrency === outCurrency) {
 		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
 	let result = Store.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
-	if (amount <= 0 || result <= 0 || !result) {
-		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */test 0.35 ETH to ADM*.`;
+	if (!utils.isPositiveOrZeroNumber(result)) {
+		return `Unable to calculate exchange _${params[0]}_ ${inCurrency} to ${outCurrency}. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 
 	const usdEqual = Store.convertCryptos(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
-		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
+		return `Minimum value for exchange is *${config['min_value_usd_' + inCurrency]}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
 	}
+
 	if (tx) {
 		const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
-		if (userDailyValue >= daily_limit_usd) {
-			return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
-		} else if (userDailyValue + usdEqual >= daily_limit_usd) {
-			return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
+		if (userDailyValue >= config.daily_limit_usd) {
+			return `You have exceeded maximum daily volume of *${config.daily_limit_usd}* USD. Come back tomorrow.`;
+		} else if (userDailyValue + usdEqual >= config.daily_limit_usd) {
+			return `This exchange will exceed maximum daily volume of *${config.daily_limit_usd}* USD. Exchange less coins.`;
 		}
 	}
 
@@ -207,12 +198,12 @@ async function test(arr, tx) {
 		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
 	}
 
-
 	if (isNotEnoughBalance) {
 		return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. ${etherString}Check my balances with **/balances** command.`;
 	}
 
-	return `Ok. Let's make a bargain. I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat with comment "${outCurrency}". Don’t write anything else in comment, otherwise I will send transfer back to you. And hurry up, while exchange rate is so good!`;
+	return `Ok. Let's make a bargain! I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat.`;
+
 }
 
 function balances() {
