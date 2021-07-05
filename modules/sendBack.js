@@ -38,8 +38,8 @@ module.exports = async () => {
 		let outFee = exchangerUtils[inCurrency].FEE;
 		let sentBackAmount;
 
-		const inCryptoBalance = await exchangerUtils[inCurrency].getBalance();
-		if (!inCryptoBalance) {
+		const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
+		if (!inCurrencyBalance) {
 			log.warn(`Unable to update balance for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 			return;
 		}

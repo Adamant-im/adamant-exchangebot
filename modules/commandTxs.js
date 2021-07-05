@@ -5,7 +5,6 @@ const log = require('../helpers/log');
 const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const api = require('./api');
-const { UPDATE_CRYPTO_RATES_INVERVAL } = require('../helpers/const');
 
 module.exports = async (commandMsg, tx, itx) => {
 	try {
@@ -188,14 +187,16 @@ async function test(params, tx) {
 	let etherString = '';
 	let isNotEnoughBalance;
 
+	let outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
 	if (exchangerUtils.isERC20(outCurrency)) {
-		isNotEnoughBalance = (result > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
-		if (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance) {
+		let ethBalance = await exchangerUtils['ETH'].getBalance();
+		isNotEnoughBalance = (result > outCurrencyBalance) || (exchangerUtils[outCurrency].FEE > ethBalance);
+		if (exchangerUtils[outCurrency].FEE > ethBalance) {
 			etherString = `Not enough Ether to pay fees. `;
 		}
 	} else {
 		etherString = '';
-		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
+		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > outCurrencyBalance;
 	}
 
 	if (isNotEnoughBalance) {
@@ -206,9 +207,12 @@ async function test(params, tx) {
 
 }
 
-function balances() {
+async function balances() {
+	await exchangerUtils.refreshExchangedBalances();
 	return config.exchange_crypto.reduce((result, crypto) => {
-		return result + `\n${utils.formatNumber(+exchangerUtils[crypto].balance.toFixed(constants.PRECISION_DECIMALS), true)} _${crypto}_`;
+		let cryptoBalance = exchangerUtils[crypto].balance;
+		let balanceString = `\n${utils.isPositiveOrZeroNumber(cryptoBalance) ? utils.formatNumber(cryptoBalance.toFixed(constants.PRECISION_DECIMALS), true) : '?'} _${crypto}_`;
+		return result + balanceString;
 	}, 'My crypto balances:');
 }
 

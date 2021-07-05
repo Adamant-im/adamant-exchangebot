@@ -174,7 +174,7 @@ module.exports = {
    * @returns {string} Formatted number, like 3 134 234.778
    */
   formatNumber(num, doBold) {
-    var parts = (num + '').split('.'),
+    var parts = (+num + '').split('.'),
       main = parts[0],
       len = main.length,
       output = '',

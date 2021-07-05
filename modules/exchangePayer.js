@@ -33,8 +33,8 @@ module.exports = async () => {
 			let msgSendBack;
 			let msgNotify;
 	
-			const outCryptoBalance = await exchangerUtils[outCurrency].getBalance();
-			if (!outCryptoBalance) {
+			const outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
+			if (!outCurrencyBalance) {
 				log.warn(`Unable to update balance for ${outCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 				return;
 			}
@@ -45,11 +45,11 @@ module.exports = async () => {
 					log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 					return;
 				}
-				etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
-				isNotEnoughBalance = (outAmount > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
+				etherString = `Ether balance: ${ethBalance}. `;
+				isNotEnoughBalance = (outAmount > outCurrencyBalance) || (exchangerUtils[outCurrency].FEE > ethBalance);
 			} else {
 				etherString = '';				
-				isNotEnoughBalance = outAmount + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
+				isNotEnoughBalance = outAmount + exchangerUtils[outCurrency].FEE > outCurrencyBalance;
 			}
 
 			if (isNotEnoughBalance) {

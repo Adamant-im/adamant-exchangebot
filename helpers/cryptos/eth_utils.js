@@ -34,7 +34,7 @@ module.exports = class ethCoin extends baseCoin {
 			eth.defaultAccount = this.account.address;
 			eth.defaultBlock = 'latest';
 			this.updateGasPrice().then(() => {
-				log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? this.fromSat(this.gasPrice).toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
+				log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? this.fromSat(this.gasPrice).toFixed(9) + ' (' +  ethUtils.fromWei(this.gasPrice, 'Gwei') + ' gwei)' : 'unable to calculate'}`);
 				log.log(`Estimate ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
 			});
 			setInterval(() => {

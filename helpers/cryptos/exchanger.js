@@ -46,6 +46,12 @@ module.exports = {
 		});
 	},
 
+	async refreshExchangedBalances() {
+		for (const crypto of config.exchange_crypto) {
+			await this[crypto].getBalance()
+		}
+	},
+
 	isERC20(coin) {
 		return config.erc20.includes(coin.toUpperCase());
 	},
