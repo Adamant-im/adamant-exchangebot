@@ -1,41 +1,41 @@
 const Store = require('../modules/Store');
-const utils = require('../helpers/utils');
-const exchangerUtils = require('../helpers/cryptos/exchanger');
+const constants = require('../helpers/const');
 const config = require('./configReader');
 const log = require('../helpers/log');
+const utils = require('../helpers/utils');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const api = require('./api');
+const { UPDATE_CRYPTO_RATES_INVERVAL } = require('../helpers/const');
 
-module.exports = async (cmd, tx, itx) => {
-	log.info('Got new Command Tx to process: ' + cmd);
-
+module.exports = async (commandMsg, tx, itx) => {
 	try {
-		let msg = '';
-		const group = cmd
+
+		log.log(`Processing '${commandMsg}' command from ${tx.recipientId} (transaction ${tx.id})…`);
+		const group = commandMsg
 			.trim()
 			.replace(/    /g, ' ')
 			.replace(/   /g, ' ')
 			.replace(/  /g, ' ')
 			.split(' ');
-		const methodName = group.shift().trim().toLowerCase().replace('\/', '');
-		const m = commands[methodName];
-		if (m){
-			msg = await m(group, tx);
+		const commandName = group.shift().trim().toLowerCase().replace('\/', '');
+		const command = commands[commandName];
+
+		let commandResult = '';
+		if (command) {
+			commandResult = await command(group, tx);
 		} else {
-			msg = `I don’t know */${methodName}* command. ℹ️ You can start with **/help**.`;
+			commandResult = `I don’t know */${commandName}* command. ℹ️ You can start with **/help**.`;
 		}
-		if (!tx){
-			return msg;
-		}
-		if (tx){
-			api.sendMessage(config.passPhrase, tx.senderId, msg).then(response => {
-				if (!response.success)
-					log.warn(`Failed to send ADM message '${msg}' to ${tx.senderId}. ${response.errorMessage}.`);
-			});
-			itx.update({isProcessed: true}, true);
-		}
-	} catch (e){
+
+		api.sendMessage(config.passPhrase, tx.senderId, commandResult).then(response => {
+			if (!response.success)
+				log.warn(`Failed to send ADM message '${commandResult}' to ${tx.senderId}. ${response.errorMessage}.`);
+		});
+		itx.update({ isProcessed: true }, true);
+
+	} catch (e) {
 		tx = tx || {};
-		log.error('Error while processing command ' + cmd + ' from senderId ' + tx.senderId + '. Tx Id: ' + tx.id + '. Error: ' + e);
+		log.error(`Error while processing ${commandMsg} command from ${tx.recipientId} (transaction ${tx.id}). Error: ${e.toString()}`);
 	}
 };
 
@@ -43,13 +43,13 @@ function help() {
 	let personalFee = [];
 	let personalFeeString = '';
 
-	config.known_crypto.forEach(c=>{
-		if (config['exchange_fee_' + c] !== config.exchange_fee){
+	config.known_crypto.forEach(c => {
+		if (config['exchange_fee_' + c] !== config.exchange_fee) {
 			personalFee.push(`*${c}*: *${config['exchange_fee_' + c]}%*`);
 		};
 	});
 
-	if (personalFee.length){
+	if (personalFee.length) {
 		personalFeeString = `In general, I take *${config.exchange_fee}%* for my work. But due to the rates fluctuation, if you send me these coins, fees differ — ` + personalFee.join(', ');
 	} else {
 		personalFeeString = `I take *${config.exchange_fee}%* for my work`;
@@ -61,7 +61,7 @@ function help() {
 	} else {
 		str += `I accept *${config.accepted_crypto.join(', ')}* for exchange to *${config.exchange_crypto.join(', ')}*. `
 	}
-	
+
 	str += `${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
 
 	return str + `
@@ -80,39 +80,48 @@ I understand commands:
 `;
 }
 
-async function rates(arr) {
-	const coin = (arr[0] || '').toUpperCase().trim();
-	if (!coin || !coin.length){
+async function rates(params) {
+
+	const coin = (params[0] || '').toUpperCase().trim();
+	if (!coin || !coin.length) {
 		return 'Please specify coin ticker you are interested in. F. e., */rates ADM*.';
 	}
-	const currencies = Store.currencies;
-	const res = Object
+
+	if (!exchangerUtils.isHasTicker(coin)) {
+		return `I don’t have rates of crypto *${coin}* from Infoservice.`;
+	}
+
+	const result = Object
 		.keys(Store.currencies)
 		.filter(t => t.startsWith(coin + '/'))
 		.map(t => {
-			let pair = `${coin}/**${t.replace(coin + '/', '')}**`;
-			return `${pair}: ${currencies[t]}`;
+			let quoteCoin = t.replace(coin + '/', '');
+			let pair = `${coin}/**${quoteCoin}**`;
+			let rate = utils.formatNumber(Store.currencies[t].toFixed(constants.PRECISION_DECIMALS));
+			return `${pair}: ${rate}`;
 		})
 		.join(', ');
 
-	if (!res.length){
-		return `I can’t get rates for *${coin}*. Made a typo? Try */rates ADM*.`;
+	if (!result || !result.length) {
+		return `I can’t get rates for *${coin}*. Try */rates ADM*.`;
 	}
-	return `Market rates:
-	${res}.`;
+
+	return `Market rates:\n${result}.`;
+
 }
 
-function calc(arr) {
-	if (arr.length !== 4) { // error request
+function calc(params) {
+
+	if (params.length !== 4) {
 		return 'Wrong arguments. Command works like this: */calc 2.05 BTC in USD*.';
 	}
 
-	const amount = +arr[0];
-	const inCurrency = arr[1].toUpperCase().trim();
-	const outCurrency = arr[3].toUpperCase().trim();
+	const amount = +params[0];
+	const inCurrency = params[1].toUpperCase().trim();
+	const outCurrency = params[3].toUpperCase().trim();
 
-	if (!amount || amount === Infinity){
-		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */calc 2.05 BTC in USD*.`;
+	if (!utils.isPositiveOrZeroNumber(amount)) {
+		return `Wrong amount: _${params[0]}_. Command works like this: */calc 2.05 BTC in USD*.`;
 	}
 	if (!exchangerUtils.isHasTicker(inCurrency)) {
 		return `I don’t have rates of crypto *${inCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
@@ -120,15 +129,16 @@ function calc(arr) {
 	if (!exchangerUtils.isHasTicker(outCurrency)) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
+
 	let result = Store.convertCryptos(inCurrency, outCurrency, amount).outAmount;
 
-	if (amount <= 0 || result <= 0 || !result) {
-		return `I didn’t understand amount for *${inCurrency}*. Command works like this: */calc 2.05 BTC in USD*.`;
+	if (!utils.isPositiveOrZeroNumber(result)) {
+		return `Unable to calc _${params[0]}_ ${inCurrency} in *${outCurrency}*.`;
 	}
-	if (exchangerUtils.isFiat(outCurrency)) {
-		result = +result.toFixed(2);
-	}
-	return `Market value of ${utils.thousandSeparator(amount)} ${inCurrency} equals **${utils.thousandSeparator(result)} ${outCurrency}**.`;
+
+	let precision = exchangerUtils.isFiat(outCurrency) ? 2 : constants.PRECISION_DECIMALS;
+
+	return `Market value of ${utils.formatNumber(amount)} ${inCurrency} equals ${utils.formatNumber(result.toFixed(precision), true)} ${outCurrency}.`;
 }
 
 async function test(arr, tx) {
@@ -139,9 +149,9 @@ async function test(arr, tx) {
 	const amount = +arr[0];
 	const inCurrency = arr[1].toUpperCase().trim();
 	const outCurrency = arr[3].toUpperCase().trim();
-	const {accepted_crypto, exchange_crypto, daily_limit_usd} = config;
+	const { accepted_crypto, exchange_crypto, daily_limit_usd } = config;
 
-	if (!amount || amount === Infinity){
+	if (!amount || amount === Infinity) {
 		return `It seems amount "*${amount}*" for *${inCurrency}* is not a number. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 	if (!exchangerUtils.isKnown(inCurrency)) {
@@ -162,7 +172,7 @@ async function test(arr, tx) {
 	if (!exchangerUtils.isAccepted(outCurrency)) {
 		return `I don’t exchange to *${outCurrency}*. I accept *${accepted_crypto.join(', ')}* and exchange to *${exchange_crypto.join(', ')}*.`;
 	}
-	if (inCurrency === outCurrency){
+	if (inCurrency === outCurrency) {
 		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
@@ -175,25 +185,25 @@ async function test(arr, tx) {
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `I don’t accept exchange of crypto below minimum value of *${config['min_value_usd_' + inCurrency]}* USD. Exchange more coins.`;
 	}
-	if (tx){
+	if (tx) {
 		const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 		if (userDailyValue >= daily_limit_usd) {
 			return `You have exceeded maximum daily volume of *${daily_limit_usd}* USD. Come back tomorrow.`;
-		} else if (userDailyValue + usdEqual >= daily_limit_usd){
+		} else if (userDailyValue + usdEqual >= daily_limit_usd) {
 			return `This exchange will exceed maximum daily volume of *${daily_limit_usd}* USD. Exchange less coins.`;
 		}
 	}
 
 	let etherString = '';
 	let isNotEnoughBalance;
-	
+
 	if (exchangerUtils.isERC20(outCurrency)) {
 		isNotEnoughBalance = (result > exchangerUtils[outCurrency].balance) || (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance);
 		if (exchangerUtils[outCurrency].FEE > exchangerUtils['ETH'].balance) {
 			etherString = `Not enough Ether to pay fees. `;
 		}
 	} else {
-		etherString = '';				
+		etherString = '';
 		isNotEnoughBalance = result + exchangerUtils[outCurrency].FEE > exchangerUtils[outCurrency].balance;
 	}
 
@@ -206,16 +216,14 @@ async function test(arr, tx) {
 }
 
 function balances() {
-	return config.exchange_crypto.reduce((str, crypto) => {
-		return str + `
-		${utils.thousandSeparator(+exchangerUtils[crypto].balance.toFixed(8), true)} _${crypto}_`;
+	return config.exchange_crypto.reduce((result, crypto) => {
+		return result + `\n${utils.formatNumber(+exchangerUtils[crypto].balance.toFixed(constants.PRECISION_DECIMALS), true)} _${crypto}_`;
 	}, 'My crypto balances:');
 }
 
-function version(){
+function version() {
 	return `I am running on _adamant-exchangebot_ software version _${config.version}_. Revise code on ADAMANT's GitHub.`;
 }
-
 
 const commands = {
 	help,
@@ -225,19 +233,3 @@ const commands = {
 	test,
 	version
 };
-
-
-// setTimeout(()=>{
-// unitTest('/test 80 adm in usds');
-// unitTest('/calc 100 usds in btc');
-// unitTest('/calc 100 usds in usd');
-// unitTest('/test Infinity BTC in USD');
-// unitTest('/test 1 usds to usd');
-// unitTest('/test 100 adm to usd');
-// unitTest('/test 100 adm to usds');
-// unitTest('/rates');
-// }, 10000);
-
-// async function unitTest(cmd){
-// 	console.log('>>>', cmd, '->', await module.exports(cmd));
-// }

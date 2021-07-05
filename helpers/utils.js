@@ -173,7 +173,7 @@ module.exports = {
    * @param {boolean} doBold If to add **bold** markdown for integer part
    * @returns {string} Formatted number, like 3 134 234.778
    */
-  thousandSeparator(num, doBold) {
+  formatNumber(num, doBold) {
     var parts = (num + '').split('.'),
       main = parts[0],
       len = main.length,
