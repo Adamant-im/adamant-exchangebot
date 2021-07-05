@@ -86,7 +86,8 @@ module.exports = async () => {
 			const result = await exchangerUtils[inCurrency].send({
 				address: senderKvsInAddress,
 				value: sentBackAmount,
-				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!' // if ADM
+				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!', // if ADM
+				try: pay.outTxFailedCounter + 1
 			});
 
 			if (result.success) {

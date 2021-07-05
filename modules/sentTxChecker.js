@@ -84,8 +84,7 @@ module.exports = async () => {
 				return;
 			}
 
-			pay.inTxStatus = tx.status;
-			if (pay.inTxStatus === false) {
+			if (tx.status === false) {
 
 				pay.outTxFailedCounter = ++pay.outTxFailedCounter || 1;
 				pay.errorValidatorSend = constants.ERRORS.SENT_TX_FAILED;
@@ -104,6 +103,7 @@ module.exports = async () => {
 					msgSendBack = `${msgSendBackIntro}, but my ${pay.outTxFailedCounter} tries failed. Last try Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;	
 					willRetryString = 'No retries left. **Attention needed**. ';
 					pay.update({
+						inTxStatus: tx.status,
 						isFinished: true,
 						needHumanCheck: true
 					});	

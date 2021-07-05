@@ -61,7 +61,7 @@ module.exports = async (pay) => {
 			await pay.update({
 				inTxConfirmed: true
 			});
-			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]}. ${admTxDescription}.`);
+			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]} network confirmations. ${admTxDescription}.`);
 		}
 
 		await pay.save();

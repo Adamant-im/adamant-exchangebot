@@ -10,7 +10,7 @@ const ethUtils = require('web3-utils');
 const eth = new Eth(config.node_ETH[0]); // TODO: health check
 const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
 const reliabilityCoefEth = 1.3; // make sure exchanger's Tx will be accepted for ETH
-const reliabilityCoefErc20 = 2.4; // make sure exchanger's Tx will be accepted for ERC20
+const reliabilityCoefErc20 = 3.0; // make sure exchanger's Tx will be accepted for ERC20; 2.4 is not enough for BZ
 
 const baseCoin = require('./baseCoin');
 module.exports = class ethCoin extends baseCoin {
@@ -349,12 +349,17 @@ module.exports = class ethCoin extends baseCoin {
 	}
 
 	async send(params) {
+
+		params.try = params.try || 1;
+		let tryString = ` (try number ${params.try})`;
+		let gas = Math.round(this.gasLimit * this.reliabilityCoef * params.try);
+
 		try {
 
 			const txParams = {
 				// nonce: this.currentNonce++, // set as default
 				// gasPrice: this.gasPrice, // set as default
-				gas: Math.round(this.gasLimit * this.reliabilityCoef),
+				gas
 			};
 			if (this.contract) {
 				txParams.value = '0x0';
@@ -368,7 +373,7 @@ module.exports = class ethCoin extends baseCoin {
 			return new Promise(resolve => {
 				eth.sendTransaction(txParams)
 					.on('transactionHash', (hash) => {
-						log.log(`Formed Tx to send ${params.value} ${this.token} to ${params.address}, Tx hash: ${hash}.`);
+						log.log(`Formed Tx to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString}, Tx hash: ${hash}.`);
 						resolve({
 							success: true,
 							hash
@@ -384,7 +389,7 @@ module.exports = class ethCoin extends baseCoin {
 					})
 					.on('error', (e, receipt) => {  // If out of gas error, the second parameter is the receipt
 						if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error(`Failed to send ${params.value} ${this.token} to ${params.address}. ` + e);
+							log.error(`Failed to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}. ` + e);
 							resolve({
 								success: false,
 								error: e.toString()
@@ -396,12 +401,13 @@ module.exports = class ethCoin extends baseCoin {
 			});
 
 		} catch (e) {
-			log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
+			log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
 			return {
 				success: false,
 				error: e.toString()
 			}
 		}
+		
 	}
 
 	getErc20token(contract) {

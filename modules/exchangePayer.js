@@ -72,7 +72,8 @@ module.exports = async () => {
 			const result = await exchangerUtils[outCurrency].send({
 				address: senderKvsOutAddress,
 				value: outAmount,
-				comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
+				comment: 'Done! Thank you for business. Hope to see you again.', // if ADM
+				try: pay.outTxFailedCounter + 1
 			});
 			log.info(`Exchange payment result: ${JSON.stringify(result, 0, 2)}`);
 

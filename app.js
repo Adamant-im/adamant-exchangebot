@@ -37,13 +37,13 @@ function init() {
 			// 	value: 0.25628672,
 			// 	comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
 			// });
-			setTimeout(() => {
- 			console.log(require('./helpers/cryptos/exchanger').ETH.FEE)
-			 console.log(require('./helpers/cryptos/exchanger').BZ.FEE)
-			 console.log(require('./helpers/cryptos/exchanger').RES.FEE)
-			 console.log(require('./helpers/cryptos/exchanger').BZ.FEEinToken)
-			 console.log(require('./helpers/cryptos/exchanger').RES.FEEinToken)
-				}, 5000)
+			// setTimeout(() => {
+ 			// console.log(require('./helpers/cryptos/exchanger').ETH.FEE)
+			//  console.log(require('./helpers/cryptos/exchanger').BZ.FEE)
+			//  console.log(require('./helpers/cryptos/exchanger').RES.FEE)
+			//  console.log(require('./helpers/cryptos/exchanger').BZ.FEEinToken)
+			//  console.log(require('./helpers/cryptos/exchanger').RES.FEEinToken)
+			// 	}, 5000)
 
 			checker();
 			notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
