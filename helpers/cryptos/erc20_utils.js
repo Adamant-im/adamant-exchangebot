@@ -1,6 +1,6 @@
-const Store = require('../../modules/Store');
 const log = require('../../helpers/log');
 const utils = require('../utils');
+const constants = require('../const');
 
 const ethCoin = require('./eth_utils');
 module.exports = class erc20coin extends ethCoin {
@@ -36,7 +36,7 @@ module.exports = class erc20coin extends ethCoin {
 	}
 
 	get FEE() {
-		return this.etherInstance.FEE * this.reliabilityCoefFromEth
+		return +(this.etherInstance.FEE * this.reliabilityCoefFromEth).toFixed(constants.PRECISION_DECIMALS)
 	}
 
 }

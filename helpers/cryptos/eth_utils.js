@@ -55,7 +55,7 @@ module.exports = class ethCoin extends baseCoin {
 	 */
 	get FEE() {
 		try {
-			return +ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliabilityCoef;
+			return +(+ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliabilityCoef).toFixed(constants.PRECISION_DECIMALS);
 		} catch (e) {
 			log.warn(`Error while calculating Tx fee for ${this.token} in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
