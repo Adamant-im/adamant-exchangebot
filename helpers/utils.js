@@ -265,6 +265,25 @@ module.exports = {
   isStringEqualCI(string1, string2) {
     if (typeof string1 !== 'string' || typeof string2 !== 'string') return false
     return string1.toUpperCase() === string2.toUpperCase()
-  }
+  },
+
+  /**
+   * Trims any chars from beginning and from end of string, case sensitive
+   * Example: trimAny(str, ' "\') trims quotes, spaces and slashes
+   * @param {string} str String to trim
+   * @param {string} chars Chars to trim from 'str'.
+   * @returns {string} Trimmed string; or empty string, if 'str' is not a string.
+   */
+  trimAny(str, chars) {
+    if (!str || typeof str !== 'string')
+      return ''
+    let start = 0, 
+      end = str.length;
+    while(start < end && chars.indexOf(str[start]) >= 0)
+      ++start;
+    while(end > start && chars.indexOf(str[end - 1]) >= 0)
+      --end;
+    return (start > 0 || end < str.length) ? str.substring(start, end) : str;
+  }  
 
 };

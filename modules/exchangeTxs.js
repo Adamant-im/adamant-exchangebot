@@ -39,8 +39,8 @@ module.exports = async (itx, tx) => {
 			}
 		}
 
-		outCurrency = String(outCurrency).toUpperCase().trim();
 		inCurrency = String(inCurrency).toUpperCase().trim();
+		outCurrency = utils.trimAny(outCurrency, ` '",.<>()$!*-=+{}[]?/\\`).toUpperCase();
 
 		const pay = new paymentsDb({
 			_id: tx.id,
@@ -99,12 +99,12 @@ module.exports = async (itx, tx) => {
 		} else if (!exchangerUtils.isKnown(outCurrency)) {
 			pay.waitingForOutCurrency = true;
 
-			msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
-			// pay.error = 3;
-			// pay.needToSendBack = true;
-			// notifyType = 'warn';
-			// msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 			// msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
+			pay.error = 3;
+			pay.needToSendBack = true;
+			notifyType = 'warn';
+			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
+			msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
 		} else if (inCurrency === outCurrency) {
 			pay.error = 4;
 			pay.needToSendBack = true;
