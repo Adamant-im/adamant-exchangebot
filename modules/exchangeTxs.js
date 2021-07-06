@@ -54,7 +54,7 @@ module.exports = async (itx, tx) => {
 			inCurrency,
 			outCurrency,
 			inTxid,
-			inAmountMessage: +(inAmountMessage).toFixed(8),
+			inAmountMessage: +(inAmountMessage).toFixed(constants.PRECISION_DECIMALS),
 			transactionIsValid: null,
 			needHumanCheck: false,
 			needToSendBack: false,
@@ -71,7 +71,7 @@ module.exports = async (itx, tx) => {
 		const inTxidDublicate = await paymentsDb.findOne({ inTxid });
 		const sendBackMessage = `I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 
-		log.log(`Checking an exchange of _${inAmountMessage}_ _${inCurrency}_ for **${outCurrency}**… ${admTxDescription}.`);
+		log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency}… ${admTxDescription}.`);
 
 		// Checkers
 		if (inTxidDublicate) {

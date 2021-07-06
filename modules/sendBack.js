@@ -1,15 +1,15 @@
 const db = require('./DB');
 const config = require('./configReader');
-const constants = require('../helpers/const');
-const exchangerUtils = require('../helpers/cryptos/exchanger');
-const Store = require('./Store');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
+const constants = require('../helpers/const');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 const api = require('./api');
+const Store = require('./Store');
 
 module.exports = async () => {
-	
-	const {paymentsDb} = db;
+
+	const { paymentsDb } = db;
 	const pays = (await paymentsDb.find({
 		transactionIsValid: true,
 		isFinished: false,
@@ -21,118 +21,124 @@ module.exports = async () => {
 		sentBackTx: null
 	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency]);
 
-	for (const pay of pays){
-		pay.counterSendBack = pay.counterSendBack || 0;
-		const {
-			inAmountReal,
-			inCurrency,
-			senderKvsInAddress
-		} = pay;
+	for (const pay of pays) {
 
-		let msgSendBack = false;
-		let msgNotify = false;
-		let notifyType = 'log';
+		const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
+		try {
+	
+			log.log(`Sending back ${pay.inAmountReal} ${pay.inCurrency}… ${admTxDescription}.`);
 
-		let etherString = '';
-		let isNotEnoughBalance;
-		let outFee = exchangerUtils[inCurrency].FEE;
-		let sentBackAmount;
+			pay.counterSendBack = pay.counterSendBack || 0;
+			const {
+				inAmountReal,
+				inCurrency,
+				senderKvsInAddress
+			} = pay;
 
-		const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
-		if (!inCurrencyBalance) {
-			log.warn(`Unable to update balance for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
-			return;
-		}
+			let msgSendBack = false;
+			let msgNotify = false;
+			let notifyType = 'log';
 
-		if (exchangerUtils.isERC20(inCurrency)) {
-			const ethBalance = await exchangerUtils['ETH'].getBalance();
-			if (!ethBalance) {
-				log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
+			let etherString = '';
+			let isNotEnoughBalance;
+			let outFee = exchangerUtils[inCurrency].FEE;
+			let sentBackAmount;
+
+			const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
+			if (!inCurrencyBalance) {
+				log.warn(`Unable to update balance for ${inCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 				return;
 			}
-			etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
-			sentBackAmount = +(inAmountReal - exchangerUtils[inCurrency].FEEinToken).toFixed(8);
-			isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > exchangerUtils['ETH'].balance);
-		} else {
-			etherString = '';
-			sentBackAmount = +(inAmountReal - outFee).toFixed(8);
-			isNotEnoughBalance = sentBackAmount > exchangerUtils[inCurrency].balance;
-		}
 
-		const sentBackAmountUsd = Store.convertCryptos(inCurrency, 'USD', sentBackAmount).outAmount;
-		pay.update({
-			outFee,
-			sentBackAmount,
-			sentBackAmountUsd
-		});
-		if (sentBackAmount <= 0){
-			pay.update({
-				errorSendBack: 17,
-				isFinished: true
-			});
-			notifyType = 'log';
-			msgNotify = `${config.notifyName} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`;
-			msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
-		} else if (isNotEnoughBalance){
-			notifyType = 'error';
-			msgNotify = `${config.notifyName} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`;
-			msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
-			pay.update({
-				errorSendBack: 18,
-				needHumanCheck: true,
-				isFinished: true
-			});
-		} else { // We are able to send transfer back
-			const result = await exchangerUtils[inCurrency].send({
-				address: senderKvsInAddress,
-				value: sentBackAmount,
-				comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!', // if ADM
-				try: pay.outTxFailedCounter + 1
-			});
-
-			if (result.success) {
-				pay.sentBackTx = result.hash;
-
-				if (exchangerUtils.isERC20(inCurrency)) {
-					exchangerUtils[inCurrency].balance -= sentBackAmount;
-					exchangerUtils['ETH'].balance -= outFee;
-				} else {
-					exchangerUtils[inCurrency].balance -= sentBackAmount;
-				}
-
-				log.info(`Successful send back of ${sentBackAmount} ${inCurrency}. Hash: ${result.hash}.`);
-			} else { // Can't make a transaction
-
-				if (++pay.counterSendBack < 50){
-					pay.save();
+			if (exchangerUtils.isERC20(inCurrency)) {
+				const ethBalance = await exchangerUtils['ETH'].getBalance();
+				if (!ethBalance) {
+					log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
 					return;
-				};
+				}
+				etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
+				sentBackAmount = +(inAmountReal - exchangerUtils[inCurrency].FEEinToken).toFixed(constants.PRECISION_DECIMALS);
+				isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > exchangerUtils['ETH'].balance);
+			} else {
+				etherString = '';
+				sentBackAmount = +(inAmountReal - outFee).toFixed(constants.PRECISION_DECIMALS);
+				isNotEnoughBalance = sentBackAmount > exchangerUtils[inCurrency].balance;
+			}
 
+			const sentBackAmountUsd = Store.convertCryptos(inCurrency, 'USD', sentBackAmount).outAmount;
+			pay.update({
+				outFee,
+				sentBackAmount,
+				sentBackAmountUsd
+			});
+			if (sentBackAmount <= 0) {
 				pay.update({
-					errorSendBack: 19,
+					errorSendBack: 17,
+					isFinished: true
+				});
+				notifyType = 'log';
+				msgNotify = `${config.notifyName} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. ${admTxDescription}.`;
+				msgSendBack = 'I can’t send transfer back to you because it does not cover blockchain fees. If you think it’s a mistake, contact my master.';
+			} else if (isNotEnoughBalance) {
+				notifyType = 'error';
+				msgNotify = `${config.notifyName} notifies about insufficient balance for send back of _${inAmountReal}_ _${inCurrency}_. **Attention needed**. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}${admTxDescription}.`;
+				msgSendBack = 'I can’t send transfer back to you because of insufficient balance. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+				pay.update({
+					errorSendBack: 18,
 					needHumanCheck: true,
 					isFinished: true
 				});
-				notifyType = 'error';
-				log.error(`Failed to send back of ${sentBackAmount} ${inCurrency}. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`);
-				msgNotify = `${config.notifyName} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. Attention needed. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId}.`;
-				msgSendBack = 'I’ve tried to send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+			} else { // We are able to send transfer back
+				const result = await exchangerUtils[inCurrency].send({
+					address: senderKvsInAddress,
+					value: sentBackAmount,
+					comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!', // if ADM
+					try: pay.outTxFailedCounter + 1
+				});
+
+				if (result.success) {
+					pay.sentBackTx = result.hash;
+					if (exchangerUtils.isERC20(inCurrency)) {
+						exchangerUtils[inCurrency].balance -= sentBackAmount;
+						exchangerUtils['ETH'].balance -= outFee;
+					} else {
+						exchangerUtils[inCurrency].balance -= sentBackAmount;
+					}
+				} else { // Can't make a transaction
+					if (++pay.counterSendBack < constants.SENDBACK_RETRIES) {
+						log.warn(`Unable to send back ${sentBackAmount} ${inCurrency} this time. Will try again. ${admTxDescription}.`);
+						pay.save();
+						return;
+					};
+					pay.update({
+						errorSendBack: 19,
+						needHumanCheck: true,
+						isFinished: true
+					});
+					notifyType = 'error';
+					msgNotify = `${config.notifyName} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. **Attention needed**. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}${admTxDescription}.`;
+					msgSendBack = 'I’ve tried to send back transfer to you, but something went wrong. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.';
+				}
 			}
+
+			pay.save();
+			if (msgNotify) {
+				notify(msgNotify, notifyType);
+			}
+			if (msgSendBack) {
+				api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
+					if (!response.success)
+						log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+				});
+			}
+
+		} catch (e) {
+			log.error(`Error while sending back ${pay.inAmountReal} ${pay.inCurrency} in ${utils.getModuleName(module.id)} module. ${admTxDescription}. Error: ` + e);
 		}
-		log.info(`[sendBack logs] Coin: ${inCurrency}, tx: ${pay.sentBackTx}, error: ${pay.errorSendBack}, balance: ${exchangerUtils[inCurrency].balance}, fee: ${outFee}, amount: ${sentBackAmount}, eqUsd: ${sentBackAmountUsd}`);
-		pay.save();
-		if (msgNotify){
-			notify(msgNotify, notifyType);
-		}
-		if (msgSendBack){
-			api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-				if (!response.success)
-					log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
-			});
-		}
+
 	}
 };
 
 setInterval(() => {
 	module.exports();
-}, 17 * 1000);
+}, constants.SENDBACK_INTERVAL);

@@ -18,6 +18,9 @@ module.exports = {
 	SENDER_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in sentTxChecker
 	SENDER_GET_TX_RETRIES: 60, // Retries to get Tx in sentTxChecker. In 20 minutes Tx must appear in a blockchain, otherwise Exchanger will notify master and user to check it manually.
 	SENDER_RESEND_ETH_RETRIES: 1, // Retries to re-send failed Tx in sentTxChecker. F. e., out of gas for Ethereum and ERC20 transactions. Other coins have no limit on re-tries.
+	EXCHANGER_INTERVAL: 15 * 1000, // Send exchange Txs every 15 sec in exchangePayer
+	SENDBACK_INTERVAL: 15 * 1000, // Send back Txs every 15 sec in sendBack
+	SENDBACK_RETRIES: 50, // How many times to re-try sending a payment back in sendBack
 	
 	ERRORS: {
 		UNABLE_TO_FETCH_TX: 10,
