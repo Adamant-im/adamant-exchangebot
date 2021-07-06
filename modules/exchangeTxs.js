@@ -28,16 +28,14 @@ module.exports = async (itx, tx) => {
 			inTxid = tx.id;
 		} else if (msg.includes('_transaction')) { // not ADM income payment
 			inCurrency = msg.match(/"type":"(.*)_transaction/)[1];
-			try {
-				const json = JSON.parse(msg);
-				inAmountMessage = json.amount;
-				inTxid = json.hash;
-				outCurrency = json.comments;
+			const inTxDetails = utils.tryParseJSON(msg);
+			if (inTxDetails) {
+				inAmountMessage = inTxDetails.amount;
+				inTxid = inTxDetails.hash;
+				outCurrency = inTxDetails.comments;
 				if (outCurrency === '') {
 					outCurrency = 'NONE';
 				}
-			} catch (e) {
-				inCurrency = 'none';
 			}
 		}
 
@@ -73,7 +71,13 @@ module.exports = async (itx, tx) => {
 		log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency}… ${admTxDescription}.`);
 
 		// Checkers
-		if (inTxidDublicate) {
+		if (inAmountMessage === undefined || inCurrency === undefined || outCurrency === undefined || inTxid === undefined) {
+			pay.isFinished = true;
+			pay.error = 8;
+			notifyType = 'error';
+			msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_ with Tx ID _${inTxid}_ is wrong. Unable to understand rich ADM message: ${msg}. Will ignore this transaction. ${admTxDescription}.`;
+			msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is wrong, it will not be processed. If you think it’s a mistake, contact my master.`;
+		} else if (inTxidDublicate) {
 			pay.isFinished = true;
 			pay.error = 1;
 			notifyType = 'error';
