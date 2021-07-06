@@ -26,9 +26,9 @@ module.exports = async () => {
 		const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 		try {
 	
-			log.log(`Sending back ${pay.inAmountReal} ${pay.inCurrency}… ${admTxDescription}.`);
+			pay.counterSendBack = ++pay.counterSendBack || 1;
+			log.log(`Sending back ${pay.inAmountReal} ${pay.inCurrency}. Attempt ${pay.counterSendBack}… ${admTxDescription}.`);
 
-			pay.counterSendBack = pay.counterSendBack || 0;
 			const {
 				inAmountReal,
 				inCurrency,
@@ -105,7 +105,7 @@ module.exports = async () => {
 						exchangerUtils[inCurrency].balance -= sentBackAmount;
 					}
 				} else { // Can't make a transaction
-					if (++pay.counterSendBack < constants.SENDBACK_RETRIES) {
+					if (pay.counterSendBack < constants.SENDBACK_RETRIES) {
 						log.warn(`Unable to send back ${sentBackAmount} ${inCurrency} this time. Will try again. ${admTxDescription}.`);
 						pay.save();
 						return;
