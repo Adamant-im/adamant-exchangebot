@@ -69,6 +69,8 @@ module.exports = async (itx, tx) => {
 		const min_value_usd = config['min_value_usd_' + inCurrency];
 		const min_confirmations = config['min_confirmations_' + inCurrency];
 		const inTxidDublicate = await paymentsDb.findOne({ inTxid });
+		const sendBackMessage = `I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+
 		log.log(`Checking an exchange of _${inAmountMessage}_ _${inCurrency}_ for **${outCurrency}**… ${admTxDescription}.`);
 
 		// Checkers
@@ -92,28 +94,28 @@ module.exports = async (itx, tx) => {
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-			msgSendBack = `I don’t work with crypto _${outCurrency}_. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
 		}
 		else if (inCurrency === outCurrency) {
 			pay.error = 4;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} received request to exchange _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-			msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. ${sendBackMessage}`;
 		}
 		else if (!exchangerUtils.isAccepted(inCurrency)) {
 			pay.error = 5;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-			msgSendBack = `I don’t accept _${inCurrency}_. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I don’t accept _${inCurrency}_. ${sendBackMessage}`;
 		}
 		else if (!exchangerUtils.isExchanged(outCurrency)) {
 			pay.error = 6;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-			msgSendBack = `I don’t accept exchange to _${outCurrency}_. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I don’t accept exchange to _${outCurrency}_. ${sendBackMessage}`;
 		}
 		else if (!exchangerUtils.hasTicker(inCurrency)) {
 			if (exchangerUtils.isERC20(inCurrency)) { // Unable to send back, as we can't calc fee in ETH
@@ -128,7 +130,7 @@ module.exports = async (itx, tx) => {
 				pay.needToSendBack = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${inCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. ${sendBackMessage}`;
 			}
 		}
 		else if (!exchangerUtils.hasTicker(outCurrency)) {
@@ -136,11 +138,11 @@ module.exports = async (itx, tx) => {
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about unknown rates of crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-			msgSendBack = `I don’t have rates of crypto _${outCurrency}_. I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I don’t have rates of crypto _${outCurrency}_. ${sendBackMessage}`;
 		} else {
 
 			// Calculating exchange amount in USD and comparing it to user's daily limit
-			pay.inAmountMessageUsd = Store.convertCryptos(inCurrency, 'USD', inAmountMessage).outAmount.toFixed(2);
+			pay.inAmountMessageUsd = Store.convertCryptos(inCurrency, 'USD', inAmountMessage).outAmount;
 			const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 			log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
 			if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
@@ -149,22 +151,22 @@ module.exports = async (itx, tx) => {
 					needToSendBack: true
 				});
 				notifyType = 'warn';
-
-				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
-				msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
-			} else if (!pay.inAmountMessageUsd || pay.inAmountMessageUsd < min_value_usd) {
+				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+				msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. ${sendBackMessage}`;
+			} else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < min_value_usd) {
 				pay.update({
 					error: 20,
 					needToSendBack: true
 				});
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
-				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Will try to send payment back. ${admTxDescription}.`;
+				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. ${sendBackMessage}`;
 			}
 
 		}
 
-		if (!pay.isFinished && !pay.needToSendBack) {// if Ok checks tx
+		// We've passed all of basic checks
+		if (!pay.isFinished && !pay.needToSendBack) {
 			pay.update(Store.convertCryptos(inCurrency, outCurrency, inAmountMessage, true));
 			if (!pay.outAmount) { // Error while calculating outAmount
 				pay.update({
@@ -172,11 +174,11 @@ module.exports = async (itx, tx) => {
 					error: 7
 				});
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} unable to calculate _outAmount_ value for payment of _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
-				msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange _${inAmountMessage}_ _${inCurrency}_. I will try to send transfer back to you. I will validate it and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
+				msgNotify = `${config.notifyName} unable to calculate _${outCurrency}_ value to exchange from _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+				msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange from _${inAmountMessage}_ _${inCurrency}_. ${sendBackMessage}`;
 			} else { // Transaction is fine
 				notifyType = 'log';
-				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
+				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. ${admTxDescription}.`;
 				msgSendBack = `I understood your request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 			}
 		}
