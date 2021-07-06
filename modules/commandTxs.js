@@ -164,14 +164,17 @@ async function test(params, tx) {
 		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
-	let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
-	if (!utils.isPositiveOrZeroNumber(result)) {
-		return `Unable to calculate exchange _${params[0]}_ ${inCurrency} to ${outCurrency}. Command works like this: */test 0.35 ETH to ADM*.`;
-	}
-
 	const usdEqual = exchangerUtils.convertCryptos(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `Minimum value for exchange is *${config['min_value_usd_' + inCurrency]}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
+	}
+
+	let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
+	if (!result) {
+		return `Unable to calculate exchange value of _${params[0]}_ ${inCurrency} to ${outCurrency}.`;
+	}
+	if (!utils.isPositiveNumber(result)) {
+		return `_${params[0]}_ ${inCurrency} doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency}. Exchange more coins.`;
 	}
 
 	if (tx) {

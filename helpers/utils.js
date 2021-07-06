@@ -132,6 +132,18 @@ module.exports = {
   },
 
   /**
+   * Checks if number is finite and greater, than 0
+   * @param {number} value Number to validate
+   * @returns {boolean}
+   */
+   isPositiveNumber(value) {
+    if (!this.isNumber(value) || value <= 0)
+      return false
+    else
+      return true
+  },  
+
+  /**
    * Parses string value to JSON
    * @param {string} jsonString String to parse
    * @returns {object} JSON object or false, if unable to parse

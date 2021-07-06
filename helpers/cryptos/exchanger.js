@@ -32,43 +32,58 @@ module.exports = {
 
 	},
 
-	getPrice(from, to) {
+	/**
+	 * Returns rate for from/to
+	 * @param {String} from Like 'ADM'
+	 * @param {String} to Like 'ETH'
+	 * @returns {Number} or NaN or undefined
+	 */
+	 getRate(from, to) {
 		try {
-
-			from = from.toUpperCase();
-			to = to.toUpperCase();
-			let price = + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(constants.PRECISION_DECIMALS);
-			if (price) {
-				return price;
+			let price = this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from];
+			if (!price) {
+				// We don't have direct or reverse rate, calculate it from /USD rates
+				const priceFrom = this.currencies[from + '/USD'];
+				const priceTo = this.currencies[to + '/USD'];
+				price = priceFrom / priceTo;
 			}
-			const priceFrom = +(this.currencies[from + '/USD']);
-			const priceTo = +(this.currencies[to + '/USD']);
-			return +(priceFrom / priceTo || 1).toFixed(constants.PRECISION_DECIMALS);
-
+			return price;
 		} catch (e) {
 			log.error(`Unable to calculate price of ${from} in ${to} in getPrice() of ${utils.getModuleName(module.id)} module: ` + e);
-			return 0;
 		}
 	},
 
+	/**
+	 * Returns value of amount 'from' currency in 'to' currency
+	 * @param {String} from Like 'ADM'
+	 * @param {String} to Like 'ETH'
+	 * @param {Number} amount Amount of 'from' currency
+	 * @param {Boolean} considerExchangerFee If false, do direct market calculation. If true, deduct the exchanger's and blockchain fees
+	 * @returns {Number, Number} or { NaN, NaN }
+	 */
 	convertCryptos(from, to, amount = 1, considerExchangerFee = false) {
 		try {
-
-			let price = this.getPrice(from, to);
+			from = from.toUpperCase();
+			to = to.toUpperCase();
+			let rate = this.getRate(from, to);
+			let networkFee = 0;
 			if (considerExchangerFee) {
-				price *= (100 - config['exchange_fee_' + from]) / 100;
+				rate *= 1 - config['exchange_fee_' + from]/100;
+				networkFee = this[to].FEE;
+				if (this.isERC20(to)) {
+					networkFee = this.convertCryptos('ETH', to, networkFee).outAmount;
+				}
 			};
-			price = +price.toFixed(constants.PRECISION_DECIMALS);
+			let value = rate * +amount - networkFee;
 			return {
-				outAmount: +(price * amount).toFixed(constants.PRECISION_DECIMALS),
-				exchangePrice: price
+				outAmount: +value.toFixed(constants.PRECISION_DECIMALS),
+				exchangePrice: +rate.toFixed(constants.PRECISION_DECIMALS)
 			};
-
 		} catch (e) {
 			log.error(`Unable to calculate ${amount} ${from} in ${to} in convertCryptos() of ${utils.getModuleName(module.id)} module: ` + e);
 			return {
-				outAmount: 0,
-				exchangePrice: 0
+				outAmount: NaN,
+				exchangePrice: NaN
 			};
 		}
 	},
