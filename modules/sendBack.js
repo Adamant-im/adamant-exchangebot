@@ -5,7 +5,6 @@ const notify = require('../helpers/notify');
 const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const api = require('./api');
-const Store = require('./Store');
 
 module.exports = async () => {
 
@@ -57,15 +56,16 @@ module.exports = async () => {
 					return;
 				}
 				etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
-				sentBackAmount = +(inAmountReal - exchangerUtils[inCurrency].FEEinToken).toFixed(constants.PRECISION_DECIMALS);
-				isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (exchangerUtils[inCurrency].FEE.inEth > exchangerUtils['ETH'].balance);
+				let FEEinToken = exchangerUtils.convertCryptos('ETH', inCurrency, exchangerUtils[inCurrency].FEE).outAmount;
+				sentBackAmount = +(inAmountReal - FEEinToken).toFixed(constants.PRECISION_DECIMALS);
+				isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (FEEinToken > exchangerUtils['ETH'].balance);
 			} else {
 				etherString = '';
 				sentBackAmount = +(inAmountReal - outFee).toFixed(constants.PRECISION_DECIMALS);
 				isNotEnoughBalance = sentBackAmount > exchangerUtils[inCurrency].balance;
 			}
 
-			const sentBackAmountUsd = Store.convertCryptos(inCurrency, 'USD', sentBackAmount).outAmount;
+			const sentBackAmountUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', sentBackAmount).outAmount;
 			pay.update({
 				outFee,
 				sentBackAmount,

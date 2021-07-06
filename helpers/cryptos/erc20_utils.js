@@ -39,12 +39,4 @@ module.exports = class erc20coin extends ethCoin {
 		return this.etherInstance.FEE * this.reliabilityCoefFromEth
 	}
 
-	get FEEinToken() {
-		try {
-			return Store.convertCryptos('ETH', this.token, this.FEE).outAmount;
-		} catch (e) {
-			log.warn(`Error while calculating Tx fee in FEEinToken() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-		}
-	}
-
 }

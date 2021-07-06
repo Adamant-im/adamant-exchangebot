@@ -1,6 +1,5 @@
 const notify = require('./helpers/notify');
 const db = require('./modules/DB');
-const Store = require('./modules/Store');
 const checker = require('./modules/checkerTransactions');
 const doClearDB = process.argv.includes('clear_db');
 const config = require('./modules/configReader');
@@ -41,8 +40,6 @@ function init() {
  			// console.log(require('./helpers/cryptos/exchanger').ETH.FEE)
 			//  console.log(require('./helpers/cryptos/exchanger').BZ.FEE)
 			//  console.log(require('./helpers/cryptos/exchanger').RES.FEE)
-			//  console.log(require('./helpers/cryptos/exchanger').BZ.FEEinToken)
-			//  console.log(require('./helpers/cryptos/exchanger').RES.FEEinToken)
 			// 	}, 5000)
 
 			checker();

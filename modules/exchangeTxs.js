@@ -7,7 +7,6 @@ const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const config = require('./configReader');
 const constants = require('../helpers/const');
-const Store = require('./Store');
 const api = require('./api');
 
 module.exports = async (itx, tx) => {
@@ -142,7 +141,7 @@ module.exports = async (itx, tx) => {
 		} else {
 
 			// Calculating exchange amount in USD and comparing it to user's daily limit
-			pay.inAmountMessageUsd = Store.convertCryptos(inCurrency, 'USD', inAmountMessage).outAmount;
+			pay.inAmountMessageUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', inAmountMessage).outAmount;
 			const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 			log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
 			if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
@@ -167,8 +166,8 @@ module.exports = async (itx, tx) => {
 
 		// We've passed all of basic checks
 		if (!pay.isFinished && !pay.needToSendBack) {
-			pay.update(Store.convertCryptos(inCurrency, outCurrency, inAmountMessage, true));
-			if (!pay.outAmount) { // Error while calculating outAmount
+			pay.update(exchangerUtils.convertCryptos(inCurrency, outCurrency, inAmountMessage, true));
+			if (!utils.isPositiveOrZeroNumber(pay.outAmount)) { // Error while calculating outAmount
 				pay.update({
 					needToSendBack: true,
 					error: 7

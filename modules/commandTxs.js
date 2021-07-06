@@ -1,4 +1,3 @@
-const Store = require('../modules/Store');
 const constants = require('../helpers/const');
 const config = require('./configReader');
 const log = require('../helpers/log');
@@ -86,12 +85,12 @@ async function rates(params) {
 	}
 
 	const result = Object
-		.keys(Store.currencies)
+		.keys(exchangerUtils.currencies)
 		.filter(t => t.startsWith(coin + '/'))
 		.map(t => {
 			let quoteCoin = t.replace(coin + '/', '');
 			let pair = `${coin}/**${quoteCoin}**`;
-			let rate = utils.formatNumber(Store.currencies[t].toFixed(constants.PRECISION_DECIMALS));
+			let rate = utils.formatNumber(exchangerUtils.currencies[t].toFixed(constants.PRECISION_DECIMALS));
 			return `${pair}: ${rate}`;
 		})
 		.join(', ');
@@ -124,7 +123,7 @@ function calc(params) {
 		return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
 	}
 
-	let result = Store.convertCryptos(inCurrency, outCurrency, amount).outAmount;
+	let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount).outAmount;
 
 	if (!utils.isPositiveOrZeroNumber(result)) {
 		return `Unable to calc _${params[0]}_ ${inCurrency} in ${outCurrency}.`;
@@ -165,12 +164,12 @@ async function test(params, tx) {
 		return `Do you really want to exchange *${inCurrency}* for *${outCurrency}*? You are kidding!`;
 	}
 
-	let result = Store.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
+	let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
 	if (!utils.isPositiveOrZeroNumber(result)) {
 		return `Unable to calculate exchange _${params[0]}_ ${inCurrency} to ${outCurrency}. Command works like this: */test 0.35 ETH to ADM*.`;
 	}
 
-	const usdEqual = Store.convertCryptos(inCurrency, 'USD', amount).outAmount;
+	const usdEqual = exchangerUtils.convertCryptos(inCurrency, 'USD', amount).outAmount;
 	if (usdEqual < config['min_value_usd_' + inCurrency]) {
 		return `Minimum value for exchange is *${config['min_value_usd_' + inCurrency]}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
 	}

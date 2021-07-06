@@ -2,13 +2,76 @@ const api = require('../../modules/api');
 const config = require('../../modules/configReader');
 const log = require('../log');
 const db = require('../../modules/DB');
-const Store = require('../../modules/Store');
+const constants = require('../const');
 const utils = require('../utils');
+const axios = require('axios');
 const adm_utils = require('./adm_utils');
 const eth_utils = require('./eth_utils');
 const erc20_utils = require('./erc20_utils');
 
 module.exports = {
+
+	currencies: undefined,
+
+	async updateCryptoRates() {
+
+		let url = config.infoservice + '/get';
+		let rates = await axios.get(url, {})
+			.then(function (response) {
+				return response.data ? response.data.result : undefined
+			})
+			.catch(function (error) {
+				log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
+			});
+
+		if (rates) {
+			this.currencies = rates;
+		} else {
+			log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request was successfull, but got unexpected results: ` + rates);
+		}
+
+	},
+
+	getPrice(from, to) {
+		try {
+
+			from = from.toUpperCase();
+			to = to.toUpperCase();
+			let price = + (this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from] || 0).toFixed(constants.PRECISION_DECIMALS);
+			if (price) {
+				return price;
+			}
+			const priceFrom = +(this.currencies[from + '/USD']);
+			const priceTo = +(this.currencies[to + '/USD']);
+			return +(priceFrom / priceTo || 1).toFixed(constants.PRECISION_DECIMALS);
+
+		} catch (e) {
+			log.error(`Unable to calculate price of ${from} in ${to} in getPrice() of ${utils.getModuleName(module.id)} module: ` + e);
+			return 0;
+		}
+	},
+
+	convertCryptos(from, to, amount = 1, considerExchangerFee = false) {
+		try {
+
+			let price = this.getPrice(from, to);
+			if (considerExchangerFee) {
+				price *= (100 - config['exchange_fee_' + from]) / 100;
+			};
+			price = +price.toFixed(constants.PRECISION_DECIMALS);
+			return {
+				outAmount: +(price * amount).toFixed(constants.PRECISION_DECIMALS),
+				exchangePrice: price
+			};
+
+		} catch (e) {
+			log.error(`Unable to calculate ${amount} ${from} in ${to} in convertCryptos() of ${utils.getModuleName(module.id)} module: ` + e);
+			return {
+				outAmount: 0,
+				exchangePrice: 0
+			};
+		}
+	},
 
 	async getKvsCryptoAddress(coin, admAddress) {
 
@@ -97,7 +160,7 @@ module.exports = {
 	},
 
 	hasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
-		const pairs = Object.keys(Store.currencies).toString();
+		const pairs = Object.keys(this.currencies).toString();
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
 	},
 
@@ -105,3 +168,9 @@ module.exports = {
 	ADM: new adm_utils(),
 
 };
+
+module.exports.updateCryptoRates();
+
+setInterval(() => {
+	module.exports.updateCryptoRates();
+}, constants.UPDATE_CRYPTO_RATES_INVERVAL);
