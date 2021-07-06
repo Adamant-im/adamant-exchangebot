@@ -9,7 +9,7 @@ const api = require('./api');
 
 module.exports = async (pay) => {
 
-	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from ${pay.senderId}`;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay ? pay.admTxId : 'undefined'} from ${pay ? pay.senderId : 'undefined'}`;
 	try {
 
 		log.log(`Updating incoming Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
@@ -67,7 +67,7 @@ module.exports = async (pay) => {
 		await pay.save();
 
 	} catch (e) {
-		log.error(`Failed to get Tx ${pay.inTxid} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+		log.error(`Failed to get Tx ${pay ? pay.inTxid : 'undefined'} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
 	}
 
 };

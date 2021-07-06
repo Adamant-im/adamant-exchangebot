@@ -9,10 +9,10 @@ const api = require('./api');
 
 module.exports = async (pay, tx) => {
 
-	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx ? tx.id : 'undefined'} from ${tx ? tx.senderId : 'undefined'}`;
 	try {
 
-		log.log(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`)
+		log.log(`Validating Tx ${pay.inTxid}… ${admTxDescription}.`);
 
 		pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
 		let msgSendBack = false;
@@ -159,7 +159,7 @@ module.exports = async (pay, tx) => {
 		}
 
 	} catch (e) {
-		log.error(`Failed to validate Tx ${pay.inTxid}: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+		log.error(`Failed to validate Tx ${pay ? pay.inTxid : 'undefined'}: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
 	}
 };
 
