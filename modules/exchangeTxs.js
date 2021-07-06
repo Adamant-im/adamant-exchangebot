@@ -30,7 +30,7 @@ module.exports = async (itx, tx) => {
 			inCurrency = msg.match(/"type":"(.*)_transaction/)[1];
 			try {
 				const json = JSON.parse(msg);
-				inAmountMessage = Number(json.amount);
+				inAmountMessage = json.amount;
 				inTxid = json.hash;
 				outCurrency = json.comments;
 				if (outCurrency === '') {
@@ -53,7 +53,7 @@ module.exports = async (itx, tx) => {
 			inCurrency,
 			outCurrency,
 			inTxid,
-			inAmountMessage: +(inAmountMessage).toFixed(constants.PRECISION_DECIMALS),
+			inAmountMessage: +inAmountMessage.toFixed(constants.PRECISION_DECIMALS),
 			transactionIsValid: null,
 			needHumanCheck: false,
 			needToSendBack: false,
@@ -79,44 +79,47 @@ module.exports = async (itx, tx) => {
 			notifyType = 'error';
 			msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
 			msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
-		}
-		else if (!exchangerUtils.isKnown(inCurrency)) {
+		} else if (!utils.isPositiveNumber(inAmountMessage)) {
+			pay.isFinished = true;
+			pay.error = 7;
+			notifyType = 'error';
+			msgNotify = `${config.notifyName} can't understand _${inAmountMessage}_ amount for _${inCurrency}_. Requested _${outCurrency}_. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
+			msgSendBack = `I can't understand _${inAmountMessage}_ amount for _${inCurrency}_. If you think it’s a mistake, contact my master.`;
+		} else if (!exchangerUtils.isKnown(inCurrency)) {
 			pay.error = 2;
 			pay.needHumanCheck = true;
 			pay.isFinished = true;
 			notifyType = 'error';
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. **Attention needed**. ${admTxDescription}.`;
 			msgSendBack = `I don’t know crypto _${inCurrency}_. I’ve notified my master to send the payment back to you.`;
-		}
-		else if (!exchangerUtils.isKnown(outCurrency)) {
-			pay.error = 3;
-			pay.needToSendBack = true;
-			notifyType = 'warn';
-			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
+		} else if (!exchangerUtils.isKnown(outCurrency)) {
+			pay.waitingForOutCurrency = true;
+
 			msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
-		}
-		else if (inCurrency === outCurrency) {
+			// pay.error = 3;
+			// pay.needToSendBack = true;
+			// notifyType = 'warn';
+			// msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
+			// msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
+		} else if (inCurrency === outCurrency) {
 			pay.error = 4;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} received request to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 			msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. ${sendBackMessage}`;
-		}
-		else if (!exchangerUtils.isAccepted(inCurrency)) {
+		} else if (!exchangerUtils.isAccepted(inCurrency)) {
 			pay.error = 5;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 			msgSendBack = `I don’t accept _${inCurrency}_. ${sendBackMessage}`;
-		}
-		else if (!exchangerUtils.isExchanged(outCurrency)) {
+		} else if (!exchangerUtils.isExchanged(outCurrency)) {
 			pay.error = 6;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about request to get non-exchanged crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 			msgSendBack = `I don’t accept exchange to _${outCurrency}_. ${sendBackMessage}`;
-		}
-		else if (!exchangerUtils.hasTicker(inCurrency)) {
+		} else if (!exchangerUtils.hasTicker(inCurrency)) {
 			if (exchangerUtils.isERC20(inCurrency)) { // Unable to send back, as we can't calc fee in ETH
 				pay.error = 32;
 				pay.needHumanCheck = true;
@@ -131,8 +134,7 @@ module.exports = async (itx, tx) => {
 				msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Requested _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. ${sendBackMessage}`;
 			}
-		}
-		else if (!exchangerUtils.hasTicker(outCurrency)) {
+		} else if (!exchangerUtils.hasTicker(outCurrency)) {
 			pay.error = 33;
 			pay.needToSendBack = true;
 			notifyType = 'warn';
@@ -194,7 +196,9 @@ module.exports = async (itx, tx) => {
 		await pay.save();
 		await itx.update({ isProcessed: true }, true);
 
-		notify(msgNotify, notifyType);
+		if (msgNotify) {
+			notify(msgNotify, notifyType);
+		}
 		api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
 			if (!response.success)
 				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
