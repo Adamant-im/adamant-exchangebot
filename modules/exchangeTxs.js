@@ -156,35 +156,16 @@ module.exports = async (itx, tx, payToUpdate) => {
 				} else {
 					msgSendBack = `I've got _${inAmountMessage}_ _${inCurrency}_ from you. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
 				}
-				// pay.error = 3;
-				// pay.needToSendBack = true;
-				// notifyType = 'warn';
-				// msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-				// msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
 			} else if (inCurrency === outCurrency) {
-				pay.error = 4;
-				pay.needToSendBack = true;
-				pay.isBasicChecksPassed = true;
-				notifyType = 'warn';
-				msgNotify = `${config.notifyName} received request to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-				msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. ${sendBackMessage}`;
+				pay.inUpdateState = 'outCurrency';
+				msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}`;
 			} else if (!exchangerUtils.isExchanged(outCurrency)) {
-				pay.error = 6;
-				pay.needToSendBack = true;
-				pay.isBasicChecksPassed = true;
-				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about request to get non-exchanged crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-				msgSendBack = `I don’t accept exchange to _${outCurrency}_. ${sendBackMessage}`;
-	
+				pay.inUpdateState = 'outCurrency';
+				msgSendBack = `I don’t accept exchange to _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
 			} else if (!exchangerUtils.hasTicker(outCurrency)) {
-				pay.error = 33;
-				pay.needToSendBack = true;
-				pay.isBasicChecksPassed = true;
-				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about unknown rates of requested crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-				msgSendBack = `I don’t have rates of crypto _${outCurrency}_. ${sendBackMessage}`;
+				pay.inUpdateState = 'outCurrency';
+				msgSendBack = `I don’t have rates of crypto _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
 			}
-
 		}
 
 		// We've passed all of basic checks
