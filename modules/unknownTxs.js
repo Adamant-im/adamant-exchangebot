@@ -1,32 +1,32 @@
-const exchangerUtils = require('../helpers/cryptos/exchanger');
 const utils = require('../helpers/utils');
 const db = require('./DB');
 const config = require('./configReader');
 const api = require('./api');
 
 module.exports = async (tx, itx) => {
-	const {incomingTxsDb} = db;
+	const { incomingTxsDb } = db;
 	incomingTxsDb.db
 		.find({
 			senderId: tx.senderId,
 			messageDirective: 'unknown',
-			date: {$gt: (utils.unix() - 24 * 3600 * 1000)}, // last 24h
-		}).sort({date: -1}).toArray((err, docs) => {
+			date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
+		}).sort({ date: -1 }).toArray((err, docs) => {
 			const twoHoursAgo = utils.unix() - 2 * 3600 * 1000;
 			let countMsgs = docs.length;
-			if (!docs[1] || twoHoursAgo > docs[1].date){
+			if (!docs[1] || twoHoursAgo > docs[1].date) {
 				countMsgs = 1;
 			}
 
 			let msg = '';
 			if (countMsgs === 1) {
 				msg = config.welcome_string;
+				msg += ' Every command starts with slash **/**.'
 			}
 			else if (countMsgs === 2) {
 				msg = 'OK. It seems you don’t speak English󠁧󠁢󠁥󠁮. Contact my master and ask him to teach me 🎓 your native language. But note, it will take some time because I am not a genius 🤓.';
 			}
 			else if (countMsgs === 3) {
-				msg = 'Hm.. Contact _not me_, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous 🤪.';
+				msg = 'Hm.. Contact _not me_, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous 🤪. Note: Every command starts with slash **/**. Try **/help**.';
 			}
 			else if (countMsgs === 4) {
 				msg = 'I see.. You just wanna talk 🗣️. I am not the best at talking.';
@@ -53,21 +53,21 @@ module.exports = async (tx, itx) => {
 				if (!response.success)
 					log.warn(`Failed to send ADM message '${msg}' to ${tx.senderId}. ${response.errorMessage}.`);
 			});
-			itx.update({isProcessed: true}, true);
+			itx.update({ isProcessed: true }, true);
 		});
 
 };
 
-function getRnd(collectionNum){
+function getRnd(collectionNum) {
 	const phrases = collection[collectionNum];
-	const num = Math.floor(Math.random() * phrases.length); //The maximum is exclusive and the minimum is inclusive
+	const num = Math.floor(Math.random() * phrases.length); // The maximum is exclusive and the minimum is inclusive
 	return phrases[num];
 }
 
 const collection = [
 	// 0 collection
 	[
-		'Do you wanna beer 🍺? I want to have it aslo, but now is the deal time. May be some ADAMANTs 💰?',
+		'Do you wanna beer 🍺? I want to have it also, but now is the deal time. May be some ADAMANTs 💰?',
 		'Do you wanna Ethers? Say **/balances** to see if I have some 🤑.',
 		'Aaaaghr..! 😱 Check out ₿ rates with **/rates BTC** command right now!',
 		'I can tell you my fees by secret. ℹ️ Just say **/help**.',
@@ -152,7 +152,7 @@ const collection = [
 		'Try to translate this: ‘На хера мне без хера, если с хером до хера!’',
 		'Do you know you can get a ban 🚫 for much talking?',
 		'Try to make blockchain in 1С! 😁 It is Russian secret programming language. Google it.',
-		'Onion darknet? 🤷 No, I didnt heard.',
+		'Onion darknet? 🤷 No, I didn’t heard.',
 		'Кэн виз ю зэт зэ нот соу?',
 		'Yeah! Party time! 🎉',
 		'Do you drink vodka? I do.',
