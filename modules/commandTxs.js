@@ -38,39 +38,43 @@ module.exports = async (commandMsg, tx, itx) => {
 };
 
 function help() {
-	let personalFee = [];
-	let personalFeeString = '';
+
+	let specialFees = [];
+	let oneSpecialFeeCoin = '';
+	let oneSpecialFeeRate = '';
+	let feesString = '';
 
 	config.known_crypto.forEach(coin => {
 		if (config['exchange_fee_' + coin] !== config.exchange_fee) {
-			personalFee.push(`*${coin}*: *${config['exchange_fee_' + coin]}%*`);
+			specialFees.push(`*${coin}*: *${config['exchange_fee_' + coin]}%*`);
+			oneSpecialFeeCoin = coin;
+			oneSpecialFeeRate = `${config['exchange_fee_' + coin]}%`
 		};
 	});
 
-	if (personalFee.length) {
-		personalFeeString = `In general, I take *${config.exchange_fee}%* for my work. But due to the rates fluctuation, if you send me these coins, fees differ — ` + personalFee.join(', ');
+	if (specialFees.length === 1) {
+		feesString = `I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees. Due to the rates fluctuation, I take ${oneSpecialFeeRate} fee, if you send me ${oneSpecialFeeCoin}`;
+	} else if (specialFees.length) {
+		feesString = `In general, I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees. But due to the rates fluctuation, if you send me these coins, fees differ — ` + specialFees.join(', ');
 	} else {
-		personalFeeString = `I take *${config.exchange_fee}%* for my work`;
+		feesString = `I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees`;
 	}
 
+	let minValueString = config.min_value_usd ? ` I accept minimal exchange of *${config.min_value_usd}* USD equivalent.` : '';
+
 	let result = `I am **online** and ready for a deal. `;
-	result += exchangerUtils.iAcceptAndExchangeString() + '. ';
-	result += `${personalFeeString}. I accept minimal equivalent of *${config.min_value_usd}* USD. Your daily limit is *${config.daily_limit_usd}* USD. Usually I wait for *${config.min_confirmations}* block confirmations for income transactions, but some coins may have different value.`;
+	result += exchangerUtils.iAcceptAndExchangeString + '. ';
+	result += `${feesString}.${minValueString} Your daily exchange limit is *${config.daily_limit_usd}* USD.`;
 
-	return result + `
+	result += `\n\nI understand commands:`;
+	result += `\n\n**/rates** — show market rates for specific coin. F. e., */rates ADM*.`;
+	result += `\n\n**/calc** — calculate one coin value in another using market rates. Works like this: */calc 2.05 BTC in USD*.`;
+	result += `\n\n**/balances** — show my crypto balances. Don’t request an exchange if I don’t have enough coins.`;
+	result += `\n\n**/test** — test exchange request and estimate return value. Do it before each exchange. Works like this: */test 0.35 ETH to ADM*.`;
+	result += `\n\n**To make an exchange**, send me crypto you want to exchange here in-Chat.`;
 
-I understand commands:
-
-**/rates** — I will provide market exchange rates for specific coin. F. e., */rates ADM* or */rates USD*.
-
-**/calc** — I will calculate one coin value in another using market exchange rates. Works like this: */calc 2.05 BTC in USD*.
-
-**/balances** — I will show my crypto balances. Don’t request exchange if I don’t have enough balance for coin you need.
-
-**/test** — I will estimate and test exchange request. Do it before each exchange. Works like this: */test 0.35 ETH to ADM*. So you’ll know how much you’ll receive in return. I will pay blockchain fees by myself.
-
-**To make an exchange**, just send me crypto here in-Chat and comment with crypto ticker you want to get back. F. e., if you want to exchange 0.35 ETH for ADM, send in-Chat payment of 0.35 ETH to me with “ADM” comment.
-`;
+	return result;
+	
 }
 
 async function rates(params) {

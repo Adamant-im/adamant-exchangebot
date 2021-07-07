@@ -75,7 +75,7 @@
 	/** List of ERC-20 tokens **/
 	"erc20": ["USDS", "RES", "BZ", "BNB"],
 
-	/** Percentage you take as fee for the bot's service. **/
+	/** Percentage you take as fee for the bot's service. User pays blockchain Tx fees additionally. **/
 	"exchange_fee": 5,
 
 	/** Percentage you take as fee, if receiving payment is in specific currency.
@@ -84,7 +84,7 @@
   "exchange_fee_ADM": false,
 
 	/** Minimum payment equivalent in USD accepted. **/
-	"min_value_usd": 0.1,
+	"min_value_usd": 0,
 
 	/** Daily exchange limit for one user, equivalent in USD. **/
 	"daily_limit_usd": 1000,
