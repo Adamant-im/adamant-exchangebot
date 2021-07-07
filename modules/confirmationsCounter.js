@@ -75,11 +75,12 @@ module.exports = async (pay) => {
 setInterval(async () => {
 	const { paymentsDb } = db;
 	(await paymentsDb.find({
+		isBasicChecksPassed: true,
 		transactionIsValid: true,
 		isFinished: false,
 		transactionIsFailed: false,
-		inTxConfirmed: {$ne: true}
+		inTxConfirmed: { $ne: true }
 	})).forEach(async pay => {
-			module.exports(pay);
+		module.exports(pay);
 	});
 }, constants.CONFIRMATIONS_INTERVAL);

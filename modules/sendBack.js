@@ -10,6 +10,7 @@ module.exports = async () => {
 
 	const { paymentsDb } = db;
 	const pays = (await paymentsDb.find({
+		isBasicChecksPassed: true,
 		transactionIsValid: true,
 		isFinished: false,
 		transactionIsFailed: false,
@@ -24,7 +25,7 @@ module.exports = async () => {
 
 		const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 		try {
-	
+
 			pay.counterSendBack = ++pay.counterSendBack || 1;
 			log.log(`Sending back ${pay.inAmountReal} ${pay.inCurrency}. Attempt ${pay.counterSendBack}… ${admTxDescription}.`);
 

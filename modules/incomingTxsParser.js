@@ -9,6 +9,7 @@ const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
 const Store = require('./Store');
+const exchangerUtils = require('../helpers/cryptos/exchanger')
 
 const processedTxs = {}; // cache for processed transactions
 
@@ -37,12 +38,17 @@ module.exports = async (tx) => {
 	if (chat) {
 		decryptedMessage = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
 	}
-	if (decryptedMessage === '') {
-		decryptedMessage = 'NONE';
-	}
+
+	const { paymentsDb } = db;
+	const payToUpdate = await paymentsDb.findOne({
+		senderId: tx.senderId,
+		inUpdateState: { $ne: undefined } // We suppose only one payment can be in update state
+	});
 
 	let messageDirective = 'unknown';
-	if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
+	if (payToUpdate) {
+		messageDirective = 'update';
+	} else if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
 		messageDirective = 'exchange';
 	} else if (decryptedMessage.startsWith('/')) {
 		messageDirective = 'command';
@@ -68,6 +74,7 @@ module.exports = async (tx) => {
 		recipientPublicKey: tx.recipientPublicKey,
 		messageDirective, // command, exchange or unknown
 		decryptedMessage,
+		payToUpdateId: payToUpdate ? payToUpdate._id : null,
 		spam: false,
 		isProcessed: false,
 		// these will be undefined, when we get Tx via socket. Actually we don't need them, store them for a reference
@@ -81,13 +88,27 @@ module.exports = async (tx) => {
 	});
 
 	let msgSendBack, msgNotify;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 
 	if (decryptedMessage.toLowerCase() === 'deposit') {
-		await itx.update({ isProcessed: true }, true);
+		await itx.update({ isDeposit: true, isProcessed: true }, true);
 		await updateProcessedTx(tx, itx, false);
-		msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
+		msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
 		msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
 		notify(msgNotify, 'info');
+		api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then(response => {
+			if (!response.success)
+				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+		});
+		return;
+	}
+
+	if (payToUpdate && (decryptedMessage.includes('_transaction') || tx.amount > 0)) {
+		await itx.update({ isIngnored: true, isProcessed: true }, true);
+		await updateProcessedTx(tx, itx, false);
+		msgNotify = `${config.notifyName} got a payment, while clarification of ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ expected. **Attention needed**. The exchanger will not validate this payment, do it manually. ${admTxDescription}.`;
+		msgSendBack = `I've expected you to clarify ${payToUpdate.inUpdateState}, but got a payment. I’ve notified my master to send this payment back to you. And still waiting for ${payToUpdate.inUpdateState} from you to process the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_: ${await exchangerUtils.getExchangedCryptoList(payToUpdate.inCurrency)}.`;
+		notify(msgNotify, 'error');
 		api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then(response => {
 			if (!response.success)
 				log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
@@ -111,7 +132,7 @@ module.exports = async (tx) => {
 	await updateProcessedTx(tx, itx, false);
 
 	if (itx.isSpam && !spamerIsNotyfy) {
-		msgNotify = `${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id}.`;
+		msgNotify = `${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. ${admTxDescription}.`;
 		msgSendBack = `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`;
 		notify(msgNotify, 'warn');
 		api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
@@ -124,6 +145,9 @@ module.exports = async (tx) => {
 	switch (messageDirective) {
 		case ('exchange'):
 			exchangeTxs(itx, tx);
+			break;
+		case ('update'):
+			exchangeTxs(itx, tx, payToUpdate);
 			break;
 		case ('command'):
 			commandTxs(decryptedMessage, tx, itx);

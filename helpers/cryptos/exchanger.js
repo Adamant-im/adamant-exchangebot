@@ -38,7 +38,7 @@ module.exports = {
 	 * @param {String} to Like 'ETH'
 	 * @returns {Number} or NaN or undefined
 	 */
-	 getRate(from, to) {
+	getRate(from, to) {
 		try {
 			let price = this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from];
 			if (!price) {
@@ -68,7 +68,7 @@ module.exports = {
 			let rate = this.getRate(from, to);
 			let networkFee = 0;
 			if (considerExchangerFee) {
-				rate *= 1 - config['exchange_fee_' + from]/100;
+				rate *= 1 - config['exchange_fee_' + from] / 100;
 				networkFee = this[to].FEE;
 				if (this.isERC20(to)) {
 					networkFee = this.convertCryptos('ETH', to, networkFee).outAmount;
@@ -168,6 +168,12 @@ module.exports = {
 		} else {
 			return `I accept *${this.acceptedCryptoList}* for exchange to *${this.exchangedCryptoList}*`
 		}
+	},
+
+	async getExchangedCryptoList(excludeCoin) {
+		excludeCoin = excludeCoin ? excludeCoin.toUpperCase() : '';
+		await this.refreshExchangedBalances();
+		return utils.replaceLastOccurrence(config.exchange_crypto.filter(crypto => this[crypto].token !== excludeCoin && this[crypto].balance > 0).join(', '), ', ', ' or ');
 	},
 
 	isFiat(coin) {

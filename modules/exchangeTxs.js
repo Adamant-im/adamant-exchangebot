@@ -9,9 +9,9 @@ const config = require('./configReader');
 const constants = require('../helpers/const');
 const api = require('./api');
 
-module.exports = async (itx, tx) => {
+module.exports = async (itx, tx, payToUpdate) => {
 
-	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx ? tx.id : 'undefined'} from ${tx ? tx.senderId : 'undefined'}`;
+	const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx ? tx.id : 'undefined'} from ${tx ? tx.senderId : 'undefined'}${payToUpdate ? ' as an update for Tx ' + payToUpdate._id : ''}`;
 	try {
 
 		const { paymentsDb } = db;
@@ -21,7 +21,12 @@ module.exports = async (itx, tx) => {
 			inTxid,
 			inAmountMessage;
 
-		if (tx.amount > 0) { // ADM income payment
+		if (payToUpdate && payToUpdate.inUpdateState === 'outCurrency') { // update of outCurrency for previous Tx
+			inAmountMessage = payToUpdate.inAmountMessage;
+			inCurrency = payToUpdate.inCurrency;
+			outCurrency = msg;
+			inTxid = payToUpdate._id;
+		} else if (tx.amount > 0) { // ADM income payment
 			inAmountMessage = tx.amount / SAT;
 			inCurrency = 'ADM';
 			outCurrency = msg;
@@ -33,31 +38,40 @@ module.exports = async (itx, tx) => {
 				inAmountMessage = inTxDetails.amount;
 				inTxid = inTxDetails.hash;
 				outCurrency = inTxDetails.comments;
-				if (outCurrency === '') {
-					outCurrency = 'NONE';
-				}
 			}
 		}
 
 		inCurrency = String(inCurrency).toUpperCase().trim();
 		outCurrency = utils.trimAny(outCurrency, ` '",.<>()$!*-=+{}[]?/\\`).toUpperCase();
 
-		const pay = new paymentsDb({
-			_id: tx.id,
-			date: utils.unix(),
-			admTxId: tx.id,
-			itxId: itx._id,
-			senderId: tx.senderId,
-			inCurrency,
-			outCurrency,
-			inTxid,
-			inAmountMessage: +inAmountMessage.toFixed(constants.PRECISION_DECIMALS),
-			transactionIsValid: null,
-			needHumanCheck: false,
-			needToSendBack: false,
-			transactionIsFailed: false,
-			isFinished: false
-		});
+		let pay;
+		let inTxidDublicate = false;
+
+		if (payToUpdate) {
+			pay = payToUpdate;
+			log.log(`Updating ${pay.inUpdateState} for an exchange of ${pay.inAmountMessage} ${pay.inCurrency}… ${admTxDescription}.`);
+			pay.inUpdateState = undefined;
+		} else {
+			log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency ? outCurrency : 'NOT_SET'}… ${admTxDescription}.`);
+			inTxidDublicate = await paymentsDb.findOne({ inTxid });
+			pay = new paymentsDb({
+				_id: tx.id,
+				date: utils.unix(),
+				admTxId: tx.id,
+				itxId: itx._id,
+				senderId: tx.senderId,
+				inCurrency,
+				outCurrency,
+				inTxid,
+				inAmountMessage: +inAmountMessage.toFixed(constants.PRECISION_DECIMALS),
+				isBasicChecksPassed: false,
+				transactionIsValid: null,
+				needHumanCheck: false,
+				needToSendBack: false,
+				transactionIsFailed: false,
+				isFinished: false
+			});
+		}
 
 		// Validate
 		let msgSendBack = false;
@@ -65,10 +79,7 @@ module.exports = async (itx, tx) => {
 		let notifyType = 'info';
 		const min_value_usd = config['min_value_usd_' + inCurrency];
 		const min_confirmations = config['min_confirmations_' + inCurrency];
-		const inTxidDublicate = await paymentsDb.findOne({ inTxid });
 		const sendBackMessage = `I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
-
-		log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency}… ${admTxDescription}.`);
 
 		// Checkers
 		if (inAmountMessage === undefined || inCurrency === undefined || outCurrency === undefined || inTxid === undefined) {
@@ -97,29 +108,35 @@ module.exports = async (itx, tx) => {
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. **Attention needed**. ${admTxDescription}.`;
 			msgSendBack = `I don’t know crypto _${inCurrency}_. I’ve notified my master to send the payment back to you.`;
 		} else if (!exchangerUtils.isKnown(outCurrency)) {
-			pay.waitingForOutCurrency = true;
-
+			pay.inUpdateState = 'outCurrency';
+			if (outCurrency) {
+				msgSendBack = `I don’t work with crypto _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
+			} else {
+				msgSendBack = `I've got _${inAmountMessage}_ _${inCurrency}_ from you. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
+			}
+			// pay.error = 3;
+			// pay.needToSendBack = true;
+			// notifyType = 'warn';
+			// msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 			// msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
-			pay.error = 3;
-			pay.needToSendBack = true;
-			notifyType = 'warn';
-			msgNotify = `${config.notifyName} notifies about request of unknown crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
-			msgSendBack = `I don’t work with crypto _${outCurrency}_. ${sendBackMessage}`;
 		} else if (inCurrency === outCurrency) {
 			pay.error = 4;
 			pay.needToSendBack = true;
+			pay.isBasicChecksPassed = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} received request to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 			msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. ${sendBackMessage}`;
 		} else if (!exchangerUtils.isAccepted(inCurrency)) {
 			pay.error = 5;
 			pay.needToSendBack = true;
+			pay.isBasicChecksPassed = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 			msgSendBack = `I don’t accept _${inCurrency}_. ${sendBackMessage}`;
 		} else if (!exchangerUtils.isExchanged(outCurrency)) {
 			pay.error = 6;
 			pay.needToSendBack = true;
+			pay.isBasicChecksPassed = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about request to get non-exchanged crypto: _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 			msgSendBack = `I don’t accept exchange to _${outCurrency}_. ${sendBackMessage}`;
@@ -134,6 +151,7 @@ module.exports = async (itx, tx) => {
 			} else { // We can send payment back
 				pay.error = 32;
 				pay.needToSendBack = true;
+				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Requested _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 				msgSendBack = `I don’t have rates of crypto _${inCurrency}_. ${sendBackMessage}`;
@@ -141,6 +159,7 @@ module.exports = async (itx, tx) => {
 		} else if (!exchangerUtils.hasTicker(outCurrency)) {
 			pay.error = 33;
 			pay.needToSendBack = true;
+			pay.isBasicChecksPassed = true;
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} notifies about unknown rates of requested crypto _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
 			msgSendBack = `I don’t have rates of crypto _${outCurrency}_. ${sendBackMessage}`;
@@ -151,18 +170,16 @@ module.exports = async (itx, tx) => {
 			const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
 			log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
 			if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
-				pay.update({
-					error: 23,
-					needToSendBack: true
-				});
+				pay.error = 23;
+				pay.needToSendBack = true;
+				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 				msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. ${sendBackMessage}`;
 			} else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < min_value_usd) {
-				pay.update({
-					error: 20,
-					needToSendBack: true
-				});
+				pay.error = 20;
+				pay.needToSendBack = true;
+				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. ${sendBackMessage}`;
@@ -171,26 +188,25 @@ module.exports = async (itx, tx) => {
 		}
 
 		// We've passed all of basic checks
-		if (!pay.isFinished && !pay.needToSendBack) {
+		if (!pay.isFinished && !pay.needToSendBack && !pay.inUpdateState) {
 			pay.update(exchangerUtils.convertCryptos(inCurrency, outCurrency, inAmountMessage, true));
 			if (!pay.outAmount) { // Error while calculating outAmount
-				pay.update({
-					needToSendBack: true,
-					error: 7
-				});
+				pay.error = 7;
+				pay.needToSendBack = true;
+				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} unable to calculate _${outCurrency}_ value to exchange from _${inAmountMessage}_ _${inCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 				msgSendBack = `I can't calculate _${outCurrency}_ amount to exchange from _${inAmountMessage}_ _${inCurrency}_. ${sendBackMessage}`;
 			} else if (!utils.isPositiveNumber(pay.outAmount)) { // Doesn't cover network Tx fee
-				pay.update({
-					needToSendBack: true,
-					error: 8
-				});
+				pay.error = 8;
+				pay.needToSendBack = true;
+				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				let feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
 				msgNotify = `${config.notifyName} notifies about incoming transaction, that doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 				msgSendBack = `_${inAmountMessage}_ _${inCurrency}_ doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}. ${sendBackMessage}`;
 			} else { // Transaction is fine
+				pay.isBasicChecksPassed = true;
 				notifyType = 'log';
 				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. ${admTxDescription}.`;
 				msgSendBack = `I understood your request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I will validate your transfer and wait for _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;

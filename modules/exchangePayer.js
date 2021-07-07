@@ -10,6 +10,7 @@ module.exports = async () => {
 
 	const { paymentsDb } = db;
 	(await paymentsDb.find({
+		isBasicChecksPassed: true,
 		transactionIsValid: true,
 		isFinished: false,
 		transactionIsFailed: false,

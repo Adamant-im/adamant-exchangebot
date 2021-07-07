@@ -167,6 +167,7 @@ setInterval(async () => {
 	const { paymentsDb } = db;
 	(await paymentsDb.find({
 		transactionIsValid: null,
+		isBasicChecksPassed: true,
 		isFinished: false
 	})).forEach(async pay => {
 		const tx = await api.get('transactions/get', { id: pay.admTxId });

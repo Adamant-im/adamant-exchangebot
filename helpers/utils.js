@@ -136,12 +136,12 @@ module.exports = {
    * @param {number} value Number to validate
    * @returns {boolean}
    */
-   isPositiveNumber(value) {
+  isPositiveNumber(value) {
     if (!this.isNumber(value) || value <= 0)
       return false
     else
       return true
-  },  
+  },
 
   /**
    * Parses string value to JSON
@@ -277,13 +277,27 @@ module.exports = {
   trimAny(str, chars) {
     if (!str || typeof str !== 'string')
       return ''
-    let start = 0, 
+    let start = 0,
       end = str.length;
-    while(start < end && chars.indexOf(str[start]) >= 0)
+    while (start < end && chars.indexOf(str[start]) >= 0)
       ++start;
-    while(end > start && chars.indexOf(str[end - 1]) >= 0)
+    while (end > start && chars.indexOf(str[end - 1]) >= 0)
       --end;
     return (start > 0 || end < str.length) ? str.substring(start, end) : str;
-  }  
+  },
+
+  /**
+   * Replaces last occurrence of substring in a string, case sensitive
+   * @param {string} str String to process
+   * @param {string} searchValue Substring to search
+   * @param {string} newValue Substring to replace
+   * @returns {string} Processed string; or empty string, if 'str' is not a string.
+   */
+  replaceLastOccurrence(str, searchValue, newValue) {
+    if (!str || typeof str !== 'string')
+      return ''
+    var n = str.lastIndexOf(searchValue);
+    return str.slice(0, n) + str.slice(n).replace(searchValue, newValue);
+  }
 
 };
