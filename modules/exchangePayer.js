@@ -12,6 +12,7 @@ module.exports = async () => {
 	(await paymentsDb.find({
 		isBasicChecksPassed: true,
 		transactionIsValid: true,
+		inTxConfirmed: true,
 		isFinished: false,
 		transactionIsFailed: false,
 		needToSendBack: false,
@@ -25,7 +26,7 @@ module.exports = async () => {
 			try {
 
 				pay.counterSendExchange = ++pay.counterSendExchange || 1;
-				log.log(`Sending exchange payment of ${pay.inAmountMessage} ${pay.inCurrency} for ${pay.outAmount} ${pay.outCurrency}. Attempt ${pay.counterSendExchange}… ${admTxDescription}.`);
+				log.log(`Sending ${pay.outAmount} ${pay.outCurrency} in exchange for ${pay.inAmountMessage} ${pay.inCurrency}. Attempt ${pay.counterSendExchange}… ${admTxDescription}.`);
 
 				const {
 					outAmount,

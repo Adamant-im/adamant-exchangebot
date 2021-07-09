@@ -74,7 +74,7 @@ function help() {
 	result += `\n\n**To make an exchange**, send me crypto you want to exchange here in-Chat.`;
 
 	return result;
-	
+
 }
 
 async function rates(params) {
@@ -209,7 +209,7 @@ async function test(params, tx) {
 		return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. ${etherString}Check my balances with **/balances** command.`;
 	}
 
-	return `Ok. Let's make a bargain! I’ll give you *${result}* *${outCurrency}*. To proceed, send me *${amount}* *${inCurrency}* here In-Chat.`;
+	return `Ok. Let's make a bargain! I’ll give you ~ *${result}* *${outCurrency}* (valid for this moment, depends on market rate). To proceed, send me *${amount}* *${inCurrency}* here In-Chat.`;
 
 }
 

@@ -30,13 +30,13 @@ module.exports = async (pay, tx) => {
 		});
 
 		if (!senderKvsInAddress) {
-			log.warn(`Unable to fetch ${pay.inCurrency} address for ${tx.senderId} from KVS. Will try next time. ${admTxDescription}.`);
+			log.warn(`Unable to fetch ${pay.inCurrency} inCurrency address for ${tx.senderId} from KVS. Will try next time. ${admTxDescription}.`);
 			pay.save();
 			return;
 		}
 
 		if (!senderKvsOutAddress && !pay.needToSendBack) {
-			log.warn(`Unable to fetch ${pay.outCurrency} address for ${tx.senderId} from KVS. Will try next time. ${admTxDescription}.`);
+			log.warn(`Unable to fetch ${pay.outCurrency} outCurrency address for ${tx.senderId} from KVS. Will try next time. ${admTxDescription}.`);
 			pay.save();
 			return;
 		}
@@ -49,7 +49,7 @@ module.exports = async (pay, tx) => {
 				needHumanCheck: true
 			}, true);
 			notifyType = 'error';
-			msgNotify = `${config.notifyName} cannot fetch address from KVS for crypto: _${pay.inCurrency}_. Attention needed. ${admTxDescription}.`;
+			msgNotify = `${config.notifyName} cannot fetch inCurrency address from KVS for crypto: _${pay.inCurrency}_. Attention needed. ${admTxDescription}.`;
 			msgSendBack = `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`;
 			notify(msgNotify, notifyType);
 			api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
@@ -65,7 +65,7 @@ module.exports = async (pay, tx) => {
 				error: constants.ERRORS.NO_OUT_KVS_ADDRESS
 			});
 			notifyType = 'warn';
-			msgNotify = `${config.notifyName} cannot fetch address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
+			msgNotify = `${config.notifyName} cannot fetch outCurrency address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
 			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.inCurrency]}_ block confirmations. It can take a time, please be patient.`;
 		}
 

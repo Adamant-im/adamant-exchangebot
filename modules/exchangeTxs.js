@@ -49,6 +49,7 @@ module.exports = async (itx, tx, payToUpdate) => {
 
 		if (payToUpdate) {
 			pay = payToUpdate;
+			pay.outCurrency = outCurrency;
 			log.log(`Updating ${pay.inUpdateState} for an exchange of ${inAmountMessage} ${inCurrency}… ${admTxDescription}.`);
 			pay.inUpdateState = undefined;
 		} else {
@@ -134,7 +135,7 @@ module.exports = async (itx, tx, payToUpdate) => {
 			// Calculating exchange amount in USD and comparing it to user's daily limit
 			pay.inAmountMessageUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', pay.inAmountMessage).outAmount;
 			const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
-			log.info(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
+			log.log(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
 			if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
 				pay.error = 23;
 				pay.needToSendBack = true;
@@ -148,7 +149,7 @@ module.exports = async (itx, tx, payToUpdate) => {
 				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. ${sendBackMessage}`;				
+				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. ${sendBackMessage}`;
 			} else if (!exchangerUtils.isKnown(outCurrency)) { // Finally, check outCurrency
 				pay.inUpdateState = 'outCurrency';
 				if (outCurrency) {

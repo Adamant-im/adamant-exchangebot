@@ -100,13 +100,13 @@ module.exports = async () => {
 				}
 
 				if (exchangerUtils.isEthOrERC20(sendCurrency) && pay.outTxFailedCounter > constants.SENDER_RESEND_ETH_RETRIES) {
-					msgSendBack = `${msgSendBackIntro}, but my ${pay.outTxFailedCounter} tries failed. Last try Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;	
+					msgSendBack = `${msgSendBackIntro}, but my ${pay.outTxFailedCounter} tries failed. Last try Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 					willRetryString = 'No retries left. **Attention needed**. ';
 					pay.update({
 						inTxStatus: tx.status,
 						isFinished: true,
 						needHumanCheck: true
-					});	
+					});
 				} else {
 					if (exchangerUtils.isEthOrERC20(sendCurrency)) {
 						willRetryString = `I'll retry ${constants.SENDER_RESEND_ETH_RETRIES - pay.outTxFailedCounter + 1} more times. `;
@@ -155,6 +155,8 @@ module.exports = async () => {
 
 			if (pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]) {
 
+				log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed, it reached minimum of ${config['min_confirmations_' + sendCurrency]} network confirmations. ${admTxDescription}.`)
+
 				if (direction === 'exchange') {
 					notifyType = 'info';
 					msgNotify = `${config.notifyName} successfully exchanged _${pay.inAmountMessage} ${pay.inCurrency}_ (got from user) for _${pay.outAmount} ${pay.outCurrency}_ (sent to user) with Tx hash: _${sendTxId}_. ${admTxDescription}.`;
@@ -165,7 +167,7 @@ module.exports = async () => {
 					msgSendBack = `Here is your refund. Note, I've spent some to cover blockchain fees. Try me again!`;
 				}
 
-				if (sendCurrency !== 'ADM') { 
+				if (sendCurrency !== 'ADM') {
 					msgSendBack = `{"type":"${sendCurrency.toLowerCase()}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
 					let message = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich');
 					if (message.success) {
@@ -178,6 +180,8 @@ module.exports = async () => {
 					// Don't send ADM message, as if ADM, it is already sent with the payment
 				}
 
+			} else {
+				log.log(`Updated sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} confirmations: ${pay.outConfirmations}. ${admTxDescription}.`)
 			}
 
 			await pay.save();

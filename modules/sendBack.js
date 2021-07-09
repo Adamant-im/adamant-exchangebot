@@ -12,6 +12,7 @@ module.exports = async () => {
 	const pays = (await paymentsDb.find({
 		isBasicChecksPassed: true,
 		transactionIsValid: true,
+		inTxConfirmed: true,
 		isFinished: false,
 		transactionIsFailed: false,
 		needToSendBack: true,

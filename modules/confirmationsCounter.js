@@ -25,7 +25,8 @@ module.exports = async (pay) => {
 			pay.update({
 				error: constants.ERRORS.TX_FAILED,
 				transactionIsFailed: true,
-				isFinished: true
+				isFinished: true,
+				inTxConfirmed: false
 			}, true);
 			let msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
 			let msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
@@ -62,6 +63,8 @@ module.exports = async (pay) => {
 				inTxConfirmed: true
 			});
 			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]} network confirmations. ${admTxDescription}.`);
+		} else {
+			log.log(`Updated Tx ${pay.inTxid} confirmations: ${pay.inConfirmations}. ${admTxDescription}.`);
 		}
 
 		await pay.save();
