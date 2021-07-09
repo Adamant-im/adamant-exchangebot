@@ -78,7 +78,6 @@ module.exports = async (itx, tx, payToUpdate) => {
 		let msgSendBack = false;
 		let msgNotify = false;
 		let notifyType = 'info';
-		const min_value_usd = config['min_value_usd_' + inCurrency];
 		const min_confirmations = config['min_confirmations_' + inCurrency];
 		const sendBackMessage = `I’ll send transfer back to you after I validate it and have _${min_confirmations}_ block confirmations. It can take a time, please be patient.`;
 
@@ -143,13 +142,13 @@ module.exports = async (itx, tx, payToUpdate) => {
 				notifyType = 'warn';
 				msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
 				msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. ${sendBackMessage}`;
-			} else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < min_value_usd) {
+			} else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < config.min_value_usd) {
 				pay.error = 20;
 				pay.needToSendBack = true;
 				pay.isBasicChecksPassed = true;
 				notifyType = 'warn';
-				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${min_value_usd}_ USD. ${sendBackMessage}`;
+				msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${config.min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+				msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${config.min_value_usd}_ USD. ${sendBackMessage}`;
 			} else if (!exchangerUtils.isKnown(outCurrency)) { // Finally, check outCurrency
 				pay.inUpdateState = 'outCurrency';
 				if (outCurrency) {

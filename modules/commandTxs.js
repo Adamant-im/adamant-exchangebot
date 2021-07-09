@@ -169,8 +169,8 @@ async function test(params, tx) {
 	}
 
 	const usdEqual = exchangerUtils.convertCryptos(inCurrency, 'USD', amount).outAmount;
-	if (usdEqual < config['min_value_usd_' + inCurrency]) {
-		return `Minimum value for exchange is *${config['min_value_usd_' + inCurrency]}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
+	if (usdEqual < config.min_value_usd) {
+		return `Minimum value for exchange is *${config.min_value_usd}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
 	}
 
 	let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;

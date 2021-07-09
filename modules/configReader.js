@@ -100,10 +100,11 @@ try {
 	config.notifyName = `${config.bot_name} (${config.address})`;
 	config.version = require('../package.json').version;
 
-	['min_confirmations', 'exchange_fee', 'min_value_usd'].forEach(param => {
+	['min_confirmations', 'exchange_fee'].forEach(param => {
 		config.known_crypto.forEach(coin => {
 			const field = param + '_' + coin;
-			config[field] = config[field] || config[param] || fields[param].default;
+			if (!config[field] && config[field] !== 0)
+				config[field] = config[param] || fields[param].default;
 			if (fields[param].type !== config[field].__proto__.constructor) {
 				exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[field].type.name}_. Cannot start the Bot.`);
 			}
