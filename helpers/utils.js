@@ -246,6 +246,19 @@ module.exports = {
   },
 
   /**
+   * Returns array with unique values
+   * @param {array} values Input array
+   * @returns {array}
+   */
+  getUnique(values) {
+    const map = values.reduce((m, v) => {
+      m[v] = 1
+      return m
+    }, { })
+    return Object.keys(map)
+  },
+
+  /**
    * Compares two strings, case sensitive
    * @param {string} string1
    * @param {string} string2
