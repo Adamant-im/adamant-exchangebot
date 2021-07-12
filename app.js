@@ -4,7 +4,7 @@ const checker = require('./modules/checkerTransactions');
 const doClearDB = process.argv.includes('clear_db');
 const config = require('./modules/configReader');
 const txParser = require('./modules/incomingTxsParser');
-const exchangerUtils = require('./helpers/cryptos/exchanger')
+const exchangerUtils = require('./helpers/cryptos/exchanger');
 
 // Socket connection
 const api = require('./modules/api');
@@ -30,6 +30,8 @@ function init() {
 			db.paymentsDb.db.drop();
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
+			// console.log(api.eth.keys(config.passPhrase));
+			// console.log(api.dash.keys(config.passPhrase));
 			// require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
 			// require('./helpers/cryptos/exchanger').BZ.send({
 			// 	address: '0x5ec346dba5d9315ca068e9e34c85fe9d78c44f2f',
