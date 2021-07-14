@@ -81,6 +81,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 
 	/**
 	 * Returns last block of token blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * Used only for this.getLastBlockHeight()
 	 * @abstract
 	 * @returns {Object} or undefined, if unable to get block info
 	 */

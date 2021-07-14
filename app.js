@@ -32,8 +32,9 @@ function init() {
 		} else {
 			let x = require('./helpers/cryptos/exchanger').DASH;
 			setTimeout(async () => {
-				let x1 = await x.getBalance();
-				console.log(x.balance);
+				let x1 = await x.getLastBlockHeight();
+				console.log(x1);
+				x1 = await x.getLastBlockHeight();
 				console.log(x1);
 					}, 0)
 

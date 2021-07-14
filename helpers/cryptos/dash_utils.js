@@ -43,14 +43,12 @@ module.exports = class dashCoin extends btcBaseCoin {
 
 			let cached = this.cache.getData('balance', true);
 			if (cached) { // balance is a duffs string or number
-        console.log('cached')
 				return this.fromSat(cached);
 			}
 			let balance = await requestDash('getaddressbalance', [this.address]);
 			if (balance && balance.balance) {
         balance = balance.balance;
 				this.cache.cacheData('balance', balance);
-        console.log('new')
 				return this.fromSat(balance);
 			} else {
 				log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
@@ -69,7 +67,6 @@ module.exports = class dashCoin extends btcBaseCoin {
 	 */
    get balance() {
 		try {
-      console.log('cached2')
 			return this.fromSat(this.cache.getData('balance', false));
 		} catch (e) {
 			log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
@@ -78,6 +75,7 @@ module.exports = class dashCoin extends btcBaseCoin {
 
 	/**
 	 * Returns last block of DASH blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * Used only for this.getLastBlockHeight()
 	 * @override
 	 * @returns {Object} or undefined, if unable to get block info
 	 */
@@ -86,19 +84,14 @@ module.exports = class dashCoin extends btcBaseCoin {
 		if (cached) {
 			return cached;
 		}
-		return new Promise(resolve => {
-			eth.getBlock('latest').then(block => {
-				if (block) {
-					this.cache.cacheData('lastBlock', block);
-				} else {
-					log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + block);
-				}
-				resolve(block);
-			}).catch(e => {
-				log.warn(`Error while getting last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Error: ` + e);
-				resolve();
-			});
-		});
+    return requestDash('getblockcount').then(result => {
+      if (utils.isPositiveNumber(result)) {
+        this.cache.cacheData('lastBlock', result);
+        return result
+      } else {
+        log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + result);
+      }
+    })
 	}
 
 	/**
@@ -107,9 +100,9 @@ module.exports = class dashCoin extends btcBaseCoin {
 	 * @returns {Number} or undefined, if unable to get block info
 	 */
 	async getLastBlockHeight() {
-		return undefined;
+		const block = await this.getLastBlock();
+		return block ? block : undefined;
 	}
-
 
   /**
    * Retrieves unspents (UTXO)
