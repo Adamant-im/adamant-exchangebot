@@ -30,6 +30,13 @@ function init() {
 			db.paymentsDb.db.drop();
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
+			let x = require('./helpers/cryptos/exchanger').DASH;
+			setTimeout(async () => {
+				let x1 = await x.getBalance();
+				console.log(x.balance);
+				console.log(x1);
+					}, 0)
+
 			// console.log(api.eth.keys(config.passPhrase));
 			// console.log(api.dash.keys(config.passPhrase));
 			// require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');

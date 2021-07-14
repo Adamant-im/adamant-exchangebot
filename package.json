@@ -31,6 +31,7 @@
   "dependencies": {
     "adamant-api": "^1.1.0",
     "axios": "0.21.1",
+    "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.1",
     "mongodb": "^3.6.9",
     "web3-eth": "^1.3.6",

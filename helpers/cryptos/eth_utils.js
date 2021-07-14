@@ -81,7 +81,8 @@ module.exports = class ethCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns last block of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
+	 * Returns last block of Ethereum blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * ERC20 tokens redirects to ETH instance.
 	 * @returns {Object} or undefined, if unable to get block info
 	 */
 	getLastBlock() {
@@ -105,7 +106,8 @@ module.exports = class ethCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns last block height of Ethereum blockchain. ERC20 tokens redirects to ETH instance.
+	 * Returns last block height of Ethereum blockchain.
+	 * ERC20 tokens redirects to ETH instance.
 	 * @returns {Number} or undefined, if unable to get block info
 	 */
 	async getLastBlockHeight() {

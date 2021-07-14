@@ -8,6 +8,7 @@ const axios = require('axios');
 const adm_utils = require('./adm_utils');
 const eth_utils = require('./eth_utils');
 const erc20_utils = require('./erc20_utils');
+const dash_utils = require('./dash_utils');
 
 module.exports = {
 
@@ -187,6 +188,7 @@ module.exports = {
 
 	ETH: new eth_utils('ETH'),
 	ADM: new adm_utils(),
+	DASH: new dash_utils('DASH')
 
 };
 
