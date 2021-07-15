@@ -32,7 +32,7 @@ function init() {
 		} else {
 			let x = require('./helpers/cryptos/exchanger').DASH;
 			setTimeout(async () => {
-				let x1 = await x.getTransaction('7442450dd233b8f30db7fb6d4c73fc1f397ac8c08a44088c3151042724ad992e');
+				let x1 = await x.getTransaction('2215d17e58b12d7e3c11a3f6d189757910e3fbe57ef2c5f08a96b10df7f07772');
 				console.log(x1);
 					}, 0)
 

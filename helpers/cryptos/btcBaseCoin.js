@@ -290,43 +290,6 @@ module.exports = class btcBaseCoin extends baseCoin {
 
 	}
 
-	getErc20token(contract) {
-		let token;
-		Object.keys(erc20models).forEach((t) => {
-			if (utils.isStringEqualCI(erc20models[t].sc, contract)) {
-				token = erc20models[t]
-			}
-		});
-		return token;
-	}
-
-	formTxMessage(tx) {
-		let token = this.getErc20token(tx.contract);
-		if (token) {
-			token = token.token;
-		} else {
-			token = tx.contract ? tx.contract : 'ETH';
-		}
-		let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
-		let amount = tx.amount ? ` for ${tx.amount} ${tx.isAmountPlain ? '(plain contract value)' : token}` : '';
-		let height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
-		let time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
-		let hash = tx.hash;
-		let gasUsed = tx.gasUsed ? `, ${tx.gasUsed} gas used` : '';
-		let gasPrice = tx.gasPrice ? `, gas price is ${tx.gasPrice}` : '';
-		let fee;
-		if (tx.gasUsed && tx.gasPrice) {
-			fee = +ethUtils.fromWei(String(+tx.gasUsed * +tx.gasPrice));
-		}
-		fee = fee ? `, ${fee} ETH fee` : '';
-		let nonce = tx.nonce ? `, nonce — ${tx.nonce}` : '';
-		let senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
-		let recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
-		let contract = tx.contract ? ` via ${token} contract` : '';
-		let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`
-		return message
-	}
-
 	/**
 	 * Formats Tx info
 	 * Coin implementations must modify results specifically
@@ -353,7 +316,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 			recipients = recipients.filter(recipient => recipient !== senderId)
 			if (recipients.length === 1) {
 				recipientId = recipients[0];
-			} else if (recipients.length === 2) {
+			} else {
 				recipientId = `${recipients.length} addresses`
 			}
 
@@ -391,5 +354,27 @@ module.exports = class btcBaseCoin extends baseCoin {
 			return tx;
 		}
 	}
+
+	formTxMessage(tx) {
+		try {
+
+			let token = this.token;
+			let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
+			let amount = tx.amount ? ` for ${tx.amount} ${token}` : '';
+			let height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
+			let confirmations = tx.confirmations ? ` and has ${tx.confirmations} confirmations` : '';
+			let time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
+			let hash = tx.hash;
+			let fee = tx.fee || tx.fee === 0 ? `, ${tx.fee} ${token} fee` : '';
+			let senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
+			let recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
+			let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${status}${height}${time}${confirmations}${fee}`
+			return message
+
+		} catch (e) {
+			log.warn(`Error while building Tx ${tx ? tx.id : undefined} message for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+			return tx;
+		}		
+	}	
 
 };

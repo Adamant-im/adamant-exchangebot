@@ -115,7 +115,9 @@ module.exports = class dashCoin extends btcBaseCoin {
    */
   async getTransaction(txid) {
     return requestDash('getrawtransaction', [txid, true]).then(result => {
-      return this._mapTransaction(result)
+      const formedTx = this._mapTransaction(result)
+			log.log(`Tx status: ${this.formTxMessage(formedTx)}.`);
+      return formedTx
     })
   }
 
