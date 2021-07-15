@@ -12,9 +12,9 @@ module.exports = class btcBaseCoin extends baseCoin {
 	constructor(token) {
 		super()
 		this.token = token;
-    this.account.keys = api[token.toLowerCase()].keys(config.passPhrase);
-    this.account.address = this.account.keys.address;
-    this.account.privateKey = this.account.keys.privateKey;
+		this.account.keys = api[token.toLowerCase()].keys(config.passPhrase);
+		this.account.address = this.account.keys.address;
+		this.account.privateKey = this.account.keys.privateKey;
 		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
 	}
 
@@ -23,25 +23,25 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * @abstract
 	 * @returns {Number}
 	 */
-	 get decimals () {
-    return undefined
-  }
-	
+	get decimals() {
+		return undefined
+	}
+
 	/**
 	 * Returns multiplier for sats
 	 * @returns {Number}
 	 */
-	get multiplier () {
-    return Math.pow(10, this.decimals)
-  }
+	get multiplier() {
+		return Math.pow(10, this.decimals)
+	}
 
 	/**
 	 * Returns wallet address
 	 * @returns {String}
 	 */
-	get address () {
-    return this.account.address
-  }
+	get address() {
+		return this.account.address
+	}
 
 	/**
 	 * Converts amount in sat to token
@@ -139,11 +139,12 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * getBlock doesn't provide confirmations (calc it from height)
 	 */
 	getBlock(blockId) {
-		return { }
+		return {}
 	}
 
 	/**
 	 * Returns Tx status and details from the blockchain
+	 * @abstract
 	 * @param {String} txid Tx ID to fetch
 	 * @returns {Object}
 	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
@@ -151,81 +152,81 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * Not used, additional info: hash (already known), blockId, fee
 	 */
 	async getTransaction(txid) {
-		return { }
+		return {}
 	}
 
-  /**
-   * Retrieves unspents (UTXO)
-   * @abstract
-   * @returns {Promise<Array<{txid: string, vout: number, amount: number}>>}
-   */
-	 getUnspents () {
-    return Promise.resolve([])
-  }	
-
-  /**
-   * Creates a transfer transaction hex and ID
-   * @param {string} address receiver address
-   * @param {number} amount amount to transfer (coins, not satoshis)
-   * @param {number} fee transaction fee (coins, not satoshis)
-   * @returns {Promise<{hex: string, txid: string}>}
-   */
-	 createTransaction (address = '', amount = 0, fee) {
-    return this.getUnspents().then(unspents => {
-      const hex = this._buildTransaction(address, amount, unspents, fee)
-      let txid = bitcoin.crypto.sha256(Buffer.from(hex, 'hex'))
-      txid = bitcoin.crypto.sha256(Buffer.from(txid))
-      txid = txid.toString('hex').match(/.{2}/g).reverse().join('')
-      return { hex, txid }
-    })
-  }	
-
-  /**
-   * Creates a raw transaction as a hex string.
-   * @param {string} address target address
-   * @param {number} amount amount to send (coins, not satoshis)
-   * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transactions to use as inputs
-   * @param {number} fee transaction fee in primary units (BTC, DOGE, DASH, etc)
-   * @returns {string}
-   */
-	 _buildTransaction (address, amount, unspents, fee) {
-    amount = new BigNumber(amount).times(this.multiplier).toNumber()
-    amount = Math.floor(amount)
-
-    const txb = new bitcoin.TransactionBuilder(this._network)
-    txb.setVersion(1)
-
-    const target = amount + new BigNumber(fee).times(this.multiplier).toNumber()
-    let transferAmount = 0
-    let inputs = 0
-
-    unspents.forEach(tx => {
-      const amt = Math.floor(tx.amount)
-      if (transferAmount < target) {
-        txb.addInput(tx.txid, tx.vout)
-        transferAmount += amt
-        inputs++
-      }
-    })
-
-    txb.addOutput(bitcoin.address.toOutputScript(address, this._network), amount)
-    txb.addOutput(this._address, transferAmount - target)
-
-    for (let i = 0; i < inputs; ++i) {
-      txb.sign(i, this._keyPair)
-    }
-
-    return txb.build().toHex()
-  }
+	/**
+	 * Retrieves unspents (UTXO)
+	 * @abstract
+	 * @returns {Promise<Array<{txid: string, vout: number, amount: number}>>}
+	 */
+	getUnspents() {
+		return Promise.resolve([])
+	}
 
 	/**
-   * Broadcasts the specified transaction to the network.
-   * @abstract
-   * @param {string} txHex raw transaction as a HEX literal
-   */
-	 sendTransaction (txHex) {
-    return Promise.resolve('')
-  }
+	 * Creates a transfer transaction hex and ID
+	 * @param {string} address receiver address
+	 * @param {number} amount amount to transfer (coins, not satoshis)
+	 * @param {number} fee transaction fee (coins, not satoshis)
+	 * @returns {Promise<{hex: string, txid: string}>}
+	 */
+	createTransaction(address = '', amount = 0, fee) {
+		return this.getUnspents().then(unspents => {
+			const hex = this._buildTransaction(address, amount, unspents, fee)
+			let txid = bitcoin.crypto.sha256(Buffer.from(hex, 'hex'))
+			txid = bitcoin.crypto.sha256(Buffer.from(txid))
+			txid = txid.toString('hex').match(/.{2}/g).reverse().join('')
+			return { hex, txid }
+		})
+	}
+
+	/**
+	 * Creates a raw transaction as a hex string.
+	 * @param {string} address target address
+	 * @param {number} amount amount to send (coins, not satoshis)
+	 * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transactions to use as inputs
+	 * @param {number} fee transaction fee in primary units (BTC, DOGE, DASH, etc)
+	 * @returns {string}
+	 */
+	_buildTransaction(address, amount, unspents, fee) {
+		amount = new BigNumber(amount).times(this.multiplier).toNumber()
+		amount = Math.floor(amount)
+
+		const txb = new bitcoin.TransactionBuilder(this._network)
+		txb.setVersion(1)
+
+		const target = amount + new BigNumber(fee).times(this.multiplier).toNumber()
+		let transferAmount = 0
+		let inputs = 0
+
+		unspents.forEach(tx => {
+			const amt = Math.floor(tx.amount)
+			if (transferAmount < target) {
+				txb.addInput(tx.txid, tx.vout)
+				transferAmount += amt
+				inputs++
+			}
+		})
+
+		txb.addOutput(bitcoin.address.toOutputScript(address, this._network), amount)
+		txb.addOutput(this._address, transferAmount - target)
+
+		for (let i = 0; i < inputs; ++i) {
+			txb.sign(i, this._keyPair)
+		}
+
+		return txb.build().toHex()
+	}
+
+	/**
+	 * Broadcasts the specified transaction to the network.
+	 * @abstract
+	 * @param {string} txHex raw transaction as a HEX literal
+	 */
+	sendTransaction(txHex) {
+		return Promise.resolve('')
+	}
 
 	async send(params) {
 
@@ -286,7 +287,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 				error: e.toString()
 			}
 		}
-		
+
 	}
 
 	getErc20token(contract) {
@@ -324,6 +325,71 @@ module.exports = class btcBaseCoin extends baseCoin {
 		let contract = tx.contract ? ` via ${token} contract` : '';
 		let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`
 		return message
+	}
+
+	/**
+	 * Formats Tx info
+	 * Coin implementations must modify results specifically
+	 * @param {object} tx Tx
+	 * @returns {object} Formatted Tx info
+	 */
+	_mapTransaction(tx) {
+		try {
+
+			const senders = utils.getUnique(tx.vin.map(x => x.addr)).filter(sender => sender !== undefined && sender !== 'undefined');
+			let recipients = utils.getUnique(tx.vout.reduce((list, out) => {
+				list.push(...out.scriptPubKey.addresses)
+				return list
+			}, [])).filter(sender => sender !== undefined && sender !== 'undefined');
+
+			let recipientId, senderId;
+			// In-chat transfers have one sender
+			if (senders.length === 1) {
+				senderId = senders[0];
+			} else {
+				senderId = `${senders.length} addresses`
+			}
+			// In-chat transfers have 2 recipients: a recipient and a change to sender
+			recipients = recipients.filter(recipient => recipient !== senderId)
+			if (recipients.length === 1) {
+				recipientId = recipients[0];
+			} else if (recipients.length === 2) {
+				recipientId = `${recipients.length} addresses`
+			}
+
+			// Calculate amount from outputs:
+			let amount = tx.vout.reduce((sum, t) =>
+				(recipientId === t.scriptPubKey.addresses[0] ? sum + Number(t.value) : sum), 0).toFixed(this.decimals);
+
+			const confirmations = tx.confirmations
+			const timestamp = tx.time ? tx.time * 1000 : undefined;
+			let fee = tx.fees;
+			if (!fee) {
+				const totalIn = tx.vin.reduce((sum, x) => sum + (x.value ? +x.value : 0), 0);
+				const totalOut = tx.vout.reduce((sum, x) => sum + (x.value ? +x.value : 0), 0);
+				fee = (totalIn - totalOut).toFixed(this.decimals)
+			}
+
+			return {
+				id: tx.txid,
+				hash: tx.txid,
+				blockId: tx.blockhash,
+				fee: +fee, // in token, not satoshis
+				status: confirmations > 0 ? true : undefined,
+				timestamp,
+				senders,
+				senderId,
+				recipients,
+				recipientId,
+				amount: +amount, // in token, not satoshis
+				confirmations,
+				height: tx.height
+			}
+
+		} catch (e) {
+			log.warn(`Error while formatting Tx ${tx ? tx.txid : undefined} for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+			return tx;
+		}
 	}
 
 };
