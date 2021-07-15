@@ -115,8 +115,9 @@ module.exports = class dashCoin extends btcBaseCoin {
    */
   async getTransaction(txid) {
     return requestDash('getrawtransaction', [txid, true]).then(result => {
+      if (typeof result !== 'object') return undefined
       const formedTx = this._mapTransaction(result)
-			log.log(`Tx status: ${this.formTxMessage(formedTx)}.`);
+      log.log(`Tx status: ${this.formTxMessage(formedTx)}.`);
       return formedTx
     })
   }
@@ -138,15 +139,6 @@ module.exports = class dashCoin extends btcBaseCoin {
       }))
     })
   }
-
-  /** @override */
-  _mapTransaction(tx) {
-    return super._mapTransaction({
-      ...tx,
-      vin: tx.vin.map(x => ({ ...x, addr: x.address }))
-    })
-  }
-
 
 };
 

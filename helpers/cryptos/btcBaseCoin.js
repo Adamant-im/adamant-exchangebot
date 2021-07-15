@@ -135,8 +135,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * @param {String} blockId Block ID to fetch
 	 * @abstract
 	 * @returns {Object}
-	 * Used for income Tx security validation (deepExchangeValidator): timestamp
-	 * getBlock doesn't provide confirmations (calc it from height)
+	 * Not used for some coins.
 	 */
 	getBlock(blockId) {
 		return {}
@@ -374,7 +373,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 		} catch (e) {
 			log.warn(`Error while building Tx ${tx ? tx.id : undefined} message for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
 			return tx;
-		}		
-	}	
+		}
+	}
 
 };
