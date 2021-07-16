@@ -27,9 +27,9 @@ module.exports = class ethCoin extends baseCoin {
 		if (token === 'ETH') {
 			this.reliabilityCoef = reliabilityCoefEth;
 			this.cache.lastBlock = { lifetime: 10000 };
-			this.account.keysPair = api.eth.keys(config.passPhrase);
-			this.account.address = this.account.keysPair.address;
-			this.account.privateKey = this.account.keysPair.privateKey;
+			this.account.keyPair = api.eth.keys(config.passPhrase);
+			this.account.address = this.account.keyPair.address;
+			this.account.privateKey = this.account.keyPair.privateKey;
 			eth.accounts.wallet.add(this.account.privateKey);
 			eth.defaultAccount = this.account.address;
 			eth.defaultBlock = 'latest';

@@ -13,7 +13,7 @@ module.exports = class admCoin extends baseCoin {
 		this.cache.lastBlock = { lifetime: 5000 };
 		this.cache.balance = { lifetime: 10000 };
 		this.account.passPhrase = config.passPhrase;
-		this.account.keysPair = config.keysPair;
+		this.account.keyPair = config.keyPair;
 		this.account.address = config.address;
 		this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${balance ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`));
 	}

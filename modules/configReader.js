@@ -87,15 +87,15 @@ try {
 		exit(`Bot's config is wrong. No passPhrase. Cannot start the Bot.`);
 	}
 
-	let keysPair;
+	let keyPair;
 	try {
-		keysPair = keys.createKeypairFromPassPhrase(config.passPhrase);
+		keyPair = keys.createKeypairFromPassPhrase(config.passPhrase);
 	} catch (e) {
 		exit(`Bot's config is wrong. Invalid passPhrase. Error: ${e}. Cannot start the Bot.`);
 	}
-	const address = keys.createAddressFromPublicKey(keysPair.publicKey);
-	config.keysPair = keysPair;
-	config.publicKey = keysPair.publicKey.toString('hex');
+	const address = keys.createAddressFromPublicKey(keyPair.publicKey);
+	config.keyPair = keyPair;
+	config.publicKey = keyPair.publicKey.toString('hex');
 	config.address = address;
 	config.notifyName = `${config.bot_name} (${config.address})`;
 	config.version = require('../package.json').version;

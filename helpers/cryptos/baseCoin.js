@@ -18,7 +18,7 @@ module.exports = class baseCoin {
 	account = {
 		passPhrase: undefined,
 		privateKey: undefined,
-		keysPair: undefined,
+		keyPair: undefined,
 		address: undefined
 	}
 

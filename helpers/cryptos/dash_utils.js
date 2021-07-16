@@ -152,6 +152,17 @@ module.exports = class dashCoin extends btcBaseCoin {
     })
   }
 
+	/**
+	 * Broadcasts the specified transaction to the DASH network
+	 * @override
+	 * @param {string} txHex raw transaction as a HEX literal
+	 */
+   sendTransaction(txHex) {
+    return requestDash('sendrawtransaction', [txHex]).then(txid => {
+      return txid
+    })
+	}
+  
 };
 
 /**

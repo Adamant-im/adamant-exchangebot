@@ -30,11 +30,17 @@ function init() {
 			db.paymentsDb.db.drop();
 			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
 		} else {
-			let x = require('./helpers/cryptos/exchanger').DASH;
-			setTimeout(async () => {
-				let x1 = await x.getTransaction('75d483c14b105a74656c89d41cccc4d01ff40a335762ae780d7d89af0e948631');
-				console.log(x1);
-					}, 0)
+			// let params = {
+			// 	address: 'Xk5j3MFX976fPHC31atC8DRJ2XVgeezAC7',
+			// 	value: 0.000013,
+			// 	comment: 'Test it!'
+			// }
+			// let x = require('./helpers/cryptos/exchanger').DASH;
+			// // let x = require('./helpers/cryptos/exchanger').DASH;
+			// setTimeout(async () => {
+			// 	let x1 = await x.send(params);
+			// 	console.log(x1);
+			// 		}, 0)
 
 			// console.log(api.eth.keys(config.passPhrase));
 			// console.log(api.dash.keys(config.passPhrase));
