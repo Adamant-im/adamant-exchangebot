@@ -13,6 +13,8 @@ module.exports = class btcBaseCoin extends baseCoin {
 		super()
 		this.token = token;
 		this.account.keys = api[token.toLowerCase()].keys(config.passPhrase);
+		this.account.network = this.account.keys.network;
+		this.account.keysPair = this.account.keys.keysPair;
 		this.account.address = this.account.keys.address;
 		this.account.privateKey = this.account.keys.privateKey;
 		setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
@@ -64,7 +66,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 */
 	toSat(tokenValue) {
 		try {
-			return +tokenValue * this.multiplier
+			return Math.floor(+tokenValue * this.multiplier)
 		} catch (e) {
 			log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
 		}
@@ -99,7 +101,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns balance in Whole coins from cache, if it's up to date. If not, makes an API request and updates cached data.
+	 * Returns balance in coins (not satoshis) from cache, if it's up to date. If not, makes an API request and updates cached data.
 	 * @abstract
 	 * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
 	 */
@@ -108,7 +110,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	}
 
 	/**
-	 * Returns balance in Whole coins from cache. It may be outdated.
+	 * Returns balance in coins (not satoshis) from cache. It may be outdated.
 	 * @abstract
 	 * @returns {Number} cached value; it may be undefined
 	 */
@@ -117,17 +119,11 @@ module.exports = class btcBaseCoin extends baseCoin {
 	}
 
 	/**
-	 * Updates ETH or ERC20 balance in cache. Useful when we don't want to wait for network update.
-	 * @param {Number} value New balance in ETH or token
+	 * Updates coin balance in cache. Useful when we don't want to wait for network update.
+	 * @abstract
+	 * @param {Number} value New balance (in coin, not satoshis)
 	 */
 	set balance(value) {
-		try {
-			if (utils.isPositiveOrZeroNumber(value)) {
-				this.cache.cacheData('balance', this.toSat(value));
-			}
-		} catch (e) {
-			log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-		}
 	}
 
 	/**
@@ -135,7 +131,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * @param {String} blockId Block ID to fetch
 	 * @abstract
 	 * @returns {Object}
-	 * Not used for some coins.
+	 * Internal use. Not needed for some coins.
 	 */
 	getBlock(blockId) {
 		return {}
@@ -148,7 +144,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * @returns {Object}
 	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
 	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
-	 * Not used, additional info: hash (already known), blockId, fee
+	 * Not used, additional info: hash (already known), blockId, fee, recipients, senders
 	 */
 	async getTransaction(txid) {
 		return {}
@@ -164,7 +160,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	}
 
 	/**
-	 * Creates a transfer transaction hex and ID
+	 * Creates a transfer transaction hex (raw Tx) and ID
 	 * @param {string} address receiver address
 	 * @param {number} amount amount to transfer (coins, not satoshis)
 	 * @param {number} fee transaction fee (coins, not satoshis)
@@ -181,7 +177,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	}
 
 	/**
-	 * Creates a raw transaction as a hex string.
+	 * Creates a raw transaction as a hex string
 	 * @param {string} address target address
 	 * @param {number} amount amount to send (coins, not satoshis)
 	 * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transactions to use as inputs
@@ -189,37 +185,36 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * @returns {string}
 	 */
 	_buildTransaction(address, amount, unspents, fee) {
-		amount = new BigNumber(amount).times(this.multiplier).toNumber()
-		amount = Math.floor(amount)
 
-		const txb = new bitcoin.TransactionBuilder(this._network)
-		txb.setVersion(1)
-
-		const target = amount + new BigNumber(fee).times(this.multiplier).toNumber()
-		let transferAmount = 0
-		let inputs = 0
-
-		unspents.forEach(tx => {
-			const amt = Math.floor(tx.amount)
-			if (transferAmount < target) {
-				txb.addInput(tx.txid, tx.vout)
-				transferAmount += amt
-				inputs++
+		try {
+			amount = this.toSat(amount);
+			const txb = new bitcoin.TransactionBuilder(this.network);
+			txb.setVersion(1);
+			const target = amount + this.toSat(fee);
+			let transferAmount = 0;
+			let inputs = 0;
+			unspents.forEach(tx => {
+				const amt = Math.floor(tx.amount);
+				if (transferAmount < target) {
+					txb.addInput(tx.txid, tx.vout);
+					transferAmount += amt;
+					inputs++;
+				}
+			})
+			txb.addOutput(bitcoin.address.toOutputScript(address, this.network), amount);
+			txb.addOutput(this.address, transferAmount - target);
+			for (let i = 0; i < inputs; ++i) {
+				txb.sign(i, this.keyPair)
 			}
-		})
+			return txb.build().toHex()
 
-		txb.addOutput(bitcoin.address.toOutputScript(address, this._network), amount)
-		txb.addOutput(this._address, transferAmount - target)
-
-		for (let i = 0; i < inputs; ++i) {
-			txb.sign(i, this._keyPair)
+		} catch (e) {
+			log.warn(`Error while building Tx to send ${amount} ${this.token} to ${address} with ${fee} ${this.token} in _buildTransaction() of ${utils.getModuleName(module.id)} module: ` + e);
 		}
-
-		return txb.build().toHex()
 	}
 
 	/**
-	 * Broadcasts the specified transaction to the network.
+	 * Broadcasts the specified transaction to the network
 	 * @abstract
 	 * @param {string} txHex raw transaction as a HEX literal
 	 */
@@ -227,65 +222,12 @@ module.exports = class btcBaseCoin extends baseCoin {
 		return Promise.resolve('')
 	}
 
+	/**
+	 * Build Tx and broadcasts it
+	 * @abstract
+	 * @param {object} params try: try number, address: recipient's address, value: amount to send in coins (not satoshis)
+	 */
 	async send(params) {
-
-		params.try = params.try || 1;
-		let tryString = ` (try number ${params.try})`;
-		let gas = Math.round(this.gasLimit * this.reliabilityCoef * params.try);
-
-		try {
-
-			const txParams = {
-				// nonce: this.currentNonce++, // set as default
-				// gasPrice: this.gasPrice, // set as default
-				gas
-			};
-			if (this.contract) {
-				txParams.value = '0x0';
-				txParams.to = this.erc20model.sc;
-				txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
-			} else {
-				txParams.value = this.toSat(params.value);
-				txParams.to = params.address;
-			}
-
-			return new Promise(resolve => {
-				eth.sendTransaction(txParams)
-					.on('transactionHash', (hash) => {
-						log.log(`Formed Tx to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString}, Tx hash: ${hash}.`);
-						resolve({
-							success: true,
-							hash
-						});
-					})
-					.on('receipt', (receipt) => {
-						log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(receipt)}.`);
-					})
-					.on('confirmation', (confirmationNumber, receipt) => {
-						if (confirmationNumber === 0) {
-							log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);
-						}
-					})
-					.on('error', (e, receipt) => {  // If out of gas error, the second parameter is the receipt
-						if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-							log.error(`Failed to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}. ` + e);
-							resolve({
-								success: false,
-								error: e.toString()
-							});
-						}
-					}).catch(e => {
-						// Duplicates on-error
-					});
-			});
-
-		} catch (e) {
-			log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
-			return {
-				success: false,
-				error: e.toString()
-			}
-		}
 
 	}
 
@@ -354,6 +296,11 @@ module.exports = class btcBaseCoin extends baseCoin {
 		}
 	}
 
+	/**
+	 * Builds log message from formed Tx
+	 * @param {object} tx Tx
+	 * @returns {string} Log message
+	 */	
 	formTxMessage(tx) {
 		try {
 

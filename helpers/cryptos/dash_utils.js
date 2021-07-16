@@ -1,7 +1,5 @@
 const config = require('../../modules/configReader');
 const log = require('../log');
-const api = require('../../modules/api');
-const constants = require('../const');
 const utils = require('../utils');
 
 const dashNode = config.node_DASH[0]; // TODO: health check
@@ -74,6 +72,21 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
+   * Updates DASH balance in cache. Useful when we don't want to wait for network update.
+   * @override
+   * @param {Number} value New balance in DASH
+   */
+  set balance(value) {
+    try {
+      if (utils.isPositiveOrZeroNumber(value)) {
+        this.cache.cacheData('balance', this.toSat(value));
+      }
+    } catch (e) {
+      log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
+
+  /**
    * Returns last block of DASH blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
    * Used only for this.getLastBlockHeight()
    * @override
@@ -111,7 +124,7 @@ module.exports = class dashCoin extends btcBaseCoin {
    * @returns {Object}
    * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
    * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
-   * Not used, additional info: hash (already known), blockId, fee
+   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
   async getTransaction(txid) {
     return requestDash('getrawtransaction', [txid, true]).then(result => {
@@ -121,7 +134,6 @@ module.exports = class dashCoin extends btcBaseCoin {
       return formedTx
     })
   }
-
 
   /**
    * Retrieves unspents (UTXO)
@@ -142,6 +154,12 @@ module.exports = class dashCoin extends btcBaseCoin {
 
 };
 
+/**
+ * Makes a POST request to Dash node. Internal function.
+ * @param {string} method Endpoint name
+ * @param {*} params Endpoint params
+ * @returns {*} Request results or undefined
+ */
 function requestDash(method, params) {
   return axios.post(dashNode, { method, params })
     .then(response => {
@@ -155,10 +173,16 @@ function requestDash(method, params) {
     .catch(function (error) {
       log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
     });
-
 }
 
+/**
+ * Formats axios request results. Internal function.
+ * @param {object} response Axios response
+ * @param {boolean} isRequestSuccess If axios request succeed
+ * @returns {object} Formatted request results
+ */
 function formatRequestResults(response, isRequestSuccess) {
+
   let results = {};
   results.details = {};
 
