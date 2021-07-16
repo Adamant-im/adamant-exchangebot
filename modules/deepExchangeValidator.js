@@ -101,7 +101,7 @@ module.exports = async (pay, tx) => {
 
 			if (!pay.inTxSenderId || !pay.inTxRecipientId || !pay.inAmountReal || !pay.inTxTimestamp) {
 				pay.save();
-				log.warn(`Unable to get full details of transaction: inTxSenderId ${pay.inTxSenderId}, inTxRecipientId ${pay.inTxRecipientId}, inAmountReal ${pay.inAmountReal}, inTxTimestamp ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
+				log.warn(`Unable to get full details of transaction. inTxSenderId: ${pay.inTxSenderId}, inTxRecipientId: ${pay.inTxRecipientId}, inAmountReal: ${pay.inAmountReal}, inTxTimestamp: ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
 				return;
 			}
 

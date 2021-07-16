@@ -90,10 +90,10 @@
 	"daily_limit_usd": 1000,
 
 	/** How many confirmations to consider transaction as accepted. **/
-	"min_confirmations": 3,
+	"min_confirmations": 2,
 
 	/** To override min_confirmations for specific cryptocurrency. **/
-	"min_confirmations_ADM": 2,
+	"min_confirmations_ADM": 1,
 
 	/** How to reply user in-chat, if first unknown command received. **/
 	"welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",

@@ -274,7 +274,8 @@ module.exports = class btcBaseCoin extends baseCoin {
 	_mapTransaction(tx) {
 		try {
 
-			const senders = utils.getUnique(tx.vin.map(x => x.addr)).filter(sender => sender !== undefined && sender !== 'undefined');
+			let addressField = tx.vin[0].address ? 'address' : 'addr';
+			let senders = utils.getUnique(tx.vin.map(input => input[addressField])).filter(sender => sender !== undefined && sender !== 'undefined');
 			let recipients = utils.getUnique(tx.vout.reduce((list, out) => {
 				list.push(...out.scriptPubKey.addresses)
 				return list
