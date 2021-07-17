@@ -32,7 +32,7 @@ function init() {
 		} else {
 			// let params = {
 			// 	address: 'Xk5j3MFX976fPHC31atC8DRJ2XVgeezAC7',
-			// 	value: 0.000013,
+			// 	value: 0.000133,
 			// 	comment: 'Test it!'
 			// }
 			// let x = require('./helpers/cryptos/exchanger').DASH;

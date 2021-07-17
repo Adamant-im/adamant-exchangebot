@@ -141,13 +141,20 @@ module.exports = class dashCoin extends btcBaseCoin {
    * @returns {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
    */
   getUnspents() {
-    const params = [this.address];
-    return requestDash('getaddressutxos', params).then(result => {
+    return requestDash('getaddressutxos', [this.address]).then(async (result) => {
       if (!Array.isArray(result)) return undefined
+      // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
+      // We need raw Tx as nonWitnessUtxo for every input (unspent)
+      let fullTx;
+      for (const tx of result) {
+        fullTx = await this.getTransaction(tx.txid);
+        tx.hex = fullTx && fullTx.hex ? fullTx.hex : undefined;
+      }
       return result.map(tx => ({
-        txid: tx.txid,
-        amount: tx.satoshis,
-        vout: tx.outputIndex
+        hash: tx.txid,
+        amount: tx.satoshis, // to calc transferAmount in _buildTransaction()
+        index: tx.outputIndex,
+        nonWitnessUtxo: Buffer.from(tx.hex, 'hex')      
       }))
     })
   }

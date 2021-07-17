@@ -168,11 +168,13 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 */
 	createTransaction(address = '', amount = 0, fee) {
 		return this.getUnspents().then(unspents => {
-			const hex = this._buildTransaction(address, amount, unspents, fee)
-			let txid = bitcoin.crypto.sha256(Buffer.from(hex, 'hex'))
-			txid = bitcoin.crypto.sha256(Buffer.from(txid))
-			txid = txid.toString('hex').match(/.{2}/g).reverse().join('')
-			return { hex, txid }
+			if (unspents) {
+				const hex = this._buildTransaction(address, amount, unspents, fee)
+				let txid = bitcoin.crypto.sha256(Buffer.from(hex, 'hex'))
+				txid = bitcoin.crypto.sha256(Buffer.from(txid))
+				txid = txid.toString('hex').match(/.{2}/g).reverse().join('')
+				return { hex, txid }
+			}
 		})
 	}
 
@@ -188,25 +190,28 @@ module.exports = class btcBaseCoin extends baseCoin {
 
 		try {
 			const amountInSat = this.toSat(amount);
-			const txb = new bitcoin.TransactionBuilder(this.account.network);
-			txb.setVersion(1);
+			const psbt = new bitcoin.Psbt({ network: this.account.network }); // bitcoin.TransactionBuilder is deprecated, so we use psbt
 			const target = amountInSat + this.toSat(fee);
 			let transferAmount = 0;
 			let inputs = 0;
 			unspents.forEach(tx => {
 				const amt = Math.floor(tx.amount);
 				if (transferAmount < target) {
-					txb.addInput(tx.txid, tx.vout);
+					psbt.addInput(tx);
 					transferAmount += amt;
 					inputs++;
 				}
 			})
-			txb.addOutput(bitcoin.address.toOutputScript(address, this.account.network), amountInSat);
-			txb.addOutput(this.address, transferAmount - target);
-			for (let i = 0; i < inputs; ++i) {
-				txb.sign(i, this.account.keyPair)
+			psbt.addOutput({ script: bitcoin.address.toOutputScript(address, this.account.network), value: amountInSat });
+			// This is a necessary step
+			// If we'll not add a change to output, it will burn in hell
+			const change = transferAmount - target;
+			if (utils.isPositiveNumber(change)) {
+				psbt.addOutput({ address: this.address, value: change });
 			}
-			const txHex = txb.build().toHex();
+			psbt.signAllInputs(this.account.keyPair)
+			psbt.finalizeAllInputs();
+			const txHex = psbt.extractTransaction().toHex();
 			return txHex
 
 		} catch (e) {
@@ -234,21 +239,35 @@ module.exports = class btcBaseCoin extends baseCoin {
 			fee = this.FEE;
 			return this.createTransaction(params.address, params.value, fee)
 				.then(result => {
-					log.log(`Successfully built Tx ${result.txid} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee: ${result.hex}.`);
-					return this.sendTransaction(result.hex)
-						.then(hash => {
-							log.log(`Successfully broadcasted Tx to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee, Tx hash: ${hash}.`);
-							return {
-								success: true,
-								hash
-							};
-						})
-						.catch(e => {
-							return {
-								success: false,
-								error: e.toString()
-							}
-						})
+					if (result) {
+						log.log(`Successfully built Tx ${result.txid} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee: ${result.hex}.`);
+						return this.sendTransaction(result.hex)
+							.then(hash => {
+								if (hash) {
+									log.log(`Successfully broadcasted Tx to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee, Tx hash: ${hash}.`);
+									return {
+										success: true,
+										hash
+									};
+								} else {
+									return {
+										success: false,
+										error: `Unable to broadcast Tx, it may be dust amount or other error`
+									}
+								}
+							})
+							.catch(e => {
+								return {
+									success: false,
+									error: e.toString()
+								}
+							})
+					} else {
+						return {
+							success: false,
+							error: `Unable to create Tx hex, it may be no unspents retrieved`
+						}
+					}
 				})
 				.catch(e => {
 					return {
@@ -322,7 +341,8 @@ module.exports = class btcBaseCoin extends baseCoin {
 				recipientId,
 				amount: +amount, // in token, not satoshis
 				confirmations,
-				height: tx.height
+				height: tx.height,
+				hex: tx.hex
 			}
 
 		} catch (e) {
@@ -335,7 +355,7 @@ module.exports = class btcBaseCoin extends baseCoin {
 	 * Builds log message from formed Tx
 	 * @param {object} tx Tx
 	 * @returns {string} Log message
-	 */	
+	 */
 	formTxMessage(tx) {
 		try {
 
