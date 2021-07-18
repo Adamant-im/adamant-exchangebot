@@ -190,7 +190,7 @@ module.exports = async (itx, tx, payToUpdate) => {
 				pay.isBasicChecksPassed = true;
 				notifyType = 'log';
 				msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. ${admTxDescription}.`;
-				msgSendBack = `I’ve got a request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I’ll validate your transfer${exchangerUtils.isInstantSendValid(inCurrency) ? '' : ' and wait for _' + min_confirmations + '_ block confirmations'}. It can take a time, please be patient.`;
+				msgSendBack = `I’ve got a request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I’ll validate your transfer${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ' and wait for _' + min_confirmations + '_ block confirmations, then'} make an exchange. It can take a time, please be patient.`;
 			}
 		}
 

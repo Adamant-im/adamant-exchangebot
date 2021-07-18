@@ -103,7 +103,7 @@ module.exports = async () => {
 					msgSendBack = `${msgSendBackIntro}, but my ${pay.outTxFailedCounter} tries failed. Last try Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
 					willRetryString = 'No retries left. **Attention needed**. ';
 					pay.update({
-						inTxStatus: tx.status,
+						outTxStatus: tx.status,
 						isFinished: true,
 						needHumanCheck: true
 					});
@@ -131,9 +131,10 @@ module.exports = async () => {
 				}
 				return;
 
-			}
+			} // if (tx.status === false)
 
-			if (!tx.height && !tx.confirmations && !pay.inTxIsInstant) {
+			pay.outTxIsInstant = tx.instantlock && tx.instantlock_internal;
+			if (!tx.height && !tx.confirmations && !pay.outTxIsInstant) {
 				log.warn(`Unable to get sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} height or confirmations. Will try again next time. ${admTxDescription}.`);
 				return;
 			}
@@ -153,10 +154,17 @@ module.exports = async () => {
 				outConfirmations: confirmations
 			});
 
-			const confirmationsReached = pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency];
-			if (confirmationsReached || pay.inTxIsInstant) {
+			const confirmationsReached = pay.outConfirmations >= 1; // One confirmations is enough for outgoing payments
+			if (pay.outTxStatus || confirmationsReached || pay.outTxIsInstant) {
 
-				const confirmationReason = confirmationsReached ? `, it reached minimum of ${config['min_confirmations_' + sendCurrency]} network confirmations` : ` as InstantSend verified. Currently it has ${pay.outConfirmations ? pay.outConfirmations : 0} network confirmations`
+				let confirmationReason;
+				if (confirmationsReached) {
+					confirmationReason = `, it has 1 network confirmation`;
+				} else if (pay.outTxStatus) {
+					confirmationReason = `, its status is Success`;
+				} else {
+					confirmationReason = ` as InstantSend verified. Currently it has ${pay.outConfirmations ? pay.outConfirmations : 0} network confirmations`;
+				}
 				log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed${confirmationReason}. ${admTxDescription}.`)
 
 				if (direction === 'exchange') {

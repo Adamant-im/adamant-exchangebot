@@ -181,8 +181,8 @@ module.exports = {
 		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
 
-	isInstantSendValid(coin) {
-		return ['DASH'].includes(coin);
+	isFastPayments(coin) {
+		return ['DASH', 'ADM'].includes(coin);
 	},
 
 	hasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
