@@ -66,7 +66,7 @@ module.exports = async (pay, tx) => {
 			});
 			notifyType = 'warn';
 			msgNotify = `${config.notifyName} cannot fetch outCurrency address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
-			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. Now I will try to send transfer back to you. I will validate your transfer and wait for _${config['min_confirmations_' + pay.inCurrency]}_ block confirmations. It can take a time, please be patient.`;
+			msgSendBack = `I can’t get your _${pay.outCurrency}_ address from ADAMANT KVS. Make sure you use ADAMANT wallet with _${pay.outCurrency}_ enabled. I’ll validate the transfer and send it back to you. It can take a time, please be patient.`;
 		}
 
 		// Validating incoming TX in blockchain of inCurrency
@@ -84,8 +84,8 @@ module.exports = async (pay, tx) => {
 				error: constants.ERRORS.UNABLE_TO_FETCH_TX
 			});
 			notifyType = 'warn';
-			msgNotify = `${config.notifyName} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_.`;
-			msgSendBack = `I can’t get transaction of _${pay.in_amount_message} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ from _ ${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
+			msgNotify = `${config.notifyName} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_. It might be failed or cancelled.`;
+			msgSendBack = `I can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ from _${pay.inCurrency}_ blockchain. It might be failed or cancelled. If you think it’s a mistake, contact my master.`;
 		} else { // We got incomeTx details
 
 			pay.update({
@@ -96,10 +96,12 @@ module.exports = async (pay, tx) => {
 				inTxStatus: incomeTx.status,
 				inTxHeight: incomeTx.height,
 				inTxTimestamp: incomeTx.timestamp,
+				inTxIsInstant: incomeTx.instantlock && incomeTx.instantlock_internal,
+				inTxInstantChainlock: incomeTx.chainlock,
 				inConfirmations: incomeTx.confirmations
 			});
 
-			if (!pay.inTxSenderId || !pay.inTxRecipientId || !pay.inAmountReal || !pay.inTxTimestamp) {
+			if (!pay.inTxSenderId || !pay.inTxRecipientId || !pay.inAmountReal || (!pay.inTxTimestamp && !pay.inTxIsInstant)) {
 				pay.save();
 				log.warn(`Unable to get full details of transaction. inTxSenderId: ${pay.inTxSenderId}, inTxRecipientId: ${pay.inTxRecipientId}, inAmountReal: ${pay.inAmountReal}, inTxTimestamp: ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
 				return;
@@ -132,7 +134,7 @@ module.exports = async (pay, tx) => {
 				notifyType = 'error';
 				msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
 				msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-			} else if (Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) > constants.VALIDATOR_TIMESTAMP_DEVIATION) {
+			} else if ((!pay.inTxTimestamp && !pay.inTxIsInstant) && (Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) > constants.VALIDATOR_TIMESTAMP_DEVIATION)) {
 				pay.update({
 					transactionIsValid: false,
 					isFinished: true,

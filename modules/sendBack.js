@@ -17,10 +17,9 @@ module.exports = async () => {
 		transactionIsFailed: false,
 		needToSendBack: true,
 		needHumanCheck: false,
-		inTxStatus: true,
 		outTxid: null,
 		sentBackTx: null
-	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency]);
+	}));
 
 	for (const pay of pays) {
 

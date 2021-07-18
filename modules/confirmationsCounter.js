@@ -38,7 +38,7 @@ module.exports = async (pay) => {
 			return;
 		}
 
-		if (!tx.height && !tx.confirmations) {
+		if (!tx.height && !tx.confirmations && !pay.inTxIsInstant) {
 			log.warn(`Unable to get Tx ${pay.inTxid} height or confirmations. Will try again next time. ${admTxDescription}.`);
 			return;
 		}
@@ -59,10 +59,11 @@ module.exports = async (pay) => {
 		});
 
 		if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
-			await pay.update({
-				inTxConfirmed: true
-			});
+			pay.inTxConfirmed = true;
 			log.log(`Tx ${pay.inTxid} is confirmed, it reached minimum of ${config['min_confirmations_' + pay.inCurrency]} network confirmations. ${admTxDescription}.`);
+		} else if (pay.inTxIsInstant) {
+			pay.inTxConfirmed = true;
+			log.log(`Tx ${pay.inTxid} is confirmed as InstantSend verified. Currently it has ${pay.inConfirmations ? pay.inConfirmations : 0} network confirmations. ${admTxDescription}.`);
 		} else {
 			log.log(`Updated Tx ${pay.inTxid} confirmations: ${pay.inConfirmations}. ${admTxDescription}.`);
 		}

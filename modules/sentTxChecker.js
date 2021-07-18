@@ -133,7 +133,7 @@ module.exports = async () => {
 
 			}
 
-			if (!tx.height && !tx.confirmations) {
+			if (!tx.height && !tx.confirmations && !pay.inTxIsInstant) {
 				log.warn(`Unable to get sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} height or confirmations. Will try again next time. ${admTxDescription}.`);
 				return;
 			}
@@ -153,9 +153,11 @@ module.exports = async () => {
 				outConfirmations: confirmations
 			});
 
-			if (pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency]) {
+			const confirmationsReached = pay.inTxStatus && pay.outConfirmations >= config['min_confirmations_' + sendCurrency];
+			if (confirmationsReached || pay.inTxIsInstant) {
 
-				log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed, it reached minimum of ${config['min_confirmations_' + sendCurrency]} network confirmations. ${admTxDescription}.`)
+				const confirmationReason = confirmationsReached ? `, it reached minimum of ${config['min_confirmations_' + sendCurrency]} network confirmations` : ` as InstantSend verified. Currently it has ${pay.outConfirmations ? pay.outConfirmations : 0} network confirmations`
+				log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed${confirmationReason}. ${admTxDescription}.`)
 
 				if (direction === 'exchange') {
 					notifyType = 'info';

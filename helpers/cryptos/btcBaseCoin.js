@@ -342,7 +342,10 @@ module.exports = class btcBaseCoin extends baseCoin {
 				amount: +amount, // in token, not satoshis
 				confirmations,
 				height: tx.height,
-				hex: tx.hex
+				hex: tx.hex,
+				instantlock: tx.instantlock,
+				instantlock_internal: tx.instantlock_internal,
+				chainlock: tx.chainlock
 			}
 
 		} catch (e) {
@@ -362,14 +365,15 @@ module.exports = class btcBaseCoin extends baseCoin {
 			let token = this.token;
 			let status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
 			let amount = tx.amount ? ` for ${tx.amount} ${token}` : '';
-			let height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
+			let height = tx.height ? `${status ? ' and' : ' is'} included at ${tx.height} blockchain height` : '';
 			let confirmations = tx.confirmations ? ` and has ${tx.confirmations} confirmations` : '';
+			let instantSend = !height && !confirmations && tx.instantlock && tx.instantlock_internal ? `${status ? ' and' : ' is'} locked with InstantSend` : '';
 			let time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
 			let hash = tx.hash;
 			let fee = tx.fee || tx.fee === 0 ? `, ${tx.fee} ${token} fee` : '';
 			let senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
 			let recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
-			let message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${status}${height}${time}${confirmations}${fee}`
+			const message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${status}${instantSend}${height}${time}${confirmations}${fee}`
 			return message
 
 		} catch (e) {

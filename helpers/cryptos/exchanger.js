@@ -181,6 +181,10 @@ module.exports = {
 		return ['USD', 'RUB', 'EUR', 'CNY', 'JPY'].includes(coin);
 	},
 
+	isInstantSendValid(coin) {
+		return ['DASH'].includes(coin);
+	},
+
 	hasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
 		const pairs = Object.keys(this.currencies).toString();
 		return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);

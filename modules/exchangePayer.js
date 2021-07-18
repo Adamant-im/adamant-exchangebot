@@ -17,10 +17,8 @@ module.exports = async () => {
 		transactionIsFailed: false,
 		needToSendBack: false,
 		needHumanCheck: false,
-		inTxStatus: true,
 		outTxid: null
-	})).filter(p => p.inConfirmations >= config['min_confirmations_' + p.inCurrency])
-		.forEach(async pay => {
+	})).forEach(async pay => {
 
 			const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 			try {
