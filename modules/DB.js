@@ -8,16 +8,16 @@ const collections = {};
 
 mongoClient.connect((error, client) => {
 
-	if (error) {
-		log.error(`Unable to connect to MongoBD, ` + error);
-		process.exit(-1);
-	}
-	const db = client.db("exchangerdb");
-	collections.db = db;
-	collections.systemDb = model(db.collection("systems"));
-	collections.incomingTxsDb = model(db.collection("incomingtxs"));
-	collections.paymentsDb = model(db.collection("payments"));
-	log.log(`${config.notifyName} successfully connected to 'exchangerdb' MongoDB.`);
+  if (error) {
+    log.error(`Unable to connect to MongoBD, ` + error);
+    process.exit(-1);
+  }
+  const db = client.db("exchangerdb");
+  collections.db = db;
+  collections.systemDb = model(db.collection("systems"));
+  collections.incomingTxsDb = model(db.collection("incomingtxs"));
+  collections.paymentsDb = model(db.collection("payments"));
+  log.log(`${config.notifyName} successfully connected to 'exchangerdb' MongoDB.`);
 
 });
 

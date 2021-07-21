@@ -14,54 +14,54 @@ api.socket.initSocket({ socket: config.socket, wsType: config.ws_type, onNewMess
 setTimeout(init, 5000);
 
 function init() {
-	// require('./helpers/cryptos/erc20_utils');
-	exchangerUtils.createErc20tokens();
-	require('./modules/confirmationsCounter');
-	require('./modules/deepExchangeValidator');
-	require('./modules/exchangePayer');
-	require('./modules/sendBack');
-	require('./modules/sentTxChecker');
-	try {
+  // require('./helpers/cryptos/erc20_utils');
+  exchangerUtils.createErc20tokens();
+  require('./modules/confirmationsCounter');
+  require('./modules/deepExchangeValidator');
+  require('./modules/exchangePayer');
+  require('./modules/sendBack');
+  require('./modules/sentTxChecker');
+  try {
 
-		if (doClearDB) {
-			console.log('Clearing database..');
-			db.systemDb.db.drop();
-			db.incomingTxsDb.db.drop();
-			db.paymentsDb.db.drop();
-			notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
-		} else {
-			// let params = {
-			// 	address: 'Xk5j3MFX976fPHC31atC8DRJ2XVgeezAC7',
-			// 	value: 0.000133,
-			// 	comment: 'Test it!'
-			// }
-			// let x = require('./helpers/cryptos/exchanger').DASH;
-			// // let x = require('./helpers/cryptos/exchanger').DASH;
-			// setTimeout(async () => {
-			// 	let x1 = await x.send(params);
-			// 	console.log(x1);
-			// 		}, 0)
+    if (doClearDB) {
+      console.log('Clearing database..');
+      db.systemDb.db.drop();
+      db.incomingTxsDb.db.drop();
+      db.paymentsDb.db.drop();
+      notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
+    } else {
+      // let params = {
+      // 	address: 'Xk5j3MFX976fPHC31atC8DRJ2XVgeezAC7',
+      // 	value: 0.000133,
+      // 	comment: 'Test it!'
+      // }
+      // let x = require('./helpers/cryptos/exchanger').DASH;
+      // // let x = require('./helpers/cryptos/exchanger').DASH;
+      // setTimeout(async () => {
+      // 	let x1 = await x.send(params);
+      // 	console.log(x1);
+      // 		}, 0)
 
-			// console.log(api.eth.keys(config.passPhrase));
-			// console.log(api.dash.keys(config.passPhrase));
-			// require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
-			// require('./helpers/cryptos/exchanger').BZ.send({
-			// 	address: '0x5ec346dba5d9315ca068e9e34c85fe9d78c44f2f',
-			// 	value: 0.25628672,
-			// 	comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
-			// });
-			// setTimeout(() => {
+      // console.log(api.eth.keys(config.passPhrase));
+      // console.log(api.dash.keys(config.passPhrase));
+      // require('./helpers/cryptos/exchanger').ETH.getTransaction('0x02398999363faa9eeabbbfcb39f4ce1ae78900c4308423d048ebe85fbfc1ae05');
+      // require('./helpers/cryptos/exchanger').BZ.send({
+      // 	address: '0x5ec346dba5d9315ca068e9e34c85fe9d78c44f2f',
+      // 	value: 0.25628672,
+      // 	comment: 'Done! Thank you for business. Hope to see you again.' // if ADM
+      // });
+      // setTimeout(() => {
  			// console.log(require('./helpers/cryptos/exchanger').ETH.FEE)
-			//  console.log(require('./helpers/cryptos/exchanger').BZ.FEE)
-			//  console.log(require('./helpers/cryptos/exchanger').RES.FEE)
-			// 	}, 5000)
+      //  console.log(require('./helpers/cryptos/exchanger').BZ.FEE)
+      //  console.log(require('./helpers/cryptos/exchanger').RES.FEE)
+      // 	}, 5000)
 
-			checker();
-			notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
-		}
+      checker();
+      notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
+    }
 
-	} catch (e) {
-		notify(`${config.notifyName} is not started. Error: ${e}`, 'error');
-		process.exit(1);
-	}
+  } catch (e) {
+    notify(`${config.notifyName} is not started. Error: ${e}`, 'error');
+    process.exit(1);
+  }
 }
