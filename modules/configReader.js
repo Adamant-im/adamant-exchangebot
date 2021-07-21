@@ -8,68 +8,68 @@ let config = {};
 const fields = {
   passPhrase: {
     type: String,
-    isRequired: true
+    isRequired: true,
   },
   node_ADM: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   node_ETH: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   exchange_crypto: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   accepted_crypto: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   known_crypto: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   infoservice: {
     type: Array,
-    isRequired: true
+    isRequired: true,
   },
   min_value_usd: {
     type: Number,
-    default: 1
+    default: 1,
   },
   daily_limit_usd: {
     type: Number,
-    default: 1000
+    default: 1000,
   },
   min_confirmations: {
     type: Number,
-    default: 3
+    default: 3,
   },
   exchange_fee: {
     type: Number,
-    default: 1
+    default: 1,
   },
   bot_name: {
     type: String,
-    default: null
+    default: null,
   },
   adamant_notify: {
     type: String,
-    default: null
+    default: null,
   },
   slack: {
     type: String,
-    default: null
+    default: null,
   },
   log_level: {
     type: String,
-    default: 'log'
+    default: 'log',
   },
   welcome_string: {
     type: String,
-    default: 'Hello 😊. This is a stub. I have nothing to say. Please check my config.'
-  }
+    default: 'Hello 😊. This is a stub. I have nothing to say. Please check my config.',
+  },
 };
 
 try {
@@ -100,18 +100,19 @@ try {
   config.notifyName = `${config.bot_name} (${config.address})`;
   config.version = require('../package.json').version;
 
-  ['min_confirmations', 'exchange_fee'].forEach(param => {
-    config.known_crypto.forEach(coin => {
+  ['min_confirmations', 'exchange_fee'].forEach((param) => {
+    config.known_crypto.forEach((coin) => {
       const field = param + '_' + coin;
-      if (!config[field] && config[field] !== 0)
+      if (!config[field] && config[field] !== 0) {
         config[field] = config[param] || fields[param].default;
+      }
       if (fields[param].type !== config[field].__proto__.constructor) {
         exit(`Exchange Bot ${address} config is wrong. Field type _${field}_ is not valid, expected type is _${fields[field].type.name}_. Cannot start the Bot.`);
       }
     });
   });
 
-  Object.keys(fields).forEach(f => {
+  Object.keys(fields).forEach((f) => {
     if (!config[f] && fields[f].isRequired) {
       exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start the Bot.`);
     } else if (!config[f] && config[f] !== 0 && fields[f].default) {

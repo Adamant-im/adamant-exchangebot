@@ -17,19 +17,19 @@ module.exports = async () => {
         $or: [
           { outTxid: { $ne: null } },
           { sentBackTx: { $ne: null } },
-        ]
-      }
-    ]
-  })).forEach(async pay => {
+        ],
+      },
+    ],
+  })).forEach(async (pay) => {
 
     pay.tryCounterCheckOutTX = ++pay.tryCounterCheckOutTX || 0;
 
-    let direction,
-      sendCurrency,
-      sendTxId,
-      sendAmount,
-      etherString,
-      notifyType;
+    let direction;
+    let sendCurrency;
+    let sendTxId;
+    let sendAmount;
+    let etherString;
+    let notifyType;
 
     if (pay.outTxid) {
       direction = 'exchange';
@@ -47,7 +47,7 @@ module.exports = async () => {
 
     try {
 
-      log.log(`Updating sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} status and confirmations… ${admTxDescription}.`)
+      log.log(`Updating sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} status and confirmations… ${admTxDescription}.`);
 
       let msgNotify = null;
       let msgSendBack = null;
@@ -63,7 +63,7 @@ module.exports = async () => {
           pay.update({
             errorCheckOuterTX: constants.ERRORS.UNABLE_TO_FETCH_SENT_TX,
             isFinished: true,
-            needHumanCheck: true
+            needHumanCheck: true,
           });
           if (direction === 'exchange') {
             notifyType = 'error';
@@ -75,9 +75,10 @@ module.exports = async () => {
             msgSendBack = `I’ve tried to send back transfer to you, but I cannot validate transaction. Tx hash: _${sendTxId}_. I’ve already notified my master. If you wouldn’t receive transfer in two days, contact my master also.`;
           }
           notify(msgNotify, notifyType);
-          api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-            if (!response.success)
+          api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+            if (!response.success) {
               log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+            }
           });
         }
         pay.save();
@@ -89,7 +90,7 @@ module.exports = async () => {
         pay.outTxFailedCounter = ++pay.outTxFailedCounter || 1;
         pay.errorValidatorSend = constants.ERRORS.SENT_TX_FAILED;
         notifyType = 'error';
-        let willRetryString, msgNotifyIntro, msgSendBackIntro;
+        let willRetryString; let msgNotifyIntro; let msgSendBackIntro;
 
         if (direction === 'exchange') {
           msgNotifyIntro = `exchange transfer of _${sendAmount}_ _${sendCurrency}_ (got _${pay.inAmountMessage}_ _${pay.inCurrency}_ from user)`;
@@ -105,7 +106,7 @@ module.exports = async () => {
           pay.update({
             outTxStatus: tx.status,
             isFinished: true,
-            needHumanCheck: true
+            needHumanCheck: true,
           });
         } else {
           if (exchangerUtils.isEthOrERC20(sendCurrency)) {
@@ -124,9 +125,10 @@ module.exports = async () => {
         await pay.save();
         notify(msgNotify, notifyType);
         if (msgSendBack) {
-          api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-            if (!response.success)
+          api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+            if (!response.success) {
               log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+            }
           });
         }
         return;
@@ -151,7 +153,7 @@ module.exports = async () => {
 
       pay.update({
         outTxStatus: tx.status,
-        outConfirmations: confirmations
+        outConfirmations: confirmations,
       });
 
       const confirmationsReached = pay.outConfirmations >= 1; // One confirmations is enough for outgoing payments
@@ -165,7 +167,7 @@ module.exports = async () => {
         } else {
           confirmationReason = ` as InstantSend verified. Currently it has ${pay.outConfirmations ? pay.outConfirmations : 0} network confirmations`;
         }
-        log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed${confirmationReason}. ${admTxDescription}.`)
+        log.log(`Sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} is confirmed${confirmationReason}. ${admTxDescription}.`);
 
         if (direction === 'exchange') {
           notifyType = 'info';
@@ -179,7 +181,7 @@ module.exports = async () => {
 
         if (sendCurrency !== 'ADM') {
           msgSendBack = `{"type":"${sendCurrency.toLowerCase()}_transaction","amount":"${sendAmount}","hash":"${sendTxId}","comments":"${msgSendBack}"}`;
-          let message = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich');
+          const message = await api.sendMessage(config.passPhrase, pay.senderId, msgSendBack, 'rich');
           if (message.success) {
             pay.isFinished = true;
           } else {
@@ -191,7 +193,7 @@ module.exports = async () => {
         }
 
       } else {
-        log.log(`Updated sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} confirmations: ${pay.outConfirmations}. ${admTxDescription}.`)
+        log.log(`Updated sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} confirmations: ${pay.outConfirmations}. ${admTxDescription}.`);
       }
 
       await pay.save();
@@ -201,7 +203,7 @@ module.exports = async () => {
       }
 
     } catch (e) {
-      log.error(`Failed to check sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency}: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+      log.error(`Failed to check sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency}: ${e.toString()}. Will try again next time. ${admTxDescription}.`);
     }
 
   });

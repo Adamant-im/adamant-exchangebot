@@ -16,14 +16,14 @@ module.exports = {
 
   async updateCryptoRates() {
 
-    let url = config.infoservice + '/get';
-    let rates = await axios.get(url, {})
-      .then(function (response) {
-        return response.data ? response.data.result : undefined
-      })
-      .catch(function (error) {
-        log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
-      });
+    const url = config.infoservice + '/get';
+    const rates = await axios.get(url, {})
+        .then(function(response) {
+          return response.data ? response.data.result : undefined;
+        })
+        .catch(function(error) {
+          log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request to ${url} failed with ${error.response ? error.response.status : undefined} status code, ${error.toString()}${error.response && error.response.data ? '. Message: ' + error.response.data.toString().trim() : ''}.`);
+        });
 
     if (rates) {
       this.currencies = rates;
@@ -37,7 +37,7 @@ module.exports = {
 	 * Returns rate for from/to
 	 * @param {String} from Like 'ADM'
 	 * @param {String} to Like 'ETH'
-	 * @returns {Number} or NaN or undefined
+	 * @return {Number} or NaN or undefined
 	 */
   getRate(from, to) {
     try {
@@ -75,16 +75,16 @@ module.exports = {
           networkFee = this.convertCryptos('ETH', to, networkFee).outAmount;
         }
       };
-      let value = rate * +amount - networkFee;
+      const value = rate * +amount - networkFee;
       return {
         outAmount: +value.toFixed(constants.PRECISION_DECIMALS),
-        exchangePrice: +rate.toFixed(constants.PRECISION_DECIMALS)
+        exchangePrice: +rate.toFixed(constants.PRECISION_DECIMALS),
       };
     } catch (e) {
       log.error(`Unable to calculate ${amount} ${from} in ${to} in convertCryptos() of ${utils.getModuleName(module.id)} module: ` + e);
       return {
         outAmount: NaN,
-        exchangePrice: NaN
+        exchangePrice: NaN,
       };
     }
   },
@@ -94,7 +94,7 @@ module.exports = {
     if (this.isERC20(coin)) {
       coin = 'ETH';
     }
-    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ":address" });
+    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address' });
     if (kvsRecords.success) {
       if (kvsRecords.data.transactions.length) {
         return kvsRecords.data.transactions[0].asset.state.value;
@@ -113,21 +113,21 @@ module.exports = {
       senderId: senderId,
       needToSendBack: false,
       inAmountMessageUsd: { $ne: null },
-      date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
+      date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
     })).reduce((r, c) => {
       return +r + +c.inAmountMessageUsd;
     }, 0);
   },
 
   createErc20tokens() {
-    config.erc20.forEach(async t => {
+    config.erc20.forEach(async (t) => {
       this[t] = new erc20_utils(t, this.ETH);
     });
   },
 
   async refreshExchangedBalances() {
     for (const crypto of config.exchange_crypto) {
-      await this[crypto].getBalance()
+      await this[crypto].getBalance();
     }
   },
 
@@ -165,16 +165,16 @@ module.exports = {
 
   get iAcceptAndExchangeString() {
     if (this.isAcceptedAndExchangedEqual()) {
-      return `I exchange anything between *${this.acceptedCryptoList}*`
+      return `I exchange anything between *${this.acceptedCryptoList}*`;
     } else {
-      return `I accept *${this.acceptedCryptoList}* for exchange to *${this.exchangedCryptoList}*`
+      return `I accept *${this.acceptedCryptoList}* for exchange to *${this.exchangedCryptoList}*`;
     }
   },
 
   async getExchangedCryptoList(excludeCoin) {
     excludeCoin = excludeCoin ? excludeCoin.toUpperCase() : '';
     await this.refreshExchangedBalances();
-    return utils.replaceLastOccurrence(config.exchange_crypto.filter(crypto => this[crypto].token !== excludeCoin && this[crypto].balance > 0).join(', '), ', ', ' or ');
+    return utils.replaceLastOccurrence(config.exchange_crypto.filter((crypto) => this[crypto].token !== excludeCoin && this[crypto].balance > 0).join(', '), ', ', ' or ');
   },
 
   isFiat(coin) {
@@ -192,7 +192,7 @@ module.exports = {
 
   ETH: new eth_utils('ETH'),
   ADM: new adm_utils(),
-  DASH: new dash_utils('DASH')
+  DASH: new dash_utils('DASH'),
 
 };
 

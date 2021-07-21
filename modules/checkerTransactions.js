@@ -4,7 +4,7 @@ const txParser = require('./incomingTxsParser');
 const log = require('../helpers/log');
 const config = require('./configReader');
 const constants = require('../helpers/const');
-const utils = require('../helpers/utils')
+const utils = require('../helpers/utils');
 
 async function check() {
 
@@ -20,9 +20,9 @@ async function check() {
       'and:recipientId': config.address, // get only Txs for the bot
       'and:types': '2,8', // get direct transfers and messages
       'and:fromHeight': lastProcessedBlockHeight + 1, // from current height if the first run, or from the last processed block
-      returnAsset: '1', // get messages' contents
-      orderBy: 'timestamp:desc' // latest Txs
-    }
+      'returnAsset': '1', // get messages' contents
+      'orderBy': 'timestamp:desc', // latest Txs
+    };
 
     const txTrx = await api.get('transactions', queryParams);
     if (txTrx.success) {

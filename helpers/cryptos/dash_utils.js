@@ -9,7 +9,7 @@ const btcBaseCoin = require('./btcBaseCoin');
 module.exports = class dashCoin extends btcBaseCoin {
 
   constructor(token) {
-    super(token)
+    super(token);
     this.cache.balance = { lifetime: 60000 };
     this.cache.lastBlock = { lifetime: 90000 };
   }
@@ -17,15 +17,15 @@ module.exports = class dashCoin extends btcBaseCoin {
   /**
    * Returns DASH decimals (precision)
    * @override
-   * @returns {Number}
+   * @return {Number}
    */
   get decimals() {
-    return 8
+    return 8;
   }
 
   /**
    * Returns fixed fee for transfers
-   * @returns {Number}
+   * @return {Number}
    */
   get FEE() {
     return 0.0001;
@@ -34,12 +34,12 @@ module.exports = class dashCoin extends btcBaseCoin {
   /**
    * Returns balance in DASH from cache, if it's up to date. If not, makes an API request and updates cached data.
    * @override
-   * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
    */
   async getBalance() {
     try {
 
-      let cached = this.cache.getData('balance', true);
+      const cached = this.cache.getData('balance', true);
       if (cached) { // balance is a duffs string or number
         return this.fromSat(cached);
       }
@@ -61,7 +61,7 @@ module.exports = class dashCoin extends btcBaseCoin {
   /**
    * Returns balance in DASH from cache. It may be outdated.
    * @override
-   * @returns {Number} cached value; it may be undefined
+   * @return {Number} cached value; it may be undefined
    */
   get balance() {
     try {
@@ -90,27 +90,27 @@ module.exports = class dashCoin extends btcBaseCoin {
    * Returns last block of DASH blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
    * Used only for this.getLastBlockHeight()
    * @override
-   * @returns {Object} or undefined, if unable to get block info
+   * @return {Object} or undefined, if unable to get block info
    */
   getLastBlock() {
-    let cached = this.cache.getData('lastBlock', true);
+    const cached = this.cache.getData('lastBlock', true);
     if (cached) {
       return cached;
     }
-    return requestDash('getblockcount').then(result => {
+    return requestDash('getblockcount').then((result) => {
       if (utils.isPositiveNumber(result)) {
         this.cache.cacheData('lastBlock', result);
-        return result
+        return result;
       } else {
         log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + result);
       }
-    })
+    });
   }
 
   /**
    * Returns last block height of DASH blockchain
    * @override
-   * @returns {Number} or undefined, if unable to get block info
+   * @return {Number} or undefined, if unable to get block info
    */
   async getLastBlockHeight() {
     const block = await this.getLastBlock();
@@ -121,28 +121,28 @@ module.exports = class dashCoin extends btcBaseCoin {
    * Returns Tx status and details from the blockchain
    * @override
    * @param {String} txid Tx ID to fetch
-   * @returns {Object}
+   * @return {Object}
    * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
    * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
    * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
   async getTransaction(txid) {
-    return requestDash('getrawtransaction', [txid, true]).then(result => {
-      if (typeof result !== 'object') return undefined
-      const formedTx = this._mapTransaction(result)
+    return requestDash('getrawtransaction', [txid, true]).then((result) => {
+      if (typeof result !== 'object') return undefined;
+      const formedTx = this._mapTransaction(result);
       log.log(`Tx status: ${this.formTxMessage(formedTx)}.`);
-      return formedTx
-    })
+      return formedTx;
+    });
   }
 
   /**
    * Retrieves unspents (UTXO)
    * @override
-   * @returns {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
+   * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
    */
   getUnspents() {
     return requestDash('getaddressutxos', [this.address]).then(async (result) => {
-      if (!Array.isArray(result)) return undefined
+      if (!Array.isArray(result)) return undefined;
       // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
       // We need raw Tx as nonWitnessUtxo for every input (unspent)
       let fullTx;
@@ -150,13 +150,13 @@ module.exports = class dashCoin extends btcBaseCoin {
         fullTx = await this.getTransaction(tx.txid);
         tx.hex = fullTx && fullTx.hex ? fullTx.hex : undefined;
       }
-      return result.map(tx => ({
+      return result.map((tx) => ({
         hash: tx.txid,
         amount: tx.satoshis, // to calc transferAmount in _buildTransaction()
         index: tx.outputIndex,
-        nonWitnessUtxo: Buffer.from(tx.hex, 'hex')      
-      }))
-    })
+        nonWitnessUtxo: Buffer.from(tx.hex, 'hex'),
+      }));
+    });
   }
 
   /**
@@ -165,43 +165,43 @@ module.exports = class dashCoin extends btcBaseCoin {
 	 * @param {string} txHex raw transaction as a HEX literal
 	 */
   sendTransaction(txHex) {
-    return requestDash('sendrawtransaction', [txHex]).then(txid => {
-      return txid
-    })
+    return requestDash('sendrawtransaction', [txHex]).then((txid) => {
+      return txid;
+    });
   }
-  
+
 };
 
 /**
  * Makes a POST request to Dash node. Internal function.
  * @param {string} method Endpoint name
  * @param {*} params Endpoint params
- * @returns {*} Request results or undefined
+ * @return {*} Request results or undefined
  */
 function requestDash(method, params) {
   return axios.post(dashNode, { method, params })
-    .then(response => {
-      response = formatRequestResults(response, true);
-      if (response.success) {
-        return response.data.result;
-      } else {
-        log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
-      }
-    })
-    .catch(function (error) {
-      log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
-    });
+      .then((response) => {
+        response = formatRequestResults(response, true);
+        if (response.success) {
+          return response.data.result;
+        } else {
+          log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
+        }
+      })
+      .catch(function(error) {
+        log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
+      });
 }
 
 /**
  * Formats axios request results. Internal function.
  * @param {object} response Axios response
  * @param {boolean} isRequestSuccess If axios request succeed
- * @returns {object} Formatted request results
+ * @return {object} Formatted request results
  */
 function formatRequestResults(response, isRequestSuccess) {
 
-  let results = {};
+  const results = {};
   results.details = {};
 
   if (isRequestSuccess) {
@@ -210,8 +210,9 @@ function formatRequestResults(response, isRequestSuccess) {
     results.details.status = response.status;
     results.details.statusText = response.statusText;
     results.details.response = response;
-    if (!results.success && results.data)
-      results.errorMessage = `Node's reply: ${results.data.error}`
+    if (!results.success && results.data) {
+      results.errorMessage = `Node's reply: ${results.data.error}`;
+    }
   } else {
     results.success = false;
     results.data = response.response && response.response.data;

@@ -12,7 +12,7 @@ module.exports = async (pay) => {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay ? pay.admTxId : 'undefined'} from ${pay ? pay.senderId : 'undefined'}`;
   try {
 
-    log.log(`Updating incoming Tx ${pay.inTxid} confirmations… ${admTxDescription}.`)
+    log.log(`Updating incoming Tx ${pay.inTxid} confirmations… ${admTxDescription}.`);
 
     const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
     if (!tx) {
@@ -26,14 +26,15 @@ module.exports = async (pay) => {
         error: constants.ERRORS.TX_FAILED,
         transactionIsFailed: true,
         isFinished: true,
-        inTxConfirmed: false
+        inTxConfirmed: false,
       }, true);
-      let msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
-      let msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
+      const msgNotify = `${config.notifyName} notifies transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is Failed. ${admTxDescription}.`;
+      const msgSendBack = `Transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ is Failed and will not be processed. Check _${pay.inCurrency}_ blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
       notify(msgNotify, 'error');
-      api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-        if (!response.success)
+      api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+        if (!response.success) {
           log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+        }
       });
       return;
     }
@@ -55,7 +56,7 @@ module.exports = async (pay) => {
 
     pay.update({
       inTxStatus: tx.status,
-      inConfirmations: confirmations
+      inConfirmations: confirmations,
     });
 
     if (pay.inTxStatus && pay.inConfirmations >= config['min_confirmations_' + pay.inCurrency]) {
@@ -71,7 +72,7 @@ module.exports = async (pay) => {
     await pay.save();
 
   } catch (e) {
-    log.error(`Failed to get Tx ${pay ? pay.inTxid : 'undefined'} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+    log.error(`Failed to get Tx ${pay ? pay.inTxid : 'undefined'} confirmations: ${e.toString()}. Will try again next time. ${admTxDescription}.`);
   }
 
 };
@@ -83,8 +84,8 @@ setInterval(async () => {
     transactionIsValid: true,
     isFinished: false,
     transactionIsFailed: false,
-    inTxConfirmed: { $ne: true }
-  })).forEach(async pay => {
+    inTxConfirmed: { $ne: true },
+  })).forEach(async (pay) => {
     module.exports(pay);
   });
 }, constants.CONFIRMATIONS_INTERVAL);

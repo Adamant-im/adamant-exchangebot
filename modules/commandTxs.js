@@ -10,11 +10,11 @@ module.exports = async (commandMsg, tx, itx) => {
 
     log.log(`Processing '${commandMsg}' command from ${tx.recipientId} (transaction ${tx.id})…`);
     const group = commandMsg
-      .trim()
-      .replace(/    /g, ' ')
-      .replace(/   /g, ' ')
-      .replace(/  /g, ' ')
-      .split(' ');
+        .trim()
+        .replace(/    /g, ' ')
+        .replace(/   /g, ' ')
+        .replace(/  /g, ' ')
+        .split(' ');
     const commandName = group.shift().trim().toLowerCase().replace('\/', '');
     const command = commands[commandName];
 
@@ -25,9 +25,10 @@ module.exports = async (commandMsg, tx, itx) => {
       commandResult = `I don’t know */${commandName}* command. ℹ️ You can start with **/help**.`;
     }
 
-    api.sendMessage(config.passPhrase, tx.senderId, commandResult).then(response => {
-      if (!response.success)
+    api.sendMessage(config.passPhrase, tx.senderId, commandResult).then((response) => {
+      if (!response.success) {
         log.warn(`Failed to send ADM message '${commandResult}' to ${tx.senderId}. ${response.errorMessage}.`);
+      }
     });
     itx.update({ isProcessed: true }, true);
 
@@ -39,16 +40,16 @@ module.exports = async (commandMsg, tx, itx) => {
 
 function help() {
 
-  let specialFees = [];
+  const specialFees = [];
   let oneSpecialFeeCoin = '';
   let oneSpecialFeeRate = '';
   let feesString = '';
 
-  config.known_crypto.forEach(coin => {
+  config.known_crypto.forEach((coin) => {
     if (config['exchange_fee_' + coin] !== config.exchange_fee) {
       specialFees.push(`*${coin}*: *${config['exchange_fee_' + coin]}%*`);
       oneSpecialFeeCoin = coin;
-      oneSpecialFeeRate = `${config['exchange_fee_' + coin]}%`
+      oneSpecialFeeRate = `${config['exchange_fee_' + coin]}%`;
     };
   });
 
@@ -60,7 +61,7 @@ function help() {
     feesString = `I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees`;
   }
 
-  let minValueString = config.min_value_usd ? ` I accept minimal exchange of *${config.min_value_usd}* USD equivalent.` : '';
+  const minValueString = config.min_value_usd ? ` I accept minimal exchange of *${config.min_value_usd}* USD equivalent.` : '';
 
   let result = `I am **online** and ready for a deal. `;
   result += exchangerUtils.iAcceptAndExchangeString + '. ';
@@ -89,15 +90,15 @@ async function rates(params) {
   }
 
   const result = Object
-    .keys(exchangerUtils.currencies)
-    .filter(t => t.startsWith(coin + '/'))
-    .map(t => {
-      let quoteCoin = t.replace(coin + '/', '');
-      let pair = `${coin}/**${quoteCoin}**`;
-      let rate = utils.formatNumber(exchangerUtils.currencies[t].toFixed(constants.PRECISION_DECIMALS));
-      return `${pair}: ${rate}`;
-    })
-    .join(', ');
+      .keys(exchangerUtils.currencies)
+      .filter((t) => t.startsWith(coin + '/'))
+      .map((t) => {
+        const quoteCoin = t.replace(coin + '/', '');
+        const pair = `${coin}/**${quoteCoin}**`;
+        const rate = utils.formatNumber(exchangerUtils.currencies[t].toFixed(constants.PRECISION_DECIMALS));
+        return `${pair}: ${rate}`;
+      })
+      .join(', ');
 
   if (!result || !result.length) {
     return `I can’t get rates for *${coin}*. Try */rates ADM*.`;
@@ -127,13 +128,13 @@ function calc(params) {
     return `I don’t have rates of crypto *${outCurrency}* from Infoservice. Made a typo? Try */calc 2.05 BTC in USD*.`;
   }
 
-  let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount).outAmount;
+  const result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount).outAmount;
 
   if (!utils.isPositiveOrZeroNumber(result)) {
     return `Unable to calc _${params[0]}_ ${inCurrency} in ${outCurrency}.`;
   }
 
-  let precision = exchangerUtils.isFiat(outCurrency) ? 2 : constants.PRECISION_DECIMALS;
+  const precision = exchangerUtils.isFiat(outCurrency) ? 2 : constants.PRECISION_DECIMALS;
 
   return `Market value of ${utils.formatNumber(amount)} ${inCurrency} equals ${utils.formatNumber(result.toFixed(precision), true)} ${outCurrency}.`;
 }
@@ -173,7 +174,7 @@ async function test(params, tx) {
     return `Minimum value for exchange is *${config.min_value_usd}* USD, but ${amount} ${inCurrency} is ~${usdEqual} USD. Exchange more coins.`;
   }
 
-  let result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
+  const result = exchangerUtils.convertCryptos(inCurrency, outCurrency, amount, true).outAmount;
   if (!result) {
     return `Unable to calculate exchange value of _${params[0]}_ ${inCurrency} to ${outCurrency}.`;
   }
@@ -193,9 +194,9 @@ async function test(params, tx) {
   let etherString = '';
   let isNotEnoughBalance;
 
-  let outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
+  const outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
   if (exchangerUtils.isERC20(outCurrency)) {
-    let ethBalance = await exchangerUtils['ETH'].getBalance();
+    const ethBalance = await exchangerUtils['ETH'].getBalance();
     isNotEnoughBalance = (result > outCurrencyBalance) || (exchangerUtils[outCurrency].FEE > ethBalance);
     if (exchangerUtils[outCurrency].FEE > ethBalance) {
       etherString = `Not enough Ether to pay fees. `;
@@ -216,8 +217,8 @@ async function test(params, tx) {
 async function balances() {
   await exchangerUtils.refreshExchangedBalances();
   return config.exchange_crypto.reduce((result, crypto) => {
-    let cryptoBalance = exchangerUtils[crypto].balance;
-    let balanceString = `\n${utils.isPositiveOrZeroNumber(cryptoBalance) ? utils.formatNumber(cryptoBalance.toFixed(constants.PRECISION_DECIMALS), true) : '?'} _${crypto}_`;
+    const cryptoBalance = exchangerUtils[crypto].balance;
+    const balanceString = `\n${utils.isPositiveOrZeroNumber(cryptoBalance) ? utils.formatNumber(cryptoBalance.toFixed(constants.PRECISION_DECIMALS), true) : '?'} _${crypto}_`;
     return result + balanceString;
   }, 'My crypto balances:');
 }
@@ -232,5 +233,5 @@ const commands = {
   calc,
   balances,
   test,
-  version
+  version,
 };

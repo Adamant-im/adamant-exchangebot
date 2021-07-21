@@ -17,8 +17,8 @@ module.exports = async () => {
     transactionIsFailed: false,
     needToSendBack: false,
     needHumanCheck: false,
-    outTxid: null
-  })).forEach(async pay => {
+    outTxid: null,
+  })).forEach(async (pay) => {
 
     const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
     try {
@@ -31,7 +31,7 @@ module.exports = async () => {
         inCurrency,
         outCurrency,
         senderKvsOutAddress,
-        inAmountMessage
+        inAmountMessage,
       } = pay;
 
       let etherString = '';
@@ -61,14 +61,15 @@ module.exports = async () => {
       if (isNotEnoughBalance) {
         pay.update({
           error: 15,
-          needToSendBack: true
+          needToSendBack: true,
         }, true);
         msgNotify = `${config.notifyName} notifies about insufficient balance to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}${admTxDescription}.`;
         msgSendBack = `I can’t transfer _${outAmount}_ _${outCurrency}_ to you because of insufficient funds (I count blockchain fees also). Check my balances with **/balances** command. I'll send transfer back to you.`;
         notify(msgNotify, 'warn');
-        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-          if (!response.success)
+        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+          if (!response.success) {
             log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+          }
         });
         return;
       }
@@ -77,12 +78,12 @@ module.exports = async () => {
         address: senderKvsOutAddress,
         value: outAmount,
         comment: 'Done! Thank you for business. Hope to see you again.', // if ADM
-        try: pay.outTxFailedCounter + 1
+        try: pay.outTxFailedCounter + 1,
       });
 
       if (result.success) {
         pay.update({
-          outTxid: result.hash
+          outTxid: result.hash,
         }, true);
         // Update local balances without unnecessary requests
         if (exchangerUtils.isERC20(outCurrency)) {
@@ -104,9 +105,10 @@ module.exports = async () => {
         msgNotify = `${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}${admTxDescription}.`;
         msgSendBack = `I’ve tried to make transfer of _${outAmount}_ _${outCurrency}_ to you, but something went wrong. I'll send payment back to you.`;
         notify(msgNotify, 'error');
-        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-          if (!response.success)
+        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+          if (!response.success) {
             log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+          }
         });
       }
 

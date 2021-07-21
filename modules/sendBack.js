@@ -18,7 +18,7 @@ module.exports = async () => {
     needToSendBack: true,
     needHumanCheck: false,
     outTxid: null,
-    sentBackTx: null
+    sentBackTx: null,
   }));
 
   for (const pay of pays) {
@@ -32,7 +32,7 @@ module.exports = async () => {
       const {
         inAmountReal,
         inCurrency,
-        senderKvsInAddress
+        senderKvsInAddress,
       } = pay;
 
       let msgSendBack = false;
@@ -41,7 +41,7 @@ module.exports = async () => {
 
       let etherString = '';
       let isNotEnoughBalance;
-      let outFee = exchangerUtils[inCurrency].FEE;
+      const outFee = exchangerUtils[inCurrency].FEE;
       let sentBackAmount;
 
       const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
@@ -57,7 +57,7 @@ module.exports = async () => {
           return;
         }
         etherString = `Ether balance: ${exchangerUtils['ETH'].balance}. `;
-        let FEEinToken = exchangerUtils.convertCryptos('ETH', inCurrency, exchangerUtils[inCurrency].FEE).outAmount;
+        const FEEinToken = exchangerUtils.convertCryptos('ETH', inCurrency, exchangerUtils[inCurrency].FEE).outAmount;
         sentBackAmount = +(inAmountReal - FEEinToken).toFixed(constants.PRECISION_DECIMALS);
         isNotEnoughBalance = (sentBackAmount > exchangerUtils[inCurrency].balance) || (FEEinToken > exchangerUtils['ETH'].balance);
       } else {
@@ -70,12 +70,12 @@ module.exports = async () => {
       pay.update({
         outFee,
         sentBackAmount,
-        sentBackAmountUsd
+        sentBackAmountUsd,
       });
       if (sentBackAmount <= 0) {
         pay.update({
           errorSendBack: 17,
-          isFinished: true
+          isFinished: true,
         });
         notifyType = 'log';
         msgNotify = `${config.notifyName} won’t send back payment of _${inAmountReal}_ _${inCurrency}_ because it is less than transaction fee. ${admTxDescription}.`;
@@ -87,14 +87,14 @@ module.exports = async () => {
         pay.update({
           errorSendBack: 18,
           needHumanCheck: true,
-          isFinished: true
+          isFinished: true,
         });
       } else { // We are able to send transfer back
         const result = await exchangerUtils[inCurrency].send({
           address: senderKvsInAddress,
           value: sentBackAmount,
           comment: 'Here is your refund. Note, some amount spent to cover blockchain fees. Try me again!', // if ADM
-          try: pay.outTxFailedCounter + 1
+          try: pay.outTxFailedCounter + 1,
         });
 
         if (result.success) {
@@ -114,7 +114,7 @@ module.exports = async () => {
           pay.update({
             errorSendBack: 19,
             needHumanCheck: true,
-            isFinished: true
+            isFinished: true,
           });
           notifyType = 'error';
           msgNotify = `${config.notifyName} cannot make transaction to send back _${sentBackAmount}_ _${inCurrency}_. **Attention needed**. Balance of _${inCurrency}_ is _${exchangerUtils[inCurrency].balance}_. ${etherString}${admTxDescription}.`;
@@ -127,9 +127,10 @@ module.exports = async () => {
         notify(msgNotify, notifyType);
       }
       if (msgSendBack) {
-        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then(response => {
-          if (!response.success)
+        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+          if (!response.success) {
             log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+          }
         });
       }
 

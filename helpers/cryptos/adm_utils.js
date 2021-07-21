@@ -8,7 +8,7 @@ const baseCoin = require('./baseCoin');
 module.exports = class admCoin extends baseCoin {
 
   constructor() {
-    super()
+    super();
     this.token = 'ADM';
     this.cache.lastBlock = { lifetime: 5000 };
     this.cache.balance = { lifetime: 10000 };
@@ -24,17 +24,17 @@ module.exports = class admCoin extends baseCoin {
 
   /**
 	 * Returns last block from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @returns {Object} or undefined, if unable to fetch data
+	 * @return {Object} or undefined, if unable to fetch data
 	 */
   async getLastBlock() {
-    let cached = this.cache.getData('lastBlock');
+    const cached = this.cache.getData('lastBlock');
     if (cached) {
       return cached;
     }
     const blocks = await api.get('blocks', { limit: 1 });
     if (blocks.success) {
       this.cache.cacheData('lastBlock', blocks.data.blocks[0]);
-      return blocks.data.blocks[0]
+      return blocks.data.blocks[0];
     } else {
       log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. ${blocks.errorMessage}.`);
     }
@@ -42,7 +42,7 @@ module.exports = class admCoin extends baseCoin {
 
   /**
 	 * Returns last block height from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @returns {Number} or undefined, if unable to fetch data
+	 * @return {Number} or undefined, if unable to fetch data
 	 */
   async getLastBlockHeight() {
     const block = await this.getLastBlock();
@@ -51,17 +51,17 @@ module.exports = class admCoin extends baseCoin {
 
   /**
 	 * Returns balance in ADM from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @returns {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+	 * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
 	 */
   async getBalance() {
-    let cached = this.cache.getData('balance');
+    const cached = this.cache.getData('balance');
     if (cached) {
       return utils.satsToADM(cached);
     }
     const account = await api.get('accounts', { address: config.address });
     if (account.success) {
       this.cache.cacheData('balance', account.data.account.balance);
-      return utils.satsToADM(account.data.account.balance)
+      return utils.satsToADM(account.data.account.balance);
     } else {
       log.warn(`Failed to get account info in getBalance() of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
       return utils.satsToADM(cached);
@@ -70,10 +70,10 @@ module.exports = class admCoin extends baseCoin {
 
   /**
 	 * Returns balance in ADM from cache. It may be outdated.
-	 * @returns {Number} cached value; it may be undefined
+	 * @return {Number} cached value; it may be undefined
 	 */
   get balance() {
-    return utils.satsToADM(this.cache.getData('balance'))
+    return utils.satsToADM(this.cache.getData('balance'));
   }
 
   /**
@@ -89,7 +89,7 @@ module.exports = class admCoin extends baseCoin {
   /**
 	 * Returns Tx status and details from the blockchain
 	 * @param {String} txid Tx ID to fetch
-	 * @returns {Object}
+	 * @return {Object}
 	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
 	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
 	 * Not used, additional info: hash (already known), blockId, fee
@@ -108,7 +108,7 @@ module.exports = class admCoin extends baseCoin {
         recipientId: tx.data.transaction.recipientId,
         confirmations: tx.data.transaction.confirmations,
         amount: utils.satsToADM(tx.data.transaction.amount), // in ADM
-        fee: utils.satsToADM(tx.data.transaction.fee) // in ADM
+        fee: utils.satsToADM(tx.data.transaction.fee), // in ADM
       };
     } else {
       log.warn(`Unable to get Tx ${txid} in getTransaction() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ${tx.errorMessage}.`);
@@ -118,29 +118,29 @@ module.exports = class admCoin extends baseCoin {
 
   async send(params) {
     params.try = params.try || 1;
-    let tryString = ` (try number ${params.try})`;
+    const tryString = ` (try number ${params.try})`;
     const { address, value, comment } = params;
-    let payment = await api.sendMessage(config.passPhrase, address, comment, 'basic', value);
+    const payment = await api.sendMessage(config.passPhrase, address, comment, 'basic', value);
     if (payment.success) {
       log.log(`Successfully sent ${value} ADM to ${address} with comment '${comment}'${tryString}, Tx hash: ${payment.data.transactionId}.`);
       return {
         success: payment.data.success,
-        hash: payment.data.transactionId
+        hash: payment.data.transactionId,
       };
     } else {
       log.warn(`Failed to send ${value} ADM to ${address} with comment '${comment}'${tryString} in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`);
       return {
         success: false,
-        error: payment.errorMessage
+        error: payment.errorMessage,
       };
     }
   }
 
   formTxMessage(tx) {
-    let senderId = tx.senderId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.senderId;
-    let recipientId = tx.recipientId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.recipientId;
-    let message = `Tx ${tx.id} for ${utils.satsToADM(tx.amount)} ADM from ${senderId} to ${recipientId} included at ${tx.height} blockchain height and has ${tx.confirmations} confirmations, ${utils.satsToADM(tx.fee)} ADM fee`
-    return message
+    const senderId = tx.senderId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.senderId;
+    const recipientId = tx.recipientId.toLowerCase() === this.account.address.toLowerCase() ? 'Me' : tx.recipientId;
+    const message = `Tx ${tx.id} for ${utils.satsToADM(tx.amount)} ADM from ${senderId} to ${recipientId} included at ${tx.height} blockchain height and has ${tx.confirmations} confirmations, ${utils.satsToADM(tx.fee)} ADM fee`;
+    return message;
   }
 
 };

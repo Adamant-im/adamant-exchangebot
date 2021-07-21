@@ -6,55 +6,47 @@ const api = require('./api');
 module.exports = async (tx, itx) => {
   const { incomingTxsDb } = db;
   incomingTxsDb.db
-    .find({
-      senderId: tx.senderId,
-      messageDirective: 'unknown',
-      date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
-    }).sort({ date: -1 }).toArray((err, docs) => {
-      const twoHoursAgo = utils.unix() - 2 * 3600 * 1000;
-      let countMsgs = docs.length;
-      if (!docs[1] || twoHoursAgo > docs[1].date) {
-        countMsgs = 1;
-      }
+      .find({
+        senderId: tx.senderId,
+        messageDirective: 'unknown',
+        date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
+      }).sort({ date: -1 }).toArray((err, docs) => {
+        const twoHoursAgo = utils.unix() - 2 * 3600 * 1000;
+        let countMsgs = docs.length;
+        if (!docs[1] || twoHoursAgo > docs[1].date) {
+          countMsgs = 1;
+        }
 
-      let msg = '';
-      if (countMsgs === 1) {
-        msg = config.welcome_string;
-        msg += ' Every command starts with slash **/**.'
-      }
-      else if (countMsgs === 2) {
-        msg = 'OK. It seems you don’t speak English󠁧󠁢󠁥󠁮. Contact my master and ask him to teach me 🎓 your native language. But note, it will take some time because I am not a genius 🤓.';
-      }
-      else if (countMsgs === 3) {
-        msg = 'Hm.. Contact _not me_, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous 🤪. Note: Every command starts with slash **/**. Try **/help**.';
-      }
-      else if (countMsgs === 4) {
-        msg = 'I see.. You just wanna talk 🗣️. I am not the best at talking.';
-      }
-      else if (countMsgs < 10) {
-        msg = getRnd(0);
-      }
-      else if (countMsgs < 20) {
-        msg = getRnd(1);
-      }
-      else if (countMsgs < 30) {
-        msg = getRnd(2);
-      }
-      else if (countMsgs < 40) {
-        msg = getRnd(3);
-      }
-      else if (countMsgs < 50) {
-        msg = getRnd(4);
-      }
-      else {
-        msg = getRnd(5);
-      }
-      api.sendMessage(config.passPhrase, tx.senderId, msg).then(response => {
-        if (!response.success)
-          log.warn(`Failed to send ADM message '${msg}' to ${tx.senderId}. ${response.errorMessage}.`);
+        let msg = '';
+        if (countMsgs === 1) {
+          msg = config.welcome_string;
+          msg += ' Every command starts with slash **/**.';
+        } else if (countMsgs === 2) {
+          msg = 'OK. It seems you don’t speak English󠁧󠁢󠁥󠁮. Contact my master and ask him to teach me 🎓 your native language. But note, it will take some time because I am not a genius 🤓.';
+        } else if (countMsgs === 3) {
+          msg = 'Hm.. Contact _not me_, but my master. No, I don’t know how to reach him. ADAMANT is so much anonymous 🤪. Note: Every command starts with slash **/**. Try **/help**.';
+        } else if (countMsgs === 4) {
+          msg = 'I see.. You just wanna talk 🗣️. I am not the best at talking.';
+        } else if (countMsgs < 10) {
+          msg = getRnd(0);
+        } else if (countMsgs < 20) {
+          msg = getRnd(1);
+        } else if (countMsgs < 30) {
+          msg = getRnd(2);
+        } else if (countMsgs < 40) {
+          msg = getRnd(3);
+        } else if (countMsgs < 50) {
+          msg = getRnd(4);
+        } else {
+          msg = getRnd(5);
+        }
+        api.sendMessage(config.passPhrase, tx.senderId, msg).then((response) => {
+          if (!response.success) {
+            log.warn(`Failed to send ADM message '${msg}' to ${tx.senderId}. ${response.errorMessage}.`);
+          }
+        });
+        itx.update({ isProcessed: true }, true);
       });
-      itx.update({ isProcessed: true }, true);
-    });
 
 };
 
@@ -89,7 +81,7 @@ const collection = [
     'ADAMANT is soooo decentralized! And private! ❤️',
     'Do you want me to trade more cryptocurrencies 💱? Ask my master!',
     'Recommend ADAMANT to your friends! 🌟',
-    'If I were Satoshi, I’d rebuild Bitcoin ₿ on top of ADAMANT! 😍'
+    'If I were Satoshi, I’d rebuild Bitcoin ₿ on top of ADAMANT! 😍',
   ],
   // 1 collection
   [
@@ -112,7 +104,7 @@ const collection = [
     'ℹ️ Just say **/help** and I am here.',
     'Say **/rates ADM** and I will tell you all ADM prices 📈',
     '😛 I am just kiddin!',
-    'Can with you that the not so? 😮'
+    'Can with you that the not so? 😮',
   ],
   // 2 collection
   [
@@ -135,7 +127,7 @@ const collection = [
     'And how do you like this, Elon Musk? 😅',
     'I am quite now.',
     'I am just kiddin! 😆',
-    'Can with you that the not so? 😅'
+    'Can with you that the not so? 😅',
   ],
   // 3 collection
   [
@@ -157,7 +149,7 @@ const collection = [
     'Yeah! Party time! 🎉',
     'Do you drink vodka? I do.',
     'Can with you that the not so? 🔥',
-    'I am just kiddin! 😄'
+    'I am just kiddin! 😄',
   ],
   // 4 collection
   [
@@ -178,7 +170,7 @@ const collection = [
     'Делаем ставки. 🍽️ Макафи съест свой член?',
     'Ban-ban-ban.. 🚫',
     'АСТАНАВИТЕСЬ!',
-    'Ё и Е — разные буквы. Не путай, инглишь-спикер!'
+    'Ё и Е — разные буквы. Не путай, инглишь-спикер!',
   ],
   // 5 collection
   [
@@ -199,6 +191,6 @@ const collection = [
     'Try me! I can do it! 🙂',
     'Do you think Bitcoin SV is a scam?',
     'I like trading. Lets do a bargain right now! 🉐',
-    'Не, ну это слишком. 🤩'
-  ]
+    'Не, ну это слишком. 🤩',
+  ],
 ];

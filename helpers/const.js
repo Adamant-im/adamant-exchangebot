@@ -22,7 +22,7 @@ module.exports = {
   EXCHANGER_RETRIES: 50, // How many times to re-try sending an exchange payment in exchangePayer
   SENDBACK_INTERVAL: 15 * 1000, // Send back Txs every 15 sec in sendBack
   SENDBACK_RETRIES: 50, // How many times to re-try sending a payment back in sendBack
-	
+
   ERRORS: {
     UNABLE_TO_FETCH_TX: 10,
     WRONG_SENDER: 11,
@@ -35,6 +35,6 @@ module.exports = {
     UNABLE_TO_FETCH_SENT_TX: 14,
     SENT_TX_FAILED: 21,
 
-  }
+  },
 
-}
+};

@@ -9,7 +9,7 @@ const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
 const Store = require('./Store');
-const exchangerUtils = require('../helpers/cryptos/exchanger')
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 
 const processedTxs = {}; // cache for processed transactions
 
@@ -42,7 +42,7 @@ module.exports = async (tx) => {
   const { paymentsDb } = db;
   const payToUpdate = await paymentsDb.findOne({
     senderId: tx.senderId,
-    inUpdateState: { $ne: undefined } // We suppose only one payment can be in update state
+    inUpdateState: { $ne: undefined }, // We suppose only one payment can be in update state
   });
 
   let messageDirective = 'unknown';
@@ -57,7 +57,7 @@ module.exports = async (tx) => {
   const spamerIsNotyfy = await incomingTxsDb.findOne({
     senderId: tx.senderId,
     isSpam: true,
-    date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
+    date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
   });
 
   const itx = new incomingTxsDb({
@@ -84,10 +84,10 @@ module.exports = async (tx) => {
     confirmations: tx.confirmations,
     // these will be undefined, when we get Tx via REST
     relays: tx.relays,
-    receivedAt: tx.receivedAt
+    receivedAt: tx.receivedAt,
   });
 
-  let msgSendBack, msgNotify;
+  let msgSendBack; let msgNotify;
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 
   if (decryptedMessage.toLowerCase() === 'deposit') {
@@ -96,9 +96,10 @@ module.exports = async (tx) => {
     msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
     msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
     notify(msgNotify, 'info');
-    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then(response => {
-      if (!response.success)
+    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
+      if (!response.success) {
         log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+      }
     });
     return;
   }
@@ -109,22 +110,23 @@ module.exports = async (tx) => {
     msgNotify = `${config.notifyName} got a payment, while clarification of ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ expected. **Attention needed**. The exchanger will not validate this payment, do it manually. ${admTxDescription}.`;
     msgSendBack = `I've expected you to clarify ${payToUpdate.inUpdateState}, but got a payment. I’ve notified my master to send this payment back to you. And still waiting for ${payToUpdate.inUpdateState} from you to process the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_: ${await exchangerUtils.getExchangedCryptoList(payToUpdate.inCurrency)}.`;
     notify(msgNotify, 'error');
-    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then(response => {
-      if (!response.success)
+    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
+      if (!response.success) {
         log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+      }
     });
     return;
   }
 
   const countRequestsUser = (await incomingTxsDb.find({
     senderId: tx.senderId,
-    date: { $gt: (utils.unix() - 24 * 3600 * 1000) } // last 24h
+    date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
   })).length;
 
   if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
     await itx.update({
       isProcessed: true,
-      isSpam: true
+      isSpam: true,
     });
   }
 
@@ -135,26 +137,27 @@ module.exports = async (tx) => {
     msgNotify = `${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. ${admTxDescription}.`;
     msgSendBack = `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`;
     notify(msgNotify, 'warn');
-    api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
-      if (!response.success)
+    api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then((response) => {
+      if (!response.success) {
         log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+      }
     });
     return;
   }
 
   switch (messageDirective) {
-  case ('exchange'):
-    exchangeTxs(itx, tx);
-    break;
-  case ('update'):
-    exchangeTxs(itx, tx, payToUpdate);
-    break;
-  case ('command'):
-    commandTxs(decryptedMessage, tx, itx);
-    break;
-  default:
-    unknownTxs(tx, itx);
-    break;
+    case ('exchange'):
+      exchangeTxs(itx, tx);
+      break;
+    case ('update'):
+      exchangeTxs(itx, tx, payToUpdate);
+      break;
+    case ('command'):
+      commandTxs(decryptedMessage, tx, itx);
+      break;
+    default:
+      unknownTxs(tx, itx);
+      break;
   }
 
 };
@@ -163,8 +166,8 @@ async function updateProcessedTx(tx, itx, updateDb) {
 
   processedTxs[tx.id] = {
     updated: utils.unix(),
-    height: tx.height
-  }
+    height: tx.height,
+  };
 
   if (updateDb && !itx) {
     itx = await db.incomingTxsDb.findOne({ txid: tx.id });
@@ -175,7 +178,7 @@ async function updateProcessedTx(tx, itx, updateDb) {
       blockId: tx.blockId,
       height: tx.height,
       block_timestamp: tx.block_timestamp,
-      confirmations: tx.confirmations
+      confirmations: tx.confirmations,
     }, true);
   }
 

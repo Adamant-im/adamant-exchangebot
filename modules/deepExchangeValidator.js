@@ -19,14 +19,14 @@ module.exports = async (pay, tx) => {
     let msgNotify = false;
 
     // Fetching addresses from ADAMANT KVS
-    let senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
+    const senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
 			await exchangerUtils.getKvsCryptoAddress(pay.inCurrency, tx.senderId);
-    let senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
+    const senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
 			await exchangerUtils.getKvsCryptoAddress(pay.outCurrency, tx.senderId);
 
     pay.update({
       senderKvsInAddress,
-      senderKvsOutAddress
+      senderKvsOutAddress,
     });
 
     if (!senderKvsInAddress) {
@@ -46,15 +46,16 @@ module.exports = async (pay, tx) => {
       pay.update({
         error: constants.ERRORS.NO_IN_KVS_ADDRESS,
         isFinished: true,
-        needHumanCheck: true
+        needHumanCheck: true,
       }, true);
       notifyType = 'error';
       msgNotify = `${config.notifyName} cannot fetch inCurrency address from KVS for crypto: _${pay.inCurrency}_. Attention needed. ${admTxDescription}.`;
       msgSendBack = `I can’t get your _${pay.inCurrency}_ address from ADAMANT KVS. If you think it’s a mistake, contact my master.`;
       notify(msgNotify, notifyType);
-      api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
-        if (!response.success)
+      api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then((response) => {
+        if (!response.success) {
           log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+        }
       });
       return;
     };
@@ -62,7 +63,7 @@ module.exports = async (pay, tx) => {
     if (senderKvsOutAddress === 'none' && !pay.needToSendBack) {
       pay.update({
         needToSendBack: true,
-        error: constants.ERRORS.NO_OUT_KVS_ADDRESS
+        error: constants.ERRORS.NO_OUT_KVS_ADDRESS,
       });
       notifyType = 'warn';
       msgNotify = `${config.notifyName} cannot fetch outCurrency address from KVS for crypto: _${pay.outCurrency}_. Will try to send payment back.`;
@@ -75,13 +76,13 @@ module.exports = async (pay, tx) => {
     if (!incomeTx) {
       if (pay.counterTxDeepValidator < constants.VALIDATOR_GET_TX_RETRIES) {
         pay.save();
-        log.warn(`Unable to get Tx ${pay.inTxid}. It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`)
+        log.warn(`Unable to get Tx ${pay.inTxid}. It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`);
         return;
       }
       pay.update({
         transactionIsValid: false,
         isFinished: true,
-        error: constants.ERRORS.UNABLE_TO_FETCH_TX
+        error: constants.ERRORS.UNABLE_TO_FETCH_TX,
       });
       notifyType = 'warn';
       msgNotify = `${config.notifyName} can’t fetch transaction of _${pay.inAmountMessage} ${pay.inCurrency}_. It might be failed or cancelled.`;
@@ -98,12 +99,12 @@ module.exports = async (pay, tx) => {
         inTxTimestamp: incomeTx.timestamp,
         inTxIsInstant: incomeTx.instantlock && incomeTx.instantlock_internal,
         inTxInstantChainlock: incomeTx.chainlock,
-        inConfirmations: incomeTx.confirmations
+        inConfirmations: incomeTx.confirmations,
       });
 
       if (!pay.inTxSenderId || !pay.inTxRecipientId || !pay.inAmountReal || (!pay.inTxTimestamp && !pay.inTxIsInstant)) {
         pay.save();
-        log.warn(`Unable to get full details of transaction. inTxSenderId: ${pay.inTxSenderId}, inTxRecipientId: ${pay.inTxRecipientId}, inAmountReal: ${pay.inAmountReal}, inTxTimestamp: ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`)
+        log.warn(`Unable to get full details of transaction. inTxSenderId: ${pay.inTxSenderId}, inTxRecipientId: ${pay.inTxRecipientId}, inAmountReal: ${pay.inAmountReal}, inTxTimestamp: ${pay.inTxTimestamp}. Will try again next time. Tx hash: ${pay.inTxid}. ${admTxDescription}.`);
         return;
       }
 
@@ -111,7 +112,7 @@ module.exports = async (pay, tx) => {
         pay.update({
           transactionIsValid: false,
           isFinished: true,
-          error: constants.ERRORS.WRONG_SENDER
+          error: constants.ERRORS.WRONG_SENDER,
         });
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Sender expected: _${senderKvsInAddress}_, but real sender is _${pay.inTxSenderId}_.`;
@@ -120,7 +121,7 @@ module.exports = async (pay, tx) => {
         pay.update({
           transactionIsValid: false,
           isFinished: true,
-          error: constants.ERRORS.WRONG_RECIPIENT
+          error: constants.ERRORS.WRONG_RECIPIENT,
         });
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.inTxRecipientId}_.`;
@@ -129,7 +130,7 @@ module.exports = async (pay, tx) => {
         pay.update({
           transactionIsValid: false,
           isFinished: true,
-          error: constants.ERRORS.WRONG_AMOUNT
+          error: constants.ERRORS.WRONG_AMOUNT,
         });
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
@@ -138,14 +139,14 @@ module.exports = async (pay, tx) => {
         pay.update({
           transactionIsValid: false,
           isFinished: true,
-          error: constants.ERRORS.WRONG_TIMESTAMP
+          error: constants.ERRORS.WRONG_TIMESTAMP,
         });
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Tx's timestamp is _${(Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) / constants.HOUR).toFixed(0)}_ hours late.`;
         msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
       } else { // Transaction is valid
         pay.update({
-          transactionIsValid: true
+          transactionIsValid: true,
         });
       }
     } // We got incomeTx details
@@ -154,14 +155,15 @@ module.exports = async (pay, tx) => {
 
     if (msgSendBack) {
       notify(msgNotify + ` Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);
-      api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
-        if (!response.success)
+      api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then((response) => {
+        if (!response.success) {
           log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+        }
       });
     }
 
   } catch (e) {
-    log.error(`Failed to validate Tx ${pay ? pay.inTxid : 'undefined'}: ${e.toString()}. Will try again next time. ${admTxDescription}.`)
+    log.error(`Failed to validate Tx ${pay ? pay.inTxid : 'undefined'}: ${e.toString()}. Will try again next time. ${admTxDescription}.`);
   }
 };
 
@@ -170,8 +172,8 @@ setInterval(async () => {
   (await paymentsDb.find({
     transactionIsValid: null,
     isBasicChecksPassed: true,
-    isFinished: false
-  })).forEach(async pay => {
+    isFinished: false,
+  })).forEach(async (pay) => {
     const tx = await api.get('transactions/get', { id: pay.admTxId });
     if (tx.success) {
       module.exports(pay, tx.data.transaction);

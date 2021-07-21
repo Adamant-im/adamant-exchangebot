@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "lint": "npx eslint .",
-    "lint:fixrule": "npx eslint --no-eslintrc --fix --env node,es2021,commonjs --parser-options=ecmaVersion:12 --rule ",
+    "lint:fix": "npx eslint --fix",
+    "lint:fixrule": "npx eslint --no-eslintrc --fix --env node,es2021,commonjs --parser-options=ecmaVersion:12 --rule",
     "start": "node app.js dev",
     "start:dev": "node app.js dev",
     "test": "echo \"Error: no test specified\" && exit 1"

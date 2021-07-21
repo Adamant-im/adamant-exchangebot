@@ -14,14 +14,14 @@ module.exports = (db) => {
     static find(a) { // return Array
       return new Promise((resolve, reject) => {
         this.db.find(a).toArray((err, data) => {
-          resolve(data.map(d => new this(d)));
+          resolve(data.map((d) => new this(d)));
         });
       });
     }
     static aggregate(a) { // return Array
       return new Promise((resolve, reject) => {
         this.db.aggregate(a).toArray((err, data) => {
-          resolve(data.map(d => new this(d)));
+          resolve(data.map((d) => new this(d)));
         });
       });
     }
@@ -38,7 +38,7 @@ module.exports = (db) => {
     }
     _data() {
       const data = {};
-      for (let field in this) {
+      for (const field in this) {
         if (!['db', '_id'].includes(field)) {
           data[field] = this[field];
         }
@@ -60,13 +60,13 @@ module.exports = (db) => {
           });
         } else {
           db.updateOne({ _id: this._id }, {
-            $set: this._data()
+            $set: this._data(),
           }, { upsert: true }).then(() => {
             resolve(this._id);
           });
         }
       });
     }
-  }
+  };
 
 };

@@ -16,10 +16,10 @@ module.exports = async (itx, tx, payToUpdate) => {
 
     const { paymentsDb } = db;
     const msg = itx.decryptedMessage;
-    let inCurrency,
-      outCurrency,
-      inTxid,
-      inAmountMessage;
+    let inCurrency;
+    let outCurrency;
+    let inTxid;
+    let inAmountMessage;
 
     if (payToUpdate && payToUpdate.inUpdateState === 'outCurrency') { // update of outCurrency for previous Tx
       inAmountMessage = payToUpdate.inAmountMessage;
@@ -70,7 +70,7 @@ module.exports = async (itx, tx, payToUpdate) => {
         needHumanCheck: false,
         needToSendBack: false,
         transactionIsFailed: false,
-        isFinished: false
+        isFinished: false,
       });
     }
 
@@ -183,7 +183,7 @@ module.exports = async (itx, tx, payToUpdate) => {
         pay.needToSendBack = true;
         pay.isBasicChecksPassed = true;
         notifyType = 'warn';
-        let feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
+        const feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
         msgNotify = `${config.notifyName} notifies about incoming transaction, that doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
         msgSendBack = `_${inAmountMessage}_ _${inCurrency}_ doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}. ${sendBackMessage}`;
       } else { // Transaction is fine
@@ -200,9 +200,10 @@ module.exports = async (itx, tx, payToUpdate) => {
     if (msgNotify) {
       notify(msgNotify, notifyType);
     }
-    api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then(response => {
-      if (!response.success)
+    api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then((response) => {
+      if (!response.success) {
         log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+      }
     });
 
   } catch (e) {

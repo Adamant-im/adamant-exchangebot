@@ -1,13 +1,13 @@
 const config = require('../modules/configReader');
 const utils = require('./utils');
 
-let fs = require('fs');
+const fs = require('fs');
 if (!fs.existsSync('./logs')) {
   fs.mkdirSync('./logs');
 }
 
-let infoStr = fs.createWriteStream('./logs/' + date() + '.log', {
-  flags: 'a'
+const infoStr = fs.createWriteStream('./logs/' + date() + '.log', {
+  flags: 'a',
 });
 
 infoStr.write(`\n\n[The bot started] _________________${fullTime()}_________________\n`);
@@ -36,7 +36,7 @@ module.exports = {
       console.log('\x1b[34m', 'log|' + fullTime(), '\x1b[0m', str);
       infoStr.write(`\n ` + 'log|[' + fullTime() + '|' + str);
     }
-  }
+  },
 };
 
 function time() {
