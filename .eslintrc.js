@@ -11,5 +11,9 @@ module.exports = {
     ecmaVersion: 12,
   },
   rules: {
+    'object-curly-spacing': ['error', 'always'],
+    'max-len': ['error', { code: 125 }],
+    'require-jsdoc': ['off'],
+    'padded-blocks': ['off'],
   },
 };
