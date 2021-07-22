@@ -87,7 +87,8 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns last block of DASH blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * Returns last block of DASH blockchain from cache, if it's up to date.
+   * If not, makes an API request and updates cached data.
    * Used only for this.getLastBlockHeight()
    * @override
    * @return {Object} or undefined, if unable to get block info
@@ -123,7 +124,8 @@ module.exports = class dashCoin extends btcBaseCoin {
    * @param {String} txid Tx ID to fetch
    * @return {Object}
    * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
+   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
+   * status, confirmations || height
    * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
   async getTransaction(txid) {
@@ -160,10 +162,10 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-	 * Broadcasts the specified transaction to the DASH network
-	 * @override
-	 * @param {string} txHex raw transaction as a HEX literal
-	 */
+   * Broadcasts the specified transaction to the DASH network
+   * @override
+   * @param {string} txHex raw transaction as a HEX literal
+   */
   sendTransaction(txHex) {
     return requestDash('sendrawtransaction', [txHex]).then((txid) => {
       return txid;

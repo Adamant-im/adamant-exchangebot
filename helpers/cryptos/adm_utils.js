@@ -23,9 +23,9 @@ module.exports = class admCoin extends baseCoin {
   }
 
   /**
-	 * Returns last block from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @return {Object} or undefined, if unable to fetch data
-	 */
+   * Returns last block from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @return {Object} or undefined, if unable to fetch data
+   */
   async getLastBlock() {
     const cached = this.cache.getData('lastBlock');
     if (cached) {
@@ -41,18 +41,18 @@ module.exports = class admCoin extends baseCoin {
   }
 
   /**
-	 * Returns last block height from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @return {Number} or undefined, if unable to fetch data
-	 */
+   * Returns last block height from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @return {Number} or undefined, if unable to fetch data
+   */
   async getLastBlockHeight() {
     const block = await this.getLastBlock();
     return block ? block.height : undefined;
   }
 
   /**
-	 * Returns balance in ADM from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
-	 */
+   * Returns balance in ADM from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   */
   async getBalance() {
     const cached = this.cache.getData('balance');
     if (cached) {
@@ -69,17 +69,17 @@ module.exports = class admCoin extends baseCoin {
   }
 
   /**
-	 * Returns balance in ADM from cache. It may be outdated.
-	 * @return {Number} cached value; it may be undefined
-	 */
+   * Returns balance in ADM from cache. It may be outdated.
+   * @return {Number} cached value; it may be undefined
+   */
   get balance() {
     return utils.satsToADM(this.cache.getData('balance'));
   }
 
   /**
-	 * Updates balance in ADM manually from cache. Useful when we don't want to wait for network update.
-	 * @param {Number} value New balance in ADM
-	 */
+   * Updates balance in ADM manually from cache. Useful when we don't want to wait for network update.
+   * @param {Number} value New balance in ADM
+   */
   set balance(value) {
     if (utils.isPositiveOrZeroNumber(value)) {
       this.cache.cacheData('balance', utils.AdmToSats(value));
@@ -87,13 +87,14 @@ module.exports = class admCoin extends baseCoin {
   }
 
   /**
-	 * Returns Tx status and details from the blockchain
-	 * @param {String} txid Tx ID to fetch
-	 * @return {Object}
-	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
-	 * Not used, additional info: hash (already known), blockId, fee
-	 */
+   * Returns Tx status and details from the blockchain
+   * @param {String} txid Tx ID to fetch
+   * @return {Object}
+   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
+   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
+   * status, confirmations || height
+   * Not used, additional info: hash (already known), blockId, fee
+   */
   async getTransaction(txid) {
     const tx = await api.get('transactions/get', { id: txid });
     if (tx.success) {

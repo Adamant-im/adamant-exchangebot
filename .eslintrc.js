@@ -7,6 +7,7 @@ module.exports = {
   extends: [
     'google',
   ],
+  parser: '@babel/eslint-parser',
   parserOptions: {
     ecmaVersion: 12,
   },
@@ -22,5 +23,7 @@ module.exports = {
       }],
     'require-jsdoc': ['off'],
     'padded-blocks': ['off'],
+    'new-cap': ['off'],
+    'camelcase': ['off'],
   },
 };

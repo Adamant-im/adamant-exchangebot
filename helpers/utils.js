@@ -25,8 +25,9 @@ module.exports = {
 
   /**
    * Converts ADAMANT's sats to ADM value
-   * @param {number, string} sats Sats to convert
-   * @returns {number} Value in ADM
+   * @param {number|string} sats Sats to convert
+   * @param {number} decimals Round up to
+   * @return {number} Value in ADM
    */
   satsToADM(sats, decimals = 8) {
     try {
@@ -40,8 +41,8 @@ module.exports = {
 
   /**
    * Converts ADM value to sats
-   * @param {number, string} adm ADM to convert
-   * @returns {number} Value in sats
+   * @param {number|string} adm ADM to convert
+   * @return {number} Value in sats
    */
   AdmToSats(adm) {
     try {

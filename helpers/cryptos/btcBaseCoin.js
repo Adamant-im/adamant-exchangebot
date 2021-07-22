@@ -21,35 +21,35 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Returns coin decimals (precision)
-	 * @abstract
-	 * @return {Number}
-	 */
+   * Returns coin decimals (precision)
+   * @abstract
+   * @return {Number}
+   */
   get decimals() {
     return undefined;
   }
 
   /**
-	 * Returns multiplier for sats
-	 * @return {Number}
-	 */
+   * Returns multiplier for sats
+   * @return {Number}
+   */
   get multiplier() {
     return Math.pow(10, this.decimals);
   }
 
   /**
-	 * Returns wallet address
-	 * @return {String}
-	 */
+   * Returns wallet address
+   * @return {String}
+   */
   get address() {
     return this.account.address;
   }
 
   /**
-	 * Converts amount in sat to token
-	 * @param {String or Number} satValue
-	 * @returns {Number}
-	 */
+   * Converts amount in sat to token
+   * @param {String|Number} satValue Amount in sat
+   * @return {Number} Amount in coins
+   */
   fromSat(satValue) {
     try {
       const value = (+satValue / this.multiplier).toFixed(this.decimals);
@@ -60,10 +60,10 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Converts amount in token to sat
-	 * @param {String or Number} tokenValue
-	 * @returns {Number}
-	 */
+   * Converts amount in token to sat
+   * @param {String|Number} tokenValue Amount in coins
+   * @return {Number} Amount in sat
+   */
   toSat(tokenValue) {
     try {
       return Math.floor(+tokenValue * this.multiplier);
@@ -73,99 +73,102 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Returns transfer Tx fee
-	 * @abstract
-	 * @return {Number}
-	 */
+   * Returns transfer Tx fee
+   * @abstract
+   * @return {Number}
+   */
   get FEE() {
     return 0;
   }
 
   /**
-	 * Returns last block of token blockchain from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * Used only for this.getLastBlockHeight()
-	 * @abstract
-	 * @return {Object} or undefined, if unable to get block info
-	 */
+   * Returns last block of token blockchain from cache, if it's up to date.
+   * If not, makes an API request and updates cached data.
+   * Used only for this.getLastBlockHeight()
+   * @abstract
+   * @return {Object} or undefined, if unable to get block info
+   */
   getLastBlock() {
     return undefined;
   }
 
   /**
-	 * Returns last block height of token blockchain
-	 * @abstract
-	 * @return {Number} or undefined, if unable to get block info
-	 */
+   * Returns last block height of token blockchain
+   * @abstract
+   * @return {Number} or undefined, if unable to get block info
+   */
   async getLastBlockHeight() {
     return undefined;
   }
 
   /**
-	 * Returns balance in coins (not satoshis) from cache, if it's up to date. If not, makes an API request and updates cached data.
-	 * @abstract
-	 * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
-	 */
+   * Returns balance in coins (not satoshis) from cache, if it's up to date.
+   * If not, makes an API request and updates cached data.
+   * @abstract
+   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   */
   async getBalance() {
     return undefined;
   }
 
   /**
-	 * Returns balance in coins (not satoshis) from cache. It may be outdated.
-	 * @abstract
-	 * @return {Number} cached value; it may be undefined
-	 */
+   * Returns balance in coins (not satoshis) from cache. It may be outdated.
+   * @abstract
+   * @return {Number} cached value; it may be undefined
+   */
   get balance() {
     return undefined;
   }
 
   /**
-	 * Updates coin balance in cache. Useful when we don't want to wait for network update.
-	 * @abstract
-	 * @param {Number} value New balance (in coin, not satoshis)
-	 */
+   * Updates coin balance in cache. Useful when we don't want to wait for network update.
+   * @abstract
+   * @param {Number} value New balance (in coin, not satoshis)
+   */
   set balance(value) {
   }
 
   /**
-	 * Returns block details from the blockchain
-	 * @param {String} blockId Block ID to fetch
-	 * @abstract
-	 * @return {Object}
-	 * Internal use. Not needed for some coins.
-	 */
+   * Returns block details from the blockchain
+   * @param {String} blockId Block ID to fetch
+   * @abstract
+   * @return {Object}
+   * Internal use. Not needed for some coins.
+   */
   getBlock(blockId) {
     return {};
   }
 
   /**
-	 * Returns Tx status and details from the blockchain
-	 * @abstract
-	 * @param {String} txid Tx ID to fetch
-	 * @return {Object}
-	 * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-	 * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker): status, confirmations || height
-	 * Not used, additional info: hash (already known), blockId, fee, recipients, senders
-	 */
+   * Returns Tx status and details from the blockchain
+   * @abstract
+   * @param {String} txid Tx ID to fetch
+   * @return {Object}
+   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
+   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
+   * status, confirmations || height
+   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
+   */
   async getTransaction(txid) {
     return {};
   }
 
   /**
-	 * Retrieves unspents (UTXO)
-	 * @abstract
-	 * @return {Promise<Array<{txid: string, vout: number, amount: number}>>}
-	 */
+   * Retrieves unspents (UTXO)
+   * @abstract
+   * @return {Promise<Array<{txid: string, vout: number, amount: number}>>}
+   */
   getUnspents() {
     return Promise.resolve([]);
   }
 
   /**
-	 * Creates a transfer transaction hex (raw Tx) and ID
-	 * @param {string} address receiver address
-	 * @param {number} amount amount to transfer (coins, not satoshis)
-	 * @param {number} fee transaction fee (coins, not satoshis)
-	 * @return {Promise<{hex: string, txid: string}>}
-	 */
+   * Creates a transfer transaction hex (raw Tx) and ID
+   * @param {string} address receiver address
+   * @param {number} amount amount to transfer (coins, not satoshis)
+   * @param {number} fee transaction fee (coins, not satoshis)
+   * @return {Promise<{hex: string, txid: string}>}
+   */
   createTransaction(address = '', amount = 0, fee) {
     return this.getUnspents().then((unspents) => {
       if (unspents) {
@@ -179,13 +182,13 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Creates a raw transaction as a hex string
-	 * @param {string} address target address
-	 * @param {number} amountInSat amount to send (coins, not satoshis)
-	 * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transactions to use as inputs
-	 * @param {number} fee transaction fee in primary units (BTC, DOGE, DASH, etc)
-	 * @return {string}
-	 */
+   * Creates a raw transaction as a hex string
+   * @param {string} address Target address
+   * @param {number} amount Amount to send (coins, not satoshis)
+   * @param {Array<{txid: string, amount: number, vout: number}>} unspents Unspent transactions to use as inputs
+   * @param {number} fee Transaction fee in primary units (BTC, DOGE, DASH, etc)
+   * @return {string} Raw transaction as a hex string
+   */
   _buildTransaction(address, amount, unspents, fee) {
 
     try {
@@ -193,13 +196,11 @@ module.exports = class btcBaseCoin extends baseCoin {
       const psbt = new bitcoin.Psbt({ network: this.account.network }); // bitcoin.TransactionBuilder is deprecated, so we use psbt
       const target = amountInSat + this.toSat(fee);
       let transferAmount = 0;
-      let inputs = 0;
       unspents.forEach((tx) => {
         const amt = Math.floor(tx.amount);
         if (transferAmount < target) {
           psbt.addInput(tx);
           transferAmount += amt;
-          inputs++;
         }
       });
       psbt.addOutput({ script: bitcoin.address.toOutputScript(address, this.account.network), value: amountInSat });
@@ -220,19 +221,20 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Broadcasts the specified transaction to the network
-	 * @abstract
-	 * @param {string} txHex raw transaction as a HEX literal
-	 */
+   * Broadcasts the specified transaction to the network
+   * @abstract
+   * @param {string} txHex Raw transaction as a HEX literal
+   * @return {Promise<Object>} Tx id
+   */
   sendTransaction(txHex) {
     return Promise.resolve('');
   }
 
   /**
-	 * Build Tx and broadcasts it
-	 * @abstract
-	 * @param {object} params try: try number, address: recipient's address, value: amount to send in coins (not satoshis)
-	 */
+   * Build Tx and broadcasts it
+   * @abstract
+   * @param {object} params try: try number, address: recipient's address, value: amount to send in coins (not satoshis)
+   */
   async send(params) {
     let fee = 0;
     try {
@@ -285,11 +287,11 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Formats Tx info
-	 * Coin implementations must modify results specifically
-	 * @param {object} tx Tx
-	 * @return {object} Formatted Tx info
-	 */
+   * Formats Tx info
+   * Coin implementations must modify results specifically
+   * @param {object} tx Tx
+   * @return {object} Formatted Tx info
+   */
   _mapTransaction(tx) {
     try {
 
@@ -355,10 +357,10 @@ module.exports = class btcBaseCoin extends baseCoin {
   }
 
   /**
-	 * Builds log message from formed Tx
-	 * @param {object} tx Tx
-	 * @return {string} Log message
-	 */
+   * Builds log message from formed Tx
+   * @param {object} tx Tx
+   * @return {string} Log message
+   */
   formTxMessage(tx) {
     try {
 

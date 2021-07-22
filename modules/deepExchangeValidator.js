@@ -20,9 +20,9 @@ module.exports = async (pay, tx) => {
 
     // Fetching addresses from ADAMANT KVS
     const senderKvsInAddress = pay.senderKvsInAddress || pay.inCurrency === 'ADM' && tx.senderId ||
-			await exchangerUtils.getKvsCryptoAddress(pay.inCurrency, tx.senderId);
+      await exchangerUtils.getKvsCryptoAddress(pay.inCurrency, tx.senderId);
     const senderKvsOutAddress = pay.senderKvsOutAddress || pay.outCurrency === 'ADM' && tx.senderId ||
-			await exchangerUtils.getKvsCryptoAddress(pay.outCurrency, tx.senderId);
+      await exchangerUtils.getKvsCryptoAddress(pay.outCurrency, tx.senderId);
 
     pay.update({
       senderKvsInAddress,
@@ -108,6 +108,8 @@ module.exports = async (pay, tx) => {
         return;
       }
 
+      const deltaAmount = Math.abs(pay.inAmountReal - pay.inAmountMessage);
+      const deltaTimestamp = Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage);
       if (!utils.isStringEqualCI(pay.inTxSenderId, pay.senderKvsInAddress)) {
         pay.update({
           transactionIsValid: false,
@@ -126,7 +128,7 @@ module.exports = async (pay, tx) => {
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Recipient expected: _${exchangerUtils[pay.inCurrency].account.address}_, but real recipient is _${pay.inTxRecipientId}_.`;
         msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-      } else if (Math.abs(pay.inAmountReal - pay.inAmountMessage) > pay.inAmountReal * constants.VALIDATOR_AMOUNT_DEVIATION) {
+      } else if (deltaAmount > pay.inAmountReal * constants.VALIDATOR_AMOUNT_DEVIATION) {
         pay.update({
           transactionIsValid: false,
           isFinished: true,
@@ -135,7 +137,7 @@ module.exports = async (pay, tx) => {
         notifyType = 'error';
         msgNotify = `${config.notifyName} thinks transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ is wrong. Amount expected: _${pay.inAmountMessage}_, but real amount is _${pay.inAmountReal}_.`;
         msgSendBack = `I can’t validate transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-      } else if ((!pay.inTxTimestamp && !pay.inTxIsInstant) && (Math.abs(utils.toTimestamp(tx.timestamp) - pay.inAmountMessage) > constants.VALIDATOR_TIMESTAMP_DEVIATION)) {
+      } else if ((!pay.inTxTimestamp && !pay.inTxIsInstant) && (deltaTimestamp > constants.VALIDATOR_TIMESTAMP_DEVIATION)) {
         pay.update({
           transactionIsValid: false,
           isFinished: true,

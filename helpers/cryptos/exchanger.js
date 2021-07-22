@@ -34,11 +34,11 @@ module.exports = {
   },
 
   /**
-	 * Returns rate for from/to
-	 * @param {String} from Like 'ADM'
-	 * @param {String} to Like 'ETH'
-	 * @return {Number} or NaN or undefined
-	 */
+   * Returns rate for from/to
+   * @param {String} from Like 'ADM'
+   * @param {String} to Like 'ETH'
+   * @return {Number} or NaN or undefined
+   */
   getRate(from, to) {
     try {
       let price = this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from];
@@ -55,13 +55,14 @@ module.exports = {
   },
 
   /**
-	 * Returns value of amount 'from' currency in 'to' currency
-	 * @param {String} from Like 'ADM'
-	 * @param {String} to Like 'ETH'
-	 * @param {Number} amount Amount of 'from' currency
-	 * @param {Boolean} considerExchangerFee If false, do direct market calculation. If true, deduct the exchanger's and blockchain fees
-	 * @returns {Number, Number} or { NaN, NaN }
-	 */
+   * Returns value of amount 'from' currency in 'to' currency
+   * @param {String} from Like 'ADM'
+   * @param {String} to Like 'ETH'
+   * @param {Number} amount Amount of 'from' currency
+   * @param {Boolean} considerExchangerFee If false, do direct market calculation.
+      * If true, deduct the exchanger's and blockchain fees
+   * @return {Number|Number} or { NaN, NaN }
+   */
   convertCryptos(from, to, amount = 1, considerExchangerFee = false) {
     try {
       from = from.toUpperCase();

@@ -13,7 +13,7 @@ module.exports = {
   VALIDATOR_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in deepExchangeValidator
   VALIDATOR_GET_TX_RETRIES: 30, // Retries to get Tx in deepExchangeValidator. In 10 minutes Tx must appear in a blockchain, otherwise Exchanger will decline it.
   VALIDATOR_AMOUNT_DEVIATION: 0.001, // 0.1% can be a precision error
-  VALIDATOR_TIMESTAMP_DEVIATION: 3 * 24 * this.HOUR, // Difference between ADAMANT's token transfer message and real Tx can be up to 3 days. Duplicate Txs are filtered additionally.
+  VALIDATOR_TIMESTAMP_DEVIATION: 3 * 24 * 60 * 60 * 1000, // Difference between ADAMANT's token transfer message and real Tx can be up to 3 days. Duplicate Txs are filtered additionally.
   CONFIRMATIONS_INTERVAL: 20 * 1000, // Update Tx confirmations every 20 sec in confirmationsCounter
   SENDER_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in sentTxChecker
   SENDER_GET_TX_RETRIES: 60, // Retries to get Tx in sentTxChecker. In 20 minutes Tx must appear in a blockchain, otherwise Exchanger will notify master and user to check it manually.

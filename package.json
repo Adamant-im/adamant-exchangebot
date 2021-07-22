@@ -4,9 +4,9 @@
   "description": "ADAMANT anonymous Exchange bot",
   "main": "index.js",
   "scripts": {
-    "lint": "npx eslint .",
-    "lint:fix": "npx eslint --fix",
-    "lint:fixrule": "npx eslint --no-eslintrc --fix --env node,es2021,commonjs --parser-options=ecmaVersion:12 --rule",
+    "lint": "npx eslint -f visualstudio .",
+    "lint:fix": "npx eslint -f visualstudio --fix",
+    "lint:fixrule": "npx eslint -f visualstudio --no-eslintrc --fix --env node,es2021,commonjs --parser-options=ecmaVersion:12 --rule",
     "start": "node app.js dev",
     "start:dev": "node app.js dev",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -43,6 +43,9 @@
     "web3-utils": "^1.3.6"
   },
   "devDependencies": {
+    "@babel/eslint-parser": "^7.14.7",
+    "@babel/plugin-transform-runtime": "^7.14.5",
+    "@babel/preset-env": "^7.14.8",
     "eslint": "^7.31.0",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.23.4",
