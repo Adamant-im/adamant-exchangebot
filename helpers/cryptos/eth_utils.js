@@ -15,7 +15,6 @@ const reliabilityCoefErc20 = 3.0; // make sure exchanger's Tx will be accepted f
 const baseCoin = require('./baseCoin');
 module.exports = class ethCoin extends baseCoin {
 
-  lastNonce = 0;
   gasPrice = '0' // in wei, string
   gasLimit = 22000 // const base gas limit in wei
 
