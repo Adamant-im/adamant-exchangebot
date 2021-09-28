@@ -6,8 +6,8 @@ Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://med
 
 ## Requirements
 
-* Ubuntu 16 / Ubuntu 18 (other OS had not been tested)
-* NodeJS v 8+ (already installed if you have a node on your machine)
+* Ubuntu 18 / 20 (other OS had not been tested)
+* NodeJS 12+
 * MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
 ## Setup
