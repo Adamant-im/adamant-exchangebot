@@ -20,7 +20,7 @@ module.exports = async (commandMsg, tx, itx) => {
 
     let commandResult = '';
     if (command) {
-      commandResult = await command(group, tx);
+      commandResult = await command(group, tx, itx ? itx.commandFix : undefined);
     } else {
       commandResult = `I don’t know */${commandName}* command. ℹ️ You can start with **/help**.`;
     }
@@ -38,7 +38,7 @@ module.exports = async (commandMsg, tx, itx) => {
   }
 };
 
-function help() {
+function help({}, {}, commandFix) {
 
   const specialFees = [];
   let oneSpecialFeeCoin = '';
@@ -73,6 +73,10 @@ function help() {
   result += `\n\n**/balances** — show my crypto balances. Don’t request an exchange if I don’t have enough coins.`;
   result += `\n\n**/test** — test exchange request and estimate return value. Do it before each exchange. Works like this: */test 0.35 ETH to ADM*.`;
   result += `\n\n**To make an exchange**, send me crypto you want to exchange here in-Chat.`;
+
+  if (commandFix === 'help') {
+    result += `\n\nNote: commands starts with slash **/**. Example: **/help**.`;
+  }
 
   return result;
 

@@ -39,6 +39,16 @@ module.exports = async (tx) => {
     decryptedMessage = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
   }
 
+  let commandFix = '';
+  if (decryptedMessage.toLowerCase() === 'help') {
+    decryptedMessage = '/help';
+    commandFix = 'help';
+  }
+  if (decryptedMessage.toLowerCase() === '/balance') {
+    decryptedMessage = '/balances';
+    commandFix = 'balance';
+  }
+
   const { paymentsDb } = db;
   const payToUpdate = await paymentsDb.findOne({
     senderId: tx.senderId,
@@ -85,6 +95,7 @@ module.exports = async (tx) => {
     // these will be undefined, when we get Tx via REST
     relays: tx.relays,
     receivedAt: tx.receivedAt,
+    commandFix,
   });
 
   let msgSendBack; let msgNotify;
