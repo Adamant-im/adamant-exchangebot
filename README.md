@@ -1,5 +1,7 @@
 ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
+![Exchanging Dash to Ethereum](./assets/Exchanger-Dash-480-2x.gif)
+
 Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
 # Installation
