@@ -76,7 +76,7 @@ module.exports = async (pay, tx) => {
     if (!incomeTx) {
       if (pay.counterTxDeepValidator < constants.VALIDATOR_GET_TX_RETRIES) {
         pay.save();
-        log.warn(`Unable to get Tx ${pay.inTxid}. It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`);
+        log.warn(`Unable to get Tx ${pay.inTxid} (${pay.counterTxDeepValidator}/${constants.VALIDATOR_GET_TX_RETRIES}). It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`);
         return;
       }
       pay.update({

@@ -367,7 +367,9 @@ module.exports = class ethCoin extends baseCoin {
 
       const txParams = {
         // nonce: this.currentNonce++, // set as default
-        // gasPrice: this.gasPrice, // set as default
+        // gasPrice: this.gasPrice, // (deprecated after London hardfork)
+        // maxFeePerGas // set as default
+        // maxPriorityFeePerGas // set as default
         gas,
       };
       if (this.contract) {
@@ -397,6 +399,7 @@ module.exports = class ethCoin extends baseCoin {
               }
             })
             .on('error', (e, receipt) => { // If out of gas error, the second parameter is the receipt
+              console.log('ETH-on-error', e, receipt);
               if (!e.toString().includes('Failed to check for transaction receipt')) { // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
                 log.error(`Failed to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}. ` + e);
                 resolve({

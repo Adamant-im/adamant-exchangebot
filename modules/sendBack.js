@@ -107,7 +107,7 @@ module.exports = async () => {
           }
         } else { // Can't make a transaction
           if (pay.counterSendBack < constants.SENDBACK_RETRIES) {
-            log.warn(`Unable to send back ${sentBackAmount} ${inCurrency} this time. Will try again. ${admTxDescription}.`);
+            log.warn(`Unable to send back ${sentBackAmount} ${inCurrency} this time (${pay.counterSendBack}/${constants.SENDBACK_RETRIES}). Will try again. ${admTxDescription}.`);
             pay.save();
             return;
           };

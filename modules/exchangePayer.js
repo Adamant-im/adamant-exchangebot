@@ -94,7 +94,7 @@ module.exports = async () => {
         }
       } else { // Can't make a transaction
         if (pay.counterSendExchange < constants.EXCHANGER_RETRIES) {
-          log.warn(`Unable to send exchange payment of ${pay.inAmountMessage} ${pay.inCurrency} for ${pay.outAmount} ${pay.outCurrency} this time. Will try again. ${admTxDescription}.`);
+          log.warn(`Unable to send exchange payment of ${pay.inAmountMessage} ${pay.inCurrency} for ${pay.outAmount} ${pay.outCurrency} this time (${pay.counterSendExchange}/${constants.EXCHANGER_RETRIES}). Will try again. ${admTxDescription}.`);
           pay.save();
           return;
         };

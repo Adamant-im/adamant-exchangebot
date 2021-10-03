@@ -58,7 +58,7 @@ module.exports = async () => {
 
       const tx = await exchangerUtils[sendCurrency].getTransaction(sendTxId);
       if (!tx) {
-        log.warn(`Unable to fetch sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency}. It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`);
+        log.warn(`Unable to fetch sent ${direction} Tx ${sendTxId} of ${sendAmount} ${sendCurrency} (${pay.tryCounterCheckOutTX}/${constants.SENDER_GET_TX_RETRIES}). It's expected, if the Tx is new. Will try again next time. ${admTxDescription}.`);
         if (pay.tryCounterCheckOutTX > constants.SENDER_GET_TX_RETRIES) {
           pay.update({
             errorCheckOuterTX: constants.ERRORS.UNABLE_TO_FETCH_SENT_TX,
