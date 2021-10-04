@@ -1,13 +1,15 @@
 ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
+![Exchanging Dash to Ethereum](./assets/Exchanger-Dash-480-2x.gif)
+
 Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
 # Installation
 
 ## Requirements
 
-* Ubuntu 16 / Ubuntu 18 (other OS had not been tested)
-* NodeJS v 8+ (already installed if you have a node on your machine)
+* Ubuntu 18 / 20 (other OS had not been tested)
+* NodeJS 12+
 * MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
 ## Setup
@@ -25,32 +27,7 @@ npm i
 nano config.json
 ```
 
-Parameters:
-
-* `passPhrase` <string> The exchange bot's secret phrase for concluding transactions. Obligatory. Bot's ADAMANT address will correspond this passPhrase.
-* `node_ADM` <string, array> List of nodes for API work, obligatorily
-* `node_ETH` <string, array> List of nodes for Ethereum API work, obligatorily
-* `node_LSK` <string, array> List of nodes for Lisk API work, obligatorily
-* `node_DOGE` <string, array> List of nodes for Doge API work, obligatorily
-* `node_BTC` <string, array> List of nodes for Bitcoin API work, obligatorily
-* `node_DASH` <string, array> List of nodes for Dash API work, obligatorily
-* `infoservice` <string, array> List of [ADAMANT InfoServices](https://github.com/Adamant-im/adamant-currencyinfo-services) for catching exchange rates, obligatorily
-* `socket` <boolean> If to use WebSocket connection. Recommended for better user experience.
-* `ws_type` <string> Choose socket connection, "ws" or "wss" depending on your server.
-* `bot_name` <string> Bot's name for notifications.
-* `slack` <string> Token for Slack alerts for the bot’s administrator. No alerts if not set.
-* `adamant_notify` <string> ADM address for the bot’s administrator. Recommended.
-* `known_crypto` <string, array> List of cryptocurrencies bot can work with. If bot will receive or request for crypto not in list, it will not process payment and notify owner. Obligatorily
-* `erc20` <string, array> List of cryptocurrencies of ERC-20 type. It is necessary to put all known ERC-20 tokens here.
-* `accepted_crypto` <string, array> List of cryptocurrencies you want to accept for exchange. If bot will receive payment in not-in-list crypto, it will try to return it. Obligatorily
-* `exchange_crypto` <string, array> List of cryptocurrencies you want to send in exchange. If bot will receive request for exchange of not-in-list crypto, it will try to return payment back. Obligatorily
-* `exchange_fee` <float> Percentage you take as fee for bot's service. Default is 10.
-* `exchange_fee_ADM` <float> Percentage you take as fee, if receiving payment is in specific currency. This value will override general `exchange_fee`
-* `min_value_usd` <float> Minimum payment equivalent in USD accepted. Default is 1.
-* `daily_limit_usd` <float> Daily exchange limit for one user, equivalent in USD. Default is 1000.
-* `min_confirmations` <int> How many confirmations to wait before transaction counts accepted. Default is 3.
-* `min_confirmations_ADM` <int> To override `min_confirmations` for specific cryptocurrency.
-* `welcome_string` <string> How to reply user in-chat, if unknown command received. Default is “Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.”
+Parameters: see comments in `config.json`.
 
 ## Launching
 

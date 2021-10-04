@@ -1,106 +1,198 @@
 const db = require('./DB');
 const log = require('../helpers/log');
-const $u = require('../helpers/utils');
+const notify = require('../helpers/notify');
+const utils = require('../helpers/utils');
 const api = require('./api');
 const config = require('./configReader');
+const constants = require('../helpers/const');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
-const notify = require('../helpers/notify');
 const Store = require('./Store');
+const exchangerUtils = require('../helpers/cryptos/exchanger');
 
-const historyTxs = {}; // catch saved txs. Defender duplicated TODO: clear uptime
+const processedTxs = {}; // cache for processed transactions
 
 module.exports = async (tx) => {
-	if (!tx){
-		return;
-	}
 
-	if (historyTxs[tx.id]) {
-		return;
-	}
+  // do not process one Tx twice: first check in cache, then check in DB
+  if (processedTxs[tx.id]) {
+    if (!processedTxs[tx.id].height) {
+      await updateProcessedTx(tx, null, true); // update height of Tx and last processed block
+    }
+    return;
+  }
+  const { incomingTxsDb } = db;
+  const knownTx = await incomingTxsDb.findOne({ txid: tx.id });
+  if (knownTx !== null) {
+    if (!knownTx.height || !processedTxs[tx.id]) {
+      await updateProcessedTx(tx, knownTx, knownTx.height && processedTxs[tx.id]); // update height of Tx and last processed block
+    }
+    return;
+  };
 
-	const {incomingTxsDb} = db;
-	const checkedTx = await incomingTxsDb.findOne({txid: tx.id});
-	if (checkedTx !== null) {
-		return;
-	};
-	log.info(`New incoming transaction: ${tx.id}`);
-	let msg = '';
-	const chat = tx.asset.chat;
-	if (chat){
-		msg = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
-	}
+  log.log(`Processing new incoming transaction ${tx.id} from ${tx.recipientId} via ${tx.height ? 'REST' : 'socket'}…`);
 
-	if (msg === '') {
-		msg = 'NONE';
-	}
+  let decryptedMessage = '';
+  const chat = tx.asset ? tx.asset.chat : '';
+  if (chat) {
+    decryptedMessage = api.decodeMsg(chat.message, tx.senderPublicKey, config.passPhrase, chat.own_message).trim();
+  }
 
+  let commandFix = '';
+  if (decryptedMessage.toLowerCase() === 'help') {
+    decryptedMessage = '/help';
+    commandFix = 'help';
+  }
+  if (decryptedMessage.toLowerCase() === '/balance') {
+    decryptedMessage = '/balances';
+    commandFix = 'balance';
+  }
 
-	let type = 'unknown';
-	if (msg.includes('_transaction') || tx.amount > 0) {
-		type = 'exchange';
-	} else if (msg.startsWith('/')){
-		type = 'command';
-	}
+  const { paymentsDb } = db;
+  const payToUpdate = await paymentsDb.findOne({
+    senderId: tx.senderId,
+    inUpdateState: { $ne: undefined }, // We suppose only one payment can be in update state
+  });
 
-	const spamerIsNotyfy = await incomingTxsDb.findOne({
-		sender: tx.senderId,
-		isSpam: true,
-		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
-	});
-	const itx = new incomingTxsDb({
-		_id: tx.id,
-		txid: tx.id,
-		date: $u.unix(),
-		block_id: tx.blockId,
-		encrypted_content: msg,
-		spam: false,
-		sender: tx.senderId,
-		type, // command, exchange or unknown
-		isProcessed: false
-	});
+  let messageDirective = 'unknown';
+  if (payToUpdate) {
+    messageDirective = 'update';
+  } else if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
+    messageDirective = 'exchange';
+  } else if (decryptedMessage.startsWith('/')) {
+    messageDirective = 'command';
+  }
 
-	if (msg.toLowerCase().trim() === 'deposit') {
-		itx.update({isProcessed: true}, true);
-		historyTxs[tx.id] = $u.unix();
-		return;
-	}
+  const spamerIsNotyfy = await incomingTxsDb.findOne({
+    senderId: tx.senderId,
+    isSpam: true,
+    date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
+  });
 
-	const countRequestsUser = (await incomingTxsDb.find({
-		sender: tx.senderId,
-		date: {$gt: ($u.unix() - 24 * 3600 * 1000)} // last 24h
-	})).length;
+  const itx = new incomingTxsDb({
+    _id: tx.id,
+    txid: tx.id,
+    date: utils.unix(),
+    timestamp: tx.timestamp,
+    amount: tx.amount,
+    fee: tx.fee,
+    type: tx.type,
+    senderId: tx.senderId,
+    senderPublicKey: tx.senderPublicKey,
+    recipientId: tx.recipientId, // it is me!
+    recipientPublicKey: tx.recipientPublicKey,
+    messageDirective, // command, exchange or unknown
+    decryptedMessage,
+    payToUpdateId: payToUpdate ? payToUpdate._id : null,
+    spam: false,
+    isProcessed: false,
+    // these will be undefined, when we get Tx via socket. Actually we don't need them, store them for a reference
+    blockId: tx.blockId,
+    height: tx.height,
+    block_timestamp: tx.block_timestamp,
+    confirmations: tx.confirmations,
+    // these will be undefined, when we get Tx via REST
+    relays: tx.relays,
+    receivedAt: tx.receivedAt,
+    commandFix,
+  });
 
-	if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
-		itx.update({
-			isProcessed: true,
-			isSpam: true
-		});
-	}
+  let msgSendBack; let msgNotify;
+  const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 
-	await itx.save();
-	if (historyTxs[tx.id]) {
-		return;
-	}
-	historyTxs[tx.id] = $u.unix();
+  if (decryptedMessage.toLowerCase() === 'deposit') {
+    await itx.update({ isDeposit: true, isProcessed: true }, true);
+    await updateProcessedTx(tx, itx, false);
+    msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
+    msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
+    notify(msgNotify, 'info');
+    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
+      if (!response.success) {
+        log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+      }
+    });
+    return;
+  }
 
-	if (itx.isSpam && !spamerIsNotyfy) {
-		notify(`${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. Income ADAMANT Tx: https://explorer.adamant.im/tx/${tx.id}.`, 'warn');
-		$u.sendAdmMsg(tx.senderId, `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**.
-		 Come back tomorrow but less talk, more deal.`);
-		return;
-	}
+  if (payToUpdate && (decryptedMessage.includes('_transaction') || tx.amount > 0)) {
+    await itx.update({ isIngnored: true, isProcessed: true }, true);
+    await updateProcessedTx(tx, itx, false);
+    msgNotify = `${config.notifyName} got a payment, while clarification of ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ expected. **Attention needed**. The exchanger will not validate this payment, do it manually. ${admTxDescription}.`;
+    msgSendBack = `I've expected you to clarify ${payToUpdate.inUpdateState}, but got a payment. I’ve notified my master to send this payment back to you. And still waiting for ${payToUpdate.inUpdateState} from you to process the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_: ${await exchangerUtils.getExchangedCryptoList(payToUpdate.inCurrency)}.`;
+    notify(msgNotify, 'error');
+    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
+      if (!response.success) {
+        log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+      }
+    });
+    return;
+  }
 
-	switch (type) {
-	case ('exchange'):
-		exchangeTxs(itx, tx);
-		break;
-	case ('command'):
-		commandTxs(msg, tx, itx);
-		break;
-	default:
-		unknownTxs(tx, itx);
-		break;
-	}
+  const countRequestsUser = (await incomingTxsDb.find({
+    senderId: tx.senderId,
+    date: { $gt: (utils.unix() - 24 * 3600 * 1000) }, // last 24h
+  })).length;
+
+  if (countRequestsUser > 65 || spamerIsNotyfy) { // 65 per 24h is a limit for accepting commands, otherwise user will be considered as spammer
+    await itx.update({
+      isProcessed: true,
+      isSpam: true,
+    });
+  }
+
+  await itx.save();
+  await updateProcessedTx(tx, itx, false);
+
+  if (itx.isSpam && !spamerIsNotyfy) {
+    msgNotify = `${config.notifyName} notifies _${tx.senderId}_ is a spammer or talks too much. ${admTxDescription}.`;
+    msgSendBack = `I’ve _banned_ you. No, really. **Don’t send any transfers as they will not be processed**. Come back tomorrow but less talk, more deal.`;
+    notify(msgNotify, 'warn');
+    api.sendMessage(config.passPhrase, tx.senderId, msgSendBack).then((response) => {
+      if (!response.success) {
+        log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderId}. ${response.errorMessage}.`);
+      }
+    });
+    return;
+  }
+
+  switch (messageDirective) {
+    case ('exchange'):
+      exchangeTxs(itx, tx);
+      break;
+    case ('update'):
+      exchangeTxs(itx, tx, payToUpdate);
+      break;
+    case ('command'):
+      commandTxs(decryptedMessage, tx, itx);
+      break;
+    default:
+      unknownTxs(tx, itx);
+      break;
+  }
+
 };
+
+async function updateProcessedTx(tx, itx, updateDb) {
+
+  processedTxs[tx.id] = {
+    updated: utils.unix(),
+    height: tx.height,
+  };
+
+  if (updateDb && !itx) {
+    itx = await db.incomingTxsDb.findOne({ txid: tx.id });
+  }
+
+  if (updateDb && itx) {
+    await itx.update({
+      blockId: tx.blockId,
+      height: tx.height,
+      block_timestamp: tx.block_timestamp,
+      confirmations: tx.confirmations,
+    }, true);
+  }
+
+  await Store.updateLastProcessedBlockHeight(tx.height);
+
+}
