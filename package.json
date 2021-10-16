@@ -37,7 +37,7 @@
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
-    "adamant-api": "^1.1.0",
+    "adamant-api": "^1.2.0",
     "axios": "0.23.0",
     "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.1",
