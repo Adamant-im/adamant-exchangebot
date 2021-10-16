@@ -5,8 +5,7 @@ const utils = require('../utils');
 const btcNode = config.node_BTC[0]; // TODO: health check
 const axios = require('axios');
 
-const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
-const reliabilityCoefEth = 1.3; // make sure exchanger's Tx will be accepted for ETH
+const updateFeeRateInterval = 60 * 1000; // Update fee rate every minute
 
 const btcBaseCoin = require('./btcBaseCoin');
 module.exports = class btcCoin extends btcBaseCoin {
@@ -15,6 +14,13 @@ module.exports = class btcCoin extends btcBaseCoin {
     super(token);
     this.cache.balance = { lifetime: 60000 };
     this.cache.lastBlock = { lifetime: 180000 };
+    this.cache.fee = { lifetime: updateFeeRateInterval };
+    this.getFeeRate().then(() => {
+      log.log(`Estimate ${this.token} Tx fee: ${this.FEE.toFixed(this.decimals)}`);
+    });
+    setInterval(() => {
+      this.getFeeRate();
+    }, updateFeeRateInterval);
   }
 
   /**
@@ -27,11 +33,40 @@ module.exports = class btcCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns fixed fee for transfers
+   * Returns estimate tx fee for transfers
    * @return {Number}
    */
   get FEE() {
-    return 0.001;
+    try {
+      const cached = this.cache.getData('fee', false);
+      if (cached) { // fee is a number in sat
+        return this.fromSat(cached);
+      } else {
+        return 0.0001; // default
+      }
+    } catch (e) {
+      log.warn(`Error while calculating Tx fee for ${this.token} in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
+
+  /**
+   * Updates estimate tx fee in sat to cache
+   */
+  async getFeeRate() {
+    try {
+      const feeRate = await requestBitcoin('/fee-estimates');
+      if (feeRate && feeRate['2']) {
+        // Estimated tx size is: ins * 180 + outs * 34 + 10 (https://news.bitcoin.com/how-to-calculate-bitcoin-transaction-fees-when-youre-in-a-hurry/)
+        // We assume that there're always 2 outputs: transfer target and the remains, and 3 inputs
+        const fee = Math.ceil((3 * 181 + 78) * feeRate['2']);
+        this.cache.cacheData('fee', fee);
+      } else {
+        const feeRateErrorMessage = feeRate && feeRate.errorMessage ? ' ' + feeRate.errorMessage : '';
+        log.warn(`Failed to get fee estimates in getFeeRate() for ${this.token} of ${utils.getModuleName(module.id)} module.${feeRateErrorMessage}`);
+      }
+    } catch (e) {
+      log.warn(`Error while getting fee estimates in getFeeRate() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
   }
 
   /**
@@ -43,7 +78,7 @@ module.exports = class btcCoin extends btcBaseCoin {
     try {
 
       const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a duffs string or number
+      if (cached) { // balance is a number in sat
         return this.fromSat(cached);
       }
 
