@@ -9,6 +9,7 @@ const adm_utils = require('./adm_utils');
 const eth_utils = require('./eth_utils');
 const erc20_utils = require('./erc20_utils');
 const dash_utils = require('./dash_utils');
+const btc_utils = require('./btc_utils');
 
 module.exports = {
 
@@ -194,6 +195,7 @@ module.exports = {
   ETH: new eth_utils('ETH'),
   ADM: new adm_utils(),
   DASH: new dash_utils('DASH'),
+  BTC: new btc_utils('BTC'),
 
 };
 

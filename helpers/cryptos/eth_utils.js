@@ -165,7 +165,7 @@ module.exports = class ethCoin extends baseCoin {
         this.cache.cacheData('balance', balance);
         return this.fromSat(balance);
       } else {
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.`);
         return this.fromSat(this.cache.getData('balance', false));
       }
 

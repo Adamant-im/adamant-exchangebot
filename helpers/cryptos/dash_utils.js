@@ -49,7 +49,8 @@ module.exports = class dashCoin extends btcBaseCoin {
         this.cache.cacheData('balance', balance);
         return this.fromSat(balance);
       } else {
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+        const balanceErrorMessage = balance && balance.errorMessage ? ' ' + balance.errorMessage : '';
+        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
         return this.fromSat(this.cache.getData('balance', false));
       }
 

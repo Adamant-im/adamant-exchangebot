@@ -53,7 +53,8 @@ module.exports = class btcCoin extends btcBaseCoin {
         this.cache.cacheData('balance', balance);
         return this.fromSat(balance);
       } else {
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance. ${account.errorMessage}.`);
+        const balanceErrorMessage = balance && balance.errorMessage ? ' ' + balance.errorMessage : '';
+        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
         return this.fromSat(this.cache.getData('balance', false));
       }
 
@@ -186,13 +187,13 @@ module.exports = class btcCoin extends btcBaseCoin {
  */
 function requestBitcoin(method, params) {
   console.log('btc request', method, params);
-  return axios.get(btcNode, { method, params })
+  return axios.get(btcNode + method, { params })
       .then((response) => {
-        console.log('btc response', response);
+        // console.log('btc response', response);
         response = formatRequestResults(response, true);
         console.log('btc formatted response', response);
         if (response.success) {
-          return response.data.result;
+          return response.data;
         } else {
           log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
         }
