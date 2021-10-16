@@ -31,7 +31,7 @@ module.exports = class btcCoin extends btcBaseCoin {
    * @return {Number}
    */
   get FEE() {
-    return 0.0001;
+    return 0.001;
   }
 
   /**
@@ -175,6 +175,28 @@ module.exports = class btcCoin extends btcBaseCoin {
     return requestBitcoin('sendrawtransaction', [txHex]).then((txid) => {
       return txid;
     });
+  }
+
+  /** @override */
+  _mapTransaction(tx) {
+    const mapped = super._mapTransaction({
+      ...tx,
+      vin: tx.vin.map((x) => ({ ...x, addr: x.prevout.scriptpubkey_address })),
+      vout: tx.vout.map((x) => ({
+        ...x,
+        scriptPubKey: { addresses: [x.scriptpubkey_address] },
+      })),
+      fees: tx.fee,
+      time: tx.status.block_time,
+      // confirmations: tx.status.confirmed ? 1 : 0,
+      blockhash: tx.status.block_hash,
+    });
+
+    mapped.amount = this.fromSat(mapped.amount);
+    mapped.fee = this.fromSat(mapped.fee);
+    mapped.height = tx.status.block_height;
+
+    return mapped;
   }
 
 };
