@@ -33,7 +33,7 @@ module.exports = class btcCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns estimate tx fee for transfers
+   * Returns estimate tx fee for transfers in BTC
    * @return {Number}
    */
   get FEE() {
@@ -211,7 +211,7 @@ module.exports = class btcCoin extends btcBaseCoin {
    * @param {string} txHex raw transaction as a HEX literal
    */
   sendTransaction(txHex) {
-    return requestBitcoin('sendrawtransaction', [txHex]).then((txid) => {
+    return requestBitcoin('/tx', txHex).then((txid) => {
       return txid;
     });
   }
@@ -242,25 +242,29 @@ module.exports = class btcCoin extends btcBaseCoin {
 
 /**
  * Makes a GET request to Bitcoin node. Internal function.
- * @param {string} method Endpoint name
+ * @param {string} endpoint Endpoint name
  * @param {*} params Endpoint params
  * @return {*} Request results or undefined
  */
-function requestBitcoin(method, params) {
-  console.log('btc request', method, params);
-  return axios.get(btcNode + method, { params })
+function requestBitcoin(endpoint, params) {
+  // console.log('btc request', endpoint, params);
+  const httpOptions = {
+    url: btcNode + endpoint,
+    method: params ? 'post' : 'get',
+  };
+  return axios(httpOptions, params)
       .then((response) => {
         // console.log('btc response', response);
         response = formatRequestResults(response, true);
-        console.log('btc formatted response', response);
+        // console.log('btc formatted response', response);
         if (response.success) {
           return response.data;
         } else {
-          log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
+          log.warn(`Request to ${endpoint} RPC returned an error: ${response.errorMessage}.`);
         }
       })
       .catch(function(error) {
-        log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
+        log.warn(`Request to ${endpoint} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
       });
 }
 
