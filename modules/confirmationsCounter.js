@@ -45,13 +45,13 @@ module.exports = async (pay) => {
     }
 
     let confirmations = tx.confirmations;
-    if (!tx.confirmations) {
+    if (!tx.confirmations && tx.height) {
       const lastBlockHeight = await exchangerUtils[pay.inCurrency].getLastBlockHeight();
       if (!lastBlockHeight) {
         log.warn(`Unable to get last block height for ${pay.inCurrency} to count Tx ${pay.inTxid} confirmations in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
         return;
       }
-      confirmations = lastBlockHeight - tx.height;
+      confirmations = lastBlockHeight - tx.height + 1;
     }
 
     pay.update({
