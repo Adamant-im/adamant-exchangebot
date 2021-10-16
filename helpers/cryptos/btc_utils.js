@@ -133,11 +133,11 @@ module.exports = class btcCoin extends btcBaseCoin {
    * status, confirmations || height
    * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
-  async getTransaction(txid) {
+  async getTransaction(txid, disableLogging = false) {
     return requestBitcoin(`/tx/${txid}`).then((result) => {
       if (typeof result !== 'object') return undefined;
       const formedTx = this._mapTransaction(result);
-      log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
+      if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
       return formedTx;
     });
   }
@@ -148,7 +148,11 @@ module.exports = class btcCoin extends btcBaseCoin {
    * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
    */
   getUnspents() {
-    return requestBitcoin('getaddressutxos', [this.address]).then(async (result) => {
+    return requestBitcoin(`/address/${this.address}/utxo`).then((outputs) =>
+      outputs.map((x) => ({ txid: x.txid, amount: x.value, vout: x.vout })),
+    );
+
+    return requestBitcoin(`/address/${this.address}/utxo`).then(async (result) => {
       if (!Array.isArray(result)) return undefined;
       // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
       // We need raw Tx as nonWitnessUtxo for every input (unspent)
