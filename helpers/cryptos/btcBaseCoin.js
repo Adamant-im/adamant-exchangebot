@@ -18,6 +18,7 @@ module.exports = class btcBaseCoin extends baseCoin {
     this.account.address = this.account.keys.address;
     this.account.privateKey = this.account.keys.privateKey;
     setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
+    setTimeout(() => this.getLastBlockHeight().then((lastBlockHeight) => log.log(`Last ${this.token} block height: ${utils.isPositiveOrZeroNumber(lastBlockHeight) ? lastBlockHeight : 'unable to receive'}`)), 1000);
   }
 
   /**

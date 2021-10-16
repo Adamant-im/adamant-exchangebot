@@ -98,7 +98,7 @@ module.exports = class admCoin extends baseCoin {
   async getTransaction(txid) {
     const tx = await api.get('transactions/get', { id: txid });
     if (tx.success) {
-      log.log(`Tx status: ${this.formTxMessage(tx.data.transaction)}.`);
+      log.log(`ADM tx status: ${this.formTxMessage(tx.data.transaction)}.`);
       return {
         status: tx.data.transaction.confirmations > 0 ? true : undefined,
         height: tx.data.transaction.height,

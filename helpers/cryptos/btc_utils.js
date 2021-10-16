@@ -103,7 +103,7 @@ module.exports = class btcCoin extends btcBaseCoin {
     if (cached) {
       return cached;
     }
-    return requestBitcoin('getblockcount').then((result) => {
+    return requestBitcoin('/blocks/tip/height').then((result) => {
       if (utils.isPositiveNumber(result)) {
         this.cache.cacheData('lastBlock', result);
         return result;
@@ -134,10 +134,10 @@ module.exports = class btcCoin extends btcBaseCoin {
    * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
   async getTransaction(txid) {
-    return requestBitcoin('getrawtransaction', [txid, true]).then((result) => {
+    return requestBitcoin(`/tx/${txid}`).then((result) => {
       if (typeof result !== 'object') return undefined;
       const formedTx = this._mapTransaction(result);
-      log.log(`Tx status: ${this.formTxMessage(formedTx)}.`);
+      log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
       return formedTx;
     });
   }
