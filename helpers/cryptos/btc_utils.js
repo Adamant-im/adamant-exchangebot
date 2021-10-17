@@ -4,6 +4,7 @@ const utils = require('../utils');
 
 const btcNode = config.node_BTC[0]; // TODO: health check
 const axios = require('axios');
+const bitcoin = require('bitcoinjs-lib');
 
 const updateFeeRateInterval = 60 * 1000; // Update fee rate every minute
 
@@ -179,6 +180,8 @@ module.exports = class btcCoin extends btcBaseCoin {
 
   /**
    * Retrieves unspents (UTXO)
+   * It's for bitcoinjs-lib's deprecated TransactionBuilder
+   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
    * @override
    * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
    */
@@ -186,23 +189,53 @@ module.exports = class btcCoin extends btcBaseCoin {
     return requestBitcoin(`/address/${this.address}/utxo`).then((outputs) =>
       outputs.map((x) => ({ txid: x.txid, amount: x.value, vout: x.vout })),
     );
+  }
 
-    return requestBitcoin(`/address/${this.address}/utxo`).then(async (result) => {
-      if (!Array.isArray(result)) return undefined;
-      // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
-      // We need raw Tx as nonWitnessUtxo for every input (unspent)
-      let fullTx;
-      for (const tx of result) {
-        fullTx = await this.getTransaction(tx.txid);
-        tx.hex = fullTx && fullTx.hex ? fullTx.hex : undefined;
+  /**
+   * Creates a raw BTC-based transaction as a hex string.
+   * We override base method, as it uses Psbt
+   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
+   * @override
+   * @param {string} address target address
+   * @param {number} amount amount to send
+   * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transaction to use as inputs
+   * @param {number} fee transaction fee in BTC
+   * @return {string}
+   */
+  _buildTransaction(address, amount, unspents, fee) {
+    try {
+      const amountInSat = this.toSat(amount);
+      const target = amountInSat + this.toSat(fee);
+      const txb = new bitcoin.TransactionBuilder(this.account.network);
+      txb.setVersion(1);
+
+      let transferAmount = 0;
+      let inputs = 0;
+      unspents.forEach((tx) => {
+        const amt = Math.floor(tx.amount);
+        if (transferAmount < target) {
+          txb.addInput(tx.txid, tx.vout);
+          transferAmount += amt;
+          inputs++;
+        }
+      });
+
+      txb.addOutput(bitcoin.address.toOutputScript(address, this.account.network), amountInSat);
+      // This is a necessary step
+      // If we'll not add a change to output, it will burn in hell
+      const change = transferAmount - target;
+      if (utils.isPositiveNumber(change)) {
+        txb.addOutput(this.address, change);
       }
-      return result.map((tx) => ({
-        hash: tx.txid,
-        amount: tx.satoshis, // to calc transferAmount in _buildTransaction()
-        index: tx.outputIndex,
-        nonWitnessUtxo: Buffer.from(tx.hex, 'hex'),
-      }));
-    });
+
+      for (let i = 0; i < inputs; ++i) {
+        txb.sign(i, this.account.keyPair);
+      }
+
+      return txb.build().toHex();
+    } catch (e) {
+      log.warn(`Error while building Tx to send ${amount} ${this.token} to ${address} with ${fee} ${this.token} fee in _buildTransaction() of ${utils.getModuleName(module.id)} module: ` + e);
+    }
   }
 
   /**
@@ -248,16 +281,15 @@ module.exports = class btcCoin extends btcBaseCoin {
  * @return {*} Request results or undefined
  */
 function requestBitcoin(endpoint, params) {
-  // console.log('btc request', endpoint, params);
   const httpOptions = {
     url: btcNode + endpoint,
-    method: params ? 'post' : 'get',
+    method: params ? 'post' : 'get', // Only post requests to Bitcoin node have params
+    data: params,
   };
-  return axios(httpOptions, params)
+
+  return axios(httpOptions)
       .then((response) => {
-        // console.log('btc response', response);
         response = formatRequestResults(response, true);
-        // console.log('btc formatted response', response);
         if (response.success) {
           return response.data;
         } else {
