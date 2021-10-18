@@ -1,6 +1,6 @@
 {
   "name": "adamant-exchangebot",
-  "version": "2.0.1",
+  "version": "2.2.0",
   "description": "ADAMANT anonymous Exchange bot",
   "main": "index.js",
   "scripts": {
@@ -32,7 +32,9 @@
     "usds",
     "stably",
     "dash",
-    "InstantSend"
+    "InstantSend",
+    "bnb",
+    "binance coin"
   ],
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
