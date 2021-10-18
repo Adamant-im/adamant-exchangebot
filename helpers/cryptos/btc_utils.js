@@ -267,7 +267,9 @@ module.exports = class btcCoin extends btcBaseCoin {
     mapped.amount = this.fromSat(mapped.amount);
     mapped.fee = this.fromSat(mapped.fee);
     mapped.height = tx.status.block_height;
-    mapped.status = tx.status.confirmed;
+    if (tx.status.confirmed) { // if confirmed: false, it doesn't mean tx failed
+      mapped.status = tx.status.confirmed;
+    }
 
     return mapped;
   }
