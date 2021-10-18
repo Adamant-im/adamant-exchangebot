@@ -54,7 +54,7 @@ module.exports = class admCoin extends baseCoin {
    * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
    */
   async getBalance() {
-    const cached = this.cache.getData('balance');
+    const cached = this.cache.getData('balance', true);
     if (cached) {
       return utils.satsToADM(cached);
     }
@@ -73,7 +73,11 @@ module.exports = class admCoin extends baseCoin {
    * @return {Number} cached value; it may be undefined
    */
   get balance() {
-    return utils.satsToADM(this.cache.getData('balance'));
+    try {
+      return utils.satsToADM(this.cache.getData('balance'), false);
+    } catch (e) {
+      log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
   }
 
   /**
