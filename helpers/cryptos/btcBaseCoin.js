@@ -18,6 +18,10 @@ module.exports = class btcBaseCoin extends baseCoin {
     this.account.address = this.account.keys.address;
     this.account.privateKey = this.account.keys.privateKey;
     setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
+    setTimeout(() => this.getLastBlockHeight().then((lastBlockHeight) => log.log(`Last ${this.token} block height: ${utils.isPositiveOrZeroNumber(lastBlockHeight) ? lastBlockHeight : 'unable to receive'}`)), 1000);
+
+    // setTimeout(() => this.getUnspents().then((unspends) => log.log(`Unspends for ${this.token}: ${unspends}`)), 1000);
+    // setTimeout(() => this.getTransaction('48fa6e3f93adf74dfa1256a6846090e8ef7a95a8fe70ee6d13c6c1b3861cd8e2'), 1000); //.then((tx) => log.log(`Last ${this.token} block height: ${utils.isPositiveOrZeroNumber(tx) ? tx : 'unable to receive'}`)), 1000);
   }
 
   /**
@@ -317,7 +321,7 @@ module.exports = class btcBaseCoin extends baseCoin {
         recipientId = `${recipients.length} addresses`;
       }
 
-      // Calculate amount from outputs:
+      // Calculate amount from outputs (works only if 1 recipient, other way it returns 0):
       const amount = tx.vout.reduce((sum, t) =>
         (recipientId === t.scriptPubKey.addresses[0] ? sum + Number(t.value) : sum), 0).toFixed(this.decimals);
 
