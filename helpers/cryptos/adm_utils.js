@@ -74,7 +74,7 @@ module.exports = class admCoin extends baseCoin {
    */
   get balance() {
     try {
-      return utils.satsToADM(this.cache.getData('balance'), false);
+      return utils.satsToADM(this.cache.getData('balance', false));
     } catch (e) {
       log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
