@@ -315,7 +315,7 @@ function formatRequestResults(response, isRequestSuccess) {
   results.details = {};
 
   if (isRequestSuccess) {
-    results.success = response.data && !response.data.error;
+    results.success = (response.data !== undefined) && !response.data.error;
     results.data = response.data;
     results.details.status = response.status;
     results.details.statusText = response.statusText;
