@@ -2,20 +2,21 @@ const config = require('../../modules/configReader');
 const log = require('../log');
 const utils = require('../utils');
 
-const dashNode = config.node_DASH[0]; // TODO: health check
+const dogeNode = config.node_DOGE[0]; // TODO: health check
 const axios = require('axios');
+const bitcoin = require('bitcoinjs-lib');
 
 const btcBaseCoin = require('./btcBaseCoin');
-module.exports = class dashCoin extends btcBaseCoin {
+module.exports = class dogeCoin extends btcBaseCoin {
 
   constructor(token) {
     super(token);
-    this.cache.balance = { lifetime: 60000 };
-    this.cache.lastBlock = { lifetime: 90000 };
+    this.cache.balance = { lifetime: 30000 };
+    this.cache.lastBlock = { lifetime: 60000 };
   }
 
   /**
-   * Returns DASH decimals (precision)
+   * Returns DOGE decimals (precision)
    * @override
    * @return {Number}
    */
@@ -24,15 +25,15 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns fixed fee for transfers
+   * Returns fixed tx fee
    * @return {Number}
    */
   get FEE() {
-    return 0.0001;
+    return 1;
   }
 
   /**
-   * Returns balance in DASH from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * Returns balance in DOGE from cache, if it's up to date. If not, makes an API request and updates cached data.
    * @override
    * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
    */
@@ -40,12 +41,12 @@ module.exports = class dashCoin extends btcBaseCoin {
     try {
 
       const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a duffs string or number
+      if (cached) { // balance is a number in sat
         return this.fromSat(cached);
       }
-      let balance = await requestDash('getaddressbalance', [this.address]);
-      if (balance && (balance.balance !== undefined)) {
-        balance = balance.balance;
+
+      const balance = await requestDoge(`/api/addr/${this.address}/balance`);
+      if (balance !== undefined) {
         this.cache.cacheData('balance', balance);
         return this.fromSat(balance);
       } else {
@@ -60,7 +61,7 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns balance in DASH from cache. It may be outdated.
+   * Returns balance in DOGE from cache. It may be outdated.
    * @override
    * @return {Number} cached value; it may be undefined
    */
@@ -73,9 +74,9 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Updates DASH balance in cache. Useful when we don't want to wait for network update.
+   * Updates DOGE balance in cache. Useful when we don't want to wait for network update.
    * @override
-   * @param {Number} value New balance in DASH
+   * @param {Number} value New balance in DOGE
    */
   set balance(value) {
     try {
@@ -88,7 +89,7 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns last block of DASH blockchain from cache, if it's up to date.
+   * Returns last block of DOGE blockchain from cache, if it's up to date.
    * If not, makes an API request and updates cached data.
    * Used only for this.getLastBlockHeight()
    * @override
@@ -99,10 +100,10 @@ module.exports = class dashCoin extends btcBaseCoin {
     if (cached) {
       return cached;
     }
-    return requestDash('getblockcount').then((result) => {
-      if (utils.isPositiveNumber(result)) {
-        this.cache.cacheData('lastBlock', result);
-        return result;
+    return requestDoge('/api/status').then((result) => {
+      if (result && result.info && utils.isPositiveNumber(result.info.blocks)) {
+        this.cache.cacheData('lastBlock', result.info.blocks);
+        return result.info.blocks;
       } else {
         log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + result);
       }
@@ -110,7 +111,7 @@ module.exports = class dashCoin extends btcBaseCoin {
   }
 
   /**
-   * Returns last block height of DASH blockchain
+   * Returns last block height of DOGE blockchain
    * @override
    * @return {Number} or undefined, if unable to get block info
    */
@@ -130,7 +131,8 @@ module.exports = class dashCoin extends btcBaseCoin {
    * Not used, additional info: hash (already known), blockId, fee, recipients, senders
    */
   async getTransaction(txid, disableLogging = false) {
-    return requestDash('getrawtransaction', [txid, true]).then((result) => {
+    return requestDoge(`/api/tx/${txid}`).then((result) => {
+
       if (typeof result !== 'object') return undefined;
       const formedTx = this._mapTransaction(result);
       if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
@@ -140,59 +142,104 @@ module.exports = class dashCoin extends btcBaseCoin {
 
   /**
    * Retrieves unspents (UTXO)
+   * It's for bitcoinjs-lib's deprecated TransactionBuilder
+   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
    * @override
    * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
    */
   getUnspents() {
-    return requestDash('getaddressutxos', [this.address]).then(async (result) => {
-      if (!Array.isArray(result)) return undefined;
-      // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
-      // We need raw Tx as nonWitnessUtxo for every input (unspent)
-      let fullTx;
-      for (const tx of result) {
-        fullTx = await this.getTransaction(tx.txid, true);
-        tx.hex = fullTx && fullTx.hex ? fullTx.hex : undefined;
-      }
-      return result.map((tx) => ({
-        hash: tx.txid,
-        amount: tx.satoshis, // to calc transferAmount in _buildTransaction()
-        index: tx.outputIndex,
-        nonWitnessUtxo: Buffer.from(tx.hex, 'hex'),
-      }));
-    });
+    return requestDoge(`/api/addr/${this.address}/utxo?noCache=1`).then((outputs) =>
+      outputs.map((tx) => ({
+        ...tx,
+        amount: this.toSat(tx.amount),
+      })),
+    );
   }
 
   /**
-   * Broadcasts the specified transaction to the DASH network
+   * Creates a raw BTC-based transaction as a hex string.
+   * We override base method, as it uses Psbt
+   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
+   * @override
+   * @param {string} address target address
+   * @param {number} amount amount to send
+   * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transaction to use as inputs
+   * @param {number} fee transaction fee in DOGE
+   * @return {string}
+   */
+  _buildTransaction(address, amount, unspents, fee) {
+    try {
+      const amountInSat = this.toSat(amount);
+      const target = amountInSat + this.toSat(fee);
+      const txb = new bitcoin.TransactionBuilder(this.account.network);
+      txb.setVersion(1);
+
+      let transferAmount = 0;
+      let inputs = 0;
+      unspents.forEach((tx) => {
+        const amt = Math.floor(tx.amount);
+        if (transferAmount < target) {
+          txb.addInput(tx.txid, tx.vout);
+          transferAmount += amt;
+          inputs++;
+        }
+      });
+
+      txb.addOutput(bitcoin.address.toOutputScript(address, this.account.network), amountInSat);
+      // This is a necessary step
+      // If we'll not add a change to output, it will burn in hell
+      const change = transferAmount - target;
+      if (utils.isPositiveNumber(change)) {
+        txb.addOutput(this.address, change);
+      }
+
+      for (let i = 0; i < inputs; ++i) {
+        txb.sign(i, this.account.keyPair);
+      }
+
+      return txb.build().toHex();
+    } catch (e) {
+      log.warn(`Error while building Tx to send ${amount} ${this.token} to ${address} with ${fee} ${this.token} fee in _buildTransaction() of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
+
+  /**
+   * Broadcasts the specified transaction to the DOGE network
    * @override
    * @param {string} txHex raw transaction as a HEX literal
    */
   sendTransaction(txHex) {
-    return requestDash('sendrawtransaction', [txHex]).then((txid) => {
-      return txid;
+    return requestDoge('/api/tx/send', { rawtx: txHex }).then((data) => {
+      return data.txid;
     });
   }
 
 };
 
 /**
- * Makes a POST request to Dash node. Internal function.
- * @param {string} method Endpoint name
+ * Makes a GET request to Doge node. Internal function.
+ * @param {string} endpoint Endpoint name
  * @param {*} params Endpoint params
  * @return {*} Request results or undefined
  */
-function requestDash(method, params) {
-  return axios.post(dashNode, { method, params })
+function requestDoge(endpoint, params) {
+  const httpOptions = {
+    url: dogeNode + endpoint,
+    method: params ? 'post' : 'get', // Only post requests to Doge node have params
+    data: params,
+  };
+
+  return axios(httpOptions)
       .then((response) => {
         response = formatRequestResults(response, true);
         if (response.success) {
-          return response.data.result;
+          return response.data;
         } else {
-          log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
+          log.warn(`Request to ${endpoint} RPC returned an error: ${response.errorMessage}.`);
         }
       })
       .catch(function(error) {
-        log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
+        log.warn(`Request to ${endpoint} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
       });
 }
 

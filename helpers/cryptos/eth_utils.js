@@ -161,7 +161,7 @@ module.exports = class ethCoin extends baseCoin {
       } else {
         balance = await eth.getBalance(this.account.address);
       }
-      if (balance) {
+      if (balance !== undefined) {
         this.cache.cacheData('balance', balance);
         return this.fromSat(balance);
       } else {
