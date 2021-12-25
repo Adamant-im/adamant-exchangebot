@@ -204,10 +204,11 @@ async function test(params, tx) {
 
   if (tx) {
     const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
-    if (userDailyValue >= config.daily_limit_usd) {
-      return `You have exceeded maximum daily volume of *${config.daily_limit_usd}* USD. Come back tomorrow.`;
-    } else if (userDailyValue + usdEqual >= config.daily_limit_usd) {
-      return `This exchange will exceed maximum daily volume of *${config.daily_limit_usd}* USD. Exchange less coins.`;
+    const userDailyLimit = config['daily_limit_usd_' + outCurrency] || undefined; // 0 is 'undefined', means no limit
+    if (userDailyValue >= userDailyLimit) {
+      return `You have exceeded maximum daily volume of *${userDailyLimit}* USD. Come back tomorrow.`;
+    } else if (userDailyValue + usdEqual >= userDailyLimit) {
+      return `This exchange will exceed maximum daily volume of *${userDailyLimit}* USD. Exchange less coins.`;
     }
   }
 
