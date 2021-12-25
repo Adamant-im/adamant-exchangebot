@@ -101,7 +101,7 @@ module.exports = async (tx) => {
   let msgSendBack; let msgNotify;
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 
-  if (decryptedMessage.toLowerCase() === 'deposit') {
+  if (decryptedMessage.toLowerCase() === 'deposit' && (decryptedMessage.includes('_transaction') || tx.amount > 0)) {
     await itx.update({ isDeposit: true, isProcessed: true }, true);
     await updateProcessedTx(tx, itx, false);
     msgNotify = `${config.notifyName} got a top-up transfer from ${tx.senderId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
