@@ -31,7 +31,7 @@ module.exports = async (tx) => {
     return;
   };
 
-  log.log(`Processing new incoming transaction ${tx.id} from ${tx.recipientId} via ${tx.height ? 'REST' : 'socket'}…`);
+  log.log(`Processing new incoming transaction ${tx.id} from ${tx.senderId} via ${tx.height ? 'REST' : 'socket'}…`);
 
   let decryptedMessage = '';
   const chat = tx.asset ? tx.asset.chat : '';
@@ -104,7 +104,7 @@ module.exports = async (tx) => {
   if (decryptedMessage.toLowerCase() === 'deposit') {
     await itx.update({ isDeposit: true, isProcessed: true }, true);
     await updateProcessedTx(tx, itx, false);
-    msgNotify = `${config.notifyName} got a top-up transfer from ${tx.recipientId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
+    msgNotify = `${config.notifyName} got a top-up transfer from ${tx.senderId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
     msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
     notify(msgNotify, 'info');
     api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
