@@ -231,6 +231,20 @@ async function test(params, tx) {
     return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. ${etherString}Check my balances with **/balances** command.`;
   }
 
+  // Calculating min and max price to buy and sell
+  const inCurrencyPriceUsd = exchangerUtils.getRate(inCurrency, 'USD');
+  const outCurrencyPriceUsd = exchangerUtils.getRate(outCurrency, 'USD');
+  const maxInCurrencyBuyPriceUsd = config['max_buy_price_usd_' + inCurrency];
+  const minOutCurrencySellPriceUsd = config['min_sell_price_usd_' + outCurrency];
+
+  if (maxInCurrencyBuyPriceUsd && inCurrencyPriceUsd > maxInCurrencyBuyPriceUsd) { // Check for 'max_buy_price_usd'
+    return `${inCurrency} rate currently is ${inCurrencyPriceUsd} USD and it's too high. I'll abstain from buying it now because of a possible rates fluctuation. Try again later.`;
+  }
+
+  if (minOutCurrencySellPriceUsd && outCurrencyPriceUsd < minOutCurrencySellPriceUsd) { // Check for 'min_sell_price_usd'
+    return `${outCurrency} rate currently is ${outCurrencyPriceUsd} USD and it's too low. I'll abstain from selling it now because of a possible rates fluctuation. Try again later.`;
+  }
+
   return `Ok. Let's make a bargain! I’ll give you ~ *${result}* *${outCurrency}* (valid for this moment, depends on market rate). To proceed, send me *${amount}* *${inCurrency}* here In-Chat.`;
 
 }
