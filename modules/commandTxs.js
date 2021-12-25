@@ -41,6 +41,7 @@ module.exports = async (commandMsg, tx, itx) => {
 function help({}, {}, commandFix) {
 
   const specialFees = [];
+  const specialLimits = [];
   let oneSpecialFeeCoin = '';
   let oneSpecialFeeRate = '';
   let feesString = '';
@@ -65,7 +66,21 @@ function help({}, {}, commandFix) {
 
   let result = `I am **online** and ready for a deal. `;
   result += exchangerUtils.iAcceptAndExchangeString + '. ';
-  result += `${feesString}.${minValueString} Your daily exchange limit is *${config.daily_limit_usd}* USD.`;
+  result += `${feesString}.${minValueString}`;
+
+  if (config.daily_limit_show) {
+    result += ` Your daily exchange limit is *${config.daily_limit_usd}* USD`;
+    config.known_crypto.forEach((coin) => {
+      if (config['daily_limit_usd_' + coin] !== config.daily_limit_usd) {
+        specialLimits.push(`${coin}: ${config['daily_limit_usd_' + coin]} USD`);
+      };
+    });
+    if (specialLimits.length) {
+      result += ` (${specialLimits.join(', ')}).`;
+    } else {
+      result += '.';
+    }
+  }
 
   result += `\n\nI understand commands:`;
   result += `\n\n**/rates** — show market rates for specific coin. F. e., */rates ADM*.`;
