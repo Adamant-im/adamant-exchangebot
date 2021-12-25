@@ -134,19 +134,16 @@ module.exports = async (itx, tx, payToUpdate) => {
       // Calculating exchange amount in USD and comparing it to user's daily limit
       pay.inAmountMessageUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', pay.inAmountMessage).outAmount;
       const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
+      const userDailyLimit = config['daily_limit_usd_' + outCurrency] || undefined; // 0 is 'undefined', means no limit
+      log.log(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
+
+      // Calculating min and max price to buy and sell
       const inCurrencyPriceUsd = exchangerUtils.getRate(inCurrency, 'USD');
       const outCurrencyPriceUsd = exchangerUtils.getRate(outCurrency, 'USD');
       const maxInCurrencyBuyPriceUsd = config['max_buy_price_usd_' + inCurrency];
       const minOutCurrencySellPriceUsd = config['min_sell_price_usd_' + outCurrency];
-      log.log(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
-      if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
-        pay.error = 23;
-        pay.needToSendBack = true;
-        pay.isBasicChecksPassed = true;
-        notifyType = 'warn';
-        msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
-        msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. ${sendBackMessage}`;
-      } else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < config.min_value_usd) {
+
+      if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < config.min_value_usd) {
         pay.error = 20;
         pay.needToSendBack = true;
         pay.isBasicChecksPassed = true;
@@ -167,9 +164,16 @@ module.exports = async (itx, tx, payToUpdate) => {
         } else {
           msgSendBack = `I've got _${inAmountMessage}_ _${inCurrency}_ from you. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
         }
+      } else if (userDailyValue + pay.inAmountMessageUsd >= userDailyLimit) {
+        pay.error = 23;
+        pay.needToSendBack = true;
+        pay.isBasicChecksPassed = true;
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${userDailyLimit}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
+        msgSendBack = `You have exceeded maximum daily volume of _${userDailyLimit}_ USD. ${sendBackMessage}`;
       } else if (inCurrency === outCurrency) {
         pay.inUpdateState = 'outCurrency';
-        msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}`;
+        msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
       } else if (!exchangerUtils.isExchanged(outCurrency)) {
         pay.inUpdateState = 'outCurrency';
         msgSendBack = `I don’t accept exchange to _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;

@@ -71,12 +71,13 @@ function help({}, {}, commandFix) {
   if (config.daily_limit_show) {
     result += ` Your daily exchange limit is *${config.daily_limit_usd}* USD`;
     config.known_crypto.forEach((coin) => {
-      if (config['daily_limit_usd_' + coin] !== config.daily_limit_usd) {
-        specialLimits.push(`${coin}: ${config['daily_limit_usd_' + coin]} USD`);
+      const coinDailyLimit = config['daily_limit_usd_' + coin];
+      if (coinDailyLimit !== config.daily_limit_usd) {
+        specialLimits.push(`${coin}: ${coinDailyLimit ? coinDailyLimit + ' USD' : 'no limit' }`);
       };
     });
     if (specialLimits.length) {
-      result += ` (${specialLimits.join(', ')}).`;
+      result += ` (buying ${specialLimits.join(', ')}).`;
     } else {
       result += '.';
     }
