@@ -9,7 +9,6 @@ const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
 const Store = require('./Store');
-const exchangerUtils = require('../helpers/cryptos/exchanger');
 
 const processedTxs = {}; // cache for processed transactions
 
@@ -32,6 +31,8 @@ module.exports = async (tx) => {
   };
 
   log.log(`Processing new incoming transaction ${tx.id} from ${tx.senderId} via ${tx.height ? 'REST' : 'socket'}…`);
+  let msgSendBack; let msgNotify;
+  const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
 
   let decryptedMessage = '';
   const chat = tx.asset ? tx.asset.chat : '';
@@ -50,14 +51,34 @@ module.exports = async (tx) => {
   }
 
   const { paymentsDb } = db;
-  const payToUpdate = await paymentsDb.findOne({
+  let payToUpdate = await paymentsDb.findOne({
     senderId: tx.senderId,
     inUpdateState: { $ne: undefined }, // We suppose only one payment can be in update state
   });
 
   let messageDirective = 'unknown';
   if (payToUpdate) {
-    messageDirective = 'update';
+    if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
+      // Overwrite old transfer (all of them) with a new one
+      (await paymentsDb.find({
+        senderId: tx.senderId,
+        inUpdateState: { $ne: undefined }, // We suppose only one payment can be in update state
+      })).forEach((payment) => {
+        payment.update({ isIngnored: true, isProcessed: true, inUpdateState: undefined }, true);
+      });
+      msgNotify = `${config.notifyName} got a payment, while clarification of ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ expected. The exchanger will forget about previous payment (it may be failed) in behalf of new one. A user may contact you. ${admTxDescription}.`;
+      msgSendBack = `I've expected you to clarify ${payToUpdate.inUpdateState}, but got a payment. I’ll forget previous transfer of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ in behalf of new one. If it’s not what you meant, contact my master.`;
+      notify(msgNotify, 'warn');
+      api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
+        if (!response.success) {
+          log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
+        }
+      });
+      messageDirective = 'exchange';
+      payToUpdate = undefined;
+    } else {
+      messageDirective = 'update';
+    }
   } else if (decryptedMessage.includes('_transaction') || tx.amount > 0) {
     messageDirective = 'exchange';
   } else if (decryptedMessage.startsWith('/')) {
@@ -98,29 +119,12 @@ module.exports = async (tx) => {
     commandFix,
   });
 
-  let msgSendBack; let msgNotify;
-  const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx.id} from ${tx.senderId}`;
-
   if (decryptedMessage.toLowerCase() === 'deposit' && (decryptedMessage.includes('_transaction') || tx.amount > 0)) {
     await itx.update({ isDeposit: true, isProcessed: true }, true);
     await updateProcessedTx(tx, itx, false);
     msgNotify = `${config.notifyName} got a top-up transfer from ${tx.senderId}. The exchanger will not validate it, do it manually. ${admTxDescription}.`;
     msgSendBack = `I've got a top-up transfer from you. Thanks, bro.`;
     notify(msgNotify, 'info');
-    api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
-      if (!response.success) {
-        log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
-      }
-    });
-    return;
-  }
-
-  if (payToUpdate && (decryptedMessage.includes('_transaction') || tx.amount > 0)) {
-    await itx.update({ isIngnored: true, isProcessed: true }, true);
-    await updateProcessedTx(tx, itx, false);
-    msgNotify = `${config.notifyName} got a payment, while clarification of ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ expected. **Attention needed**. The exchanger will not validate this payment, do it manually. ${admTxDescription}.`;
-    msgSendBack = `I've expected you to clarify ${payToUpdate.inUpdateState}, but got a payment. I’ve notified my master to send this payment back to you. And still waiting for ${payToUpdate.inUpdateState} from you to process the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_: ${await exchangerUtils.getExchangedCryptoList(payToUpdate.inCurrency)}.`;
-    notify(msgNotify, 'error');
     api.sendMessage(config.passPhrase, tx.senderPublicKey, msgSendBack).then((response) => {
       if (!response.success) {
         log.warn(`Failed to send ADM message '${msgSendBack}' to ${tx.senderPublicKey}. ${response.errorMessage}.`);
