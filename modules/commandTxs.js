@@ -8,7 +8,7 @@ const api = require('./api');
 module.exports = async (commandMsg, tx, itx) => {
   try {
 
-    log.log(`Processing '${commandMsg}' command from ${tx.recipientId} (transaction ${tx.id})…`);
+    log.log(`Processing '${commandMsg}' command from ${tx.senderId} (transaction ${tx.id})…`);
     const group = commandMsg
         .trim()
         .replace(/    /g, ' ')
@@ -34,13 +34,14 @@ module.exports = async (commandMsg, tx, itx) => {
 
   } catch (e) {
     tx = tx || {};
-    log.error(`Error while processing ${commandMsg} command from ${tx.recipientId} (transaction ${tx.id}). Error: ${e.toString()}`);
+    log.error(`Error while processing ${commandMsg} command from ${tx.senderId} (transaction ${tx.id}). Error: ${e.toString()}`);
   }
 };
 
 function help({}, {}, commandFix) {
 
   const specialFees = [];
+  const specialLimits = [];
   let oneSpecialFeeCoin = '';
   let oneSpecialFeeRate = '';
   let feesString = '';
@@ -65,7 +66,22 @@ function help({}, {}, commandFix) {
 
   let result = `I am **online** and ready for a deal. `;
   result += exchangerUtils.iAcceptAndExchangeString + '. ';
-  result += `${feesString}.${minValueString} Your daily exchange limit is *${config.daily_limit_usd}* USD.`;
+  result += `${feesString}.${minValueString}`;
+
+  if (config.daily_limit_show) {
+    result += ` Your daily exchange limit is *${config.daily_limit_usd}* USD`;
+    config.known_crypto.forEach((coin) => {
+      const coinDailyLimit = config['daily_limit_usd_' + coin];
+      if (coinDailyLimit !== config.daily_limit_usd) {
+        specialLimits.push(`${coin}: ${coinDailyLimit ? coinDailyLimit + ' USD' : 'no limit' }`);
+      };
+    });
+    if (specialLimits.length) {
+      result += ` (buying ${specialLimits.join(', ')}).`;
+    } else {
+      result += '.';
+    }
+  }
 
   result += `\n\nI understand commands:`;
   result += `\n\n**/rates** — show market rates for specific coin. F. e., */rates ADM*.`;
@@ -188,10 +204,11 @@ async function test(params, tx) {
 
   if (tx) {
     const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
-    if (userDailyValue >= config.daily_limit_usd) {
-      return `You have exceeded maximum daily volume of *${config.daily_limit_usd}* USD. Come back tomorrow.`;
-    } else if (userDailyValue + usdEqual >= config.daily_limit_usd) {
-      return `This exchange will exceed maximum daily volume of *${config.daily_limit_usd}* USD. Exchange less coins.`;
+    const userDailyLimit = config['daily_limit_usd_' + outCurrency] || undefined; // 0 is 'undefined', means no limit
+    if (userDailyValue >= userDailyLimit) {
+      return `You have exceeded maximum daily volume of *${userDailyLimit}* USD. Come back tomorrow.`;
+    } else if (userDailyValue + usdEqual >= userDailyLimit) {
+      return `This exchange will exceed maximum daily volume of *${userDailyLimit}* USD. Exchange less coins.`;
     }
   }
 
@@ -212,6 +229,20 @@ async function test(params, tx) {
 
   if (isNotEnoughBalance) {
     return `I have not enough coins to send *${result}* *${outCurrency}* for exchange. ${etherString}Check my balances with **/balances** command.`;
+  }
+
+  // Calculating min and max price to buy and sell
+  const inCurrencyPriceUsd = exchangerUtils.getRate(inCurrency, 'USD');
+  const outCurrencyPriceUsd = exchangerUtils.getRate(outCurrency, 'USD');
+  const maxInCurrencyBuyPriceUsd = config['max_buy_price_usd_' + inCurrency];
+  const minOutCurrencySellPriceUsd = config['min_sell_price_usd_' + outCurrency];
+
+  if (maxInCurrencyBuyPriceUsd && inCurrencyPriceUsd > maxInCurrencyBuyPriceUsd) { // Check for 'max_buy_price_usd'
+    return `${inCurrency} rate currently is ${inCurrencyPriceUsd} USD and it's too high. I'll abstain from buying it now because of a possible rates fluctuation. Try again later.`;
+  }
+
+  if (minOutCurrencySellPriceUsd && outCurrencyPriceUsd < minOutCurrencySellPriceUsd) { // Check for 'min_sell_price_usd'
+    return `${outCurrency} rate currently is ${outCurrencyPriceUsd} USD and it's too low. I'll abstain from selling it now because of a possible rates fluctuation. Try again later.`;
   }
 
   return `Ok. Let's make a bargain! I’ll give you ~ *${result}* *${outCurrency}* (valid for this moment, depends on market rate). To proceed, send me *${amount}* *${inCurrency}* here In-Chat.`;

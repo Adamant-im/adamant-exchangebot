@@ -1,6 +1,6 @@
 {
   "name": "adamant-exchangebot",
-  "version": "2.3.0",
+  "version": "2.3.3",
   "description": "ADAMANT anonymous Exchange bot",
   "main": "index.js",
   "scripts": {
@@ -26,9 +26,7 @@
     "crypto",
     "cryptocurrency",
     "bit-z",
-    "resfinex",
     "btc",
-    "res",
     "usds",
     "stably",
     "dash",

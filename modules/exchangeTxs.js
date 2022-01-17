@@ -53,7 +53,7 @@ module.exports = async (itx, tx, payToUpdate) => {
       log.log(`Updating ${pay.inUpdateState} for an exchange of ${inAmountMessage} ${inCurrency}… ${admTxDescription}.`);
       pay.inUpdateState = undefined;
     } else {
-      log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency ? outCurrency : 'NOT_SET'}… ${admTxDescription}.`);
+      log.log(`Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency || '{ Not set yet }'}… ${admTxDescription}.`);
       inTxidDublicate = await paymentsDb.findOne({ inTxid });
       pay = new paymentsDb({
         _id: tx.id,
@@ -86,33 +86,33 @@ module.exports = async (itx, tx, payToUpdate) => {
       pay.isFinished = true;
       pay.error = 8;
       notifyType = 'error';
-      msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_ with Tx ID _${inTxid}_ is wrong. ADM message: ${msg}. Will ignore this transaction. ${admTxDescription}.`;
+      msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_ with Tx ID _${inTxid}_ is wrong. ADM message: ${msg}. Will ignore this transaction. ${admTxDescription}.`;
       msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is wrong, it will not be processed. If you think it’s a mistake, contact my master.`;
     } else if (inTxidDublicate) {
       pay.isFinished = true;
       pay.error = 1;
       notifyType = 'error';
-      msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
+      msgNotify = `${config.notifyName} thinks transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_ is duplicated. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
       msgSendBack = `I think transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ is duplicated, it will not be processed. If you think it’s a mistake, contact my master.`;
     } else if (!utils.isPositiveNumber(pay.inAmountMessage)) {
       pay.isFinished = true;
       pay.error = 7;
       notifyType = 'error';
-      msgNotify = `${config.notifyName} can't understand _${inAmountMessage}_ amount for _${inCurrency}_. Requested _${outCurrency}_. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
+      msgNotify = `${config.notifyName} can't understand _${inAmountMessage}_ amount for _${inCurrency}_. Requested _${outCurrency || '{ Not set yet }'}_. Tx hash: _${inTxid}_. Will ignore this transaction. ${admTxDescription}.`;
       msgSendBack = `I can't understand _${inAmountMessage}_ amount for _${inCurrency}_. If you think it’s a mistake, contact my master.`;
     } else if (!exchangerUtils.isKnown(inCurrency)) {
       pay.error = 2;
       pay.needHumanCheck = true;
       pay.isFinished = true;
       notifyType = 'error';
-      msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. **Attention needed**. ${admTxDescription}.`;
+      msgNotify = `${config.notifyName} notifies about incoming transfer of unknown crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. **Attention needed**. ${admTxDescription}.`;
       msgSendBack = `I don’t know crypto _${inCurrency}_. I accept ${utils.replaceLastOccurrence(exchangerUtils.acceptedCryptoList, ', ', ' and ')} for exchange. I’ve notified my master to send the payment back to you.`;
     } else if (!exchangerUtils.isAccepted(inCurrency)) {
       pay.error = 5;
       pay.needToSendBack = true;
       pay.isBasicChecksPassed = true;
       notifyType = 'warn';
-      msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+      msgNotify = `${config.notifyName} notifies about incoming transfer of unaccepted crypto: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
       msgSendBack = `I don’t accept _${inCurrency}_. Send me ${utils.replaceLastOccurrence(exchangerUtils.acceptedCryptoList, ', ', ' or ')} for exchange. ${sendBackMessage}`;
     } else if (!exchangerUtils.hasTicker(inCurrency)) {
       if (exchangerUtils.isERC20(inCurrency)) { // Unable to send back, as we can't calc fee in ETH
@@ -120,35 +120,43 @@ module.exports = async (itx, tx, payToUpdate) => {
         pay.needHumanCheck = true;
         pay.isFinished = true;
         notifyType = 'error';
-        msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Incoming transfer: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. **Attention needed**. ${admTxDescription}.`;
+        msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Incoming transfer: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. **Attention needed**. ${admTxDescription}.`;
         msgSendBack = `I don’t have rates of crypto _${inCurrency}_ and unable to send payment back. I’ve notified my master to send the payment back to you.`;
       } else { // We can send payment back
         pay.error = 32;
         pay.needToSendBack = true;
         pay.isBasicChecksPassed = true;
         notifyType = 'warn';
-        msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Requested _${outCurrency}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
+        msgNotify = `${config.notifyName} notifies about unknown rates of incoming crypto _${inCurrency}_. Requested _${outCurrency || '{ Not set yet }'}_. Will try to send payment of _${inAmountMessage}_ _${inCurrency}_ back. ${admTxDescription}.`;
         msgSendBack = `I don’t have rates of crypto _${inCurrency}_. ${sendBackMessage}`;
       }
     } else {
       // Calculating exchange amount in USD and comparing it to user's daily limit
       pay.inAmountMessageUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', pay.inAmountMessage).outAmount;
       const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
+      const userDailyLimit = config['daily_limit_usd_' + outCurrency] || undefined; // 0 is 'undefined', means no limit
       log.log(`User's ${tx.senderId} daily volume is ${userDailyValue} USD.`);
-      if (userDailyValue + pay.inAmountMessageUsd >= config.daily_limit_usd) {
-        pay.error = 23;
-        pay.needToSendBack = true;
-        pay.isBasicChecksPassed = true;
-        notifyType = 'warn';
-        msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${config.daily_limit_usd}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
-        msgSendBack = `You have exceeded maximum daily volume of _${config.daily_limit_usd}_ USD. ${sendBackMessage}`;
-      } else if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < config.min_value_usd) {
+
+      // Calculating min and max price to buy and sell
+      const inCurrencyPriceUsd = exchangerUtils.getRate(inCurrency, 'USD');
+      const outCurrencyPriceUsd = exchangerUtils.getRate(outCurrency, 'USD');
+      const maxInCurrencyBuyPriceUsd = config['max_buy_price_usd_' + inCurrency];
+      const minOutCurrencySellPriceUsd = config['min_sell_price_usd_' + outCurrency];
+
+      if (!utils.isPositiveOrZeroNumber(pay.inAmountMessageUsd) || pay.inAmountMessageUsd < config.min_value_usd) {
         pay.error = 20;
         pay.needToSendBack = true;
         pay.isBasicChecksPassed = true;
         notifyType = 'warn';
-        msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${config.min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+        msgNotify = `${config.notifyName} notifies about incoming transaction below minimum value of _${config.min_value_usd}_ USD: _${inAmountMessage}_ _${inCurrency}_ ~ _${pay.inAmountMessageUsd}_ USD. Requested _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
         msgSendBack = `Exchange value equals _${pay.inAmountMessageUsd}_ USD. I don’t accept exchange crypto below minimum value of _${config.min_value_usd}_ USD. ${sendBackMessage}`;
+      } else if (maxInCurrencyBuyPriceUsd && inCurrencyPriceUsd > maxInCurrencyBuyPriceUsd) { // Check for 'max_buy_price_usd'
+        pay.error = 101;
+        pay.needToSendBack = true;
+        pay.isBasicChecksPassed = true;
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} notifies about incoming transaction to buy ${inCurrency} at a price ${inCurrencyPriceUsd} USD, which is higher than ${maxInCurrencyBuyPriceUsd} USD set in config. Requested _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
+        msgSendBack = `${inCurrency} rate currently is ${inCurrencyPriceUsd} USD and it's too high. I'll abstain from buying it now because of a possible rates fluctuation. Try again later. ${sendBackMessage}`;
       } else if (!exchangerUtils.isKnown(outCurrency)) { // Finally, check outCurrency
         pay.inUpdateState = 'outCurrency';
         if (outCurrency) {
@@ -156,15 +164,29 @@ module.exports = async (itx, tx, payToUpdate) => {
         } else {
           msgSendBack = `I've got _${inAmountMessage}_ _${inCurrency}_ from you. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
         }
+      } else if (userDailyValue + pay.inAmountMessageUsd >= userDailyLimit) {
+        pay.error = 23;
+        pay.needToSendBack = true;
+        pay.isBasicChecksPassed = true;
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} notifies that user _${tx.senderId}_ exceeds daily limit of _${userDailyLimit}_ USD with transfer of _${inAmountMessage} ${inCurrency}_ to _${outCurrency || '{ Not set yet }'}_. Will try to send payment back. ${admTxDescription}.`;
+        msgSendBack = `You have exceeded maximum daily volume of _${userDailyLimit}_ USD. ${sendBackMessage}`;
       } else if (inCurrency === outCurrency) {
         pay.inUpdateState = 'outCurrency';
-        msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}`;
+        msgSendBack = `Not a big deal to exchange _${inCurrency}_ for _${outCurrency}_, but I think you’ve made a request by mistake. Tell me what crypto you want to receive for exchange: ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
       } else if (!exchangerUtils.isExchanged(outCurrency)) {
         pay.inUpdateState = 'outCurrency';
         msgSendBack = `I don’t accept exchange to _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
       } else if (!exchangerUtils.hasTicker(outCurrency)) {
         pay.inUpdateState = 'outCurrency';
         msgSendBack = `I don’t have rates of crypto _${outCurrency}_. You can choose between ${await exchangerUtils.getExchangedCryptoList(inCurrency)}.`;
+      } else if (minOutCurrencySellPriceUsd && outCurrencyPriceUsd < minOutCurrencySellPriceUsd) { // Check for 'min_sell_price_usd'
+        pay.error = 102;
+        pay.needToSendBack = true;
+        pay.isBasicChecksPassed = true;
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} notifies about incoming transaction to sell ${outCurrency} at a price ${outCurrencyPriceUsd} USD, which is lower than ${minOutCurrencySellPriceUsd} USD set in config. Got _${inAmountMessage} ${inCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+        msgSendBack = `${outCurrency} rate currently is ${outCurrencyPriceUsd} USD and it's too low. I'll abstain from selling it now because of a possible rates fluctuation. Try again later. ${sendBackMessage}`;
       }
     }
 
