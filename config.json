@@ -34,7 +34,7 @@
 
   /** List of nodes for Lisk API work **/
   "node_LSK": [
-    "https://lisknode1.adamant.im"
+    "https://lisknode3.adamant.im"
   ],
 
   /** List of nodes for Doge API work **/

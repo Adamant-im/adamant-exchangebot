@@ -37,10 +37,11 @@
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
-    "adamant-api": "1.3.0",
+    "adamant-api": "github:Adamant-im/adamant-api-jsclient#feature/add-lisk",
     "axios": "0.23.0",
     "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.1",
+    "lisk-sdk": "^5.2.1",
     "mongodb": "^4.1.3",
     "web3-eth": "^1.6.0",
     "web3-utils": "^1.6.0"
