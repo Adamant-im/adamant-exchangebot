@@ -37,6 +37,10 @@
     "https://lisknode3.adamant.im"
   ],
 
+   "service_LSK": [
+     "https://liskservice3.adamant.im"
+   ],
+
   /** List of nodes for Doge API work **/
   "node_DOGE": [
     "https://dogenode1.adamant.im"

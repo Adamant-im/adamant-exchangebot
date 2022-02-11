@@ -1,10 +1,11 @@
 const config = require('../../modules/configReader');
 const log = require('../log');
-const lskNode = config.node_LSK[0]; // TODO: health check
 const axios = require('axios');
 const btcBaseCoin = require('./btcBaseCoin');
 const utils = require('../utils');
 
+const lskNode = config.node_LSK[0]; // TODO: health check
+const lskService = config.service_LSK[0];
 
 module.exports = class lskCoin extends btcBaseCoin {
   constructor(token) {
@@ -34,8 +35,16 @@ module.exports = class lskCoin extends btcBaseCoin {
     return 0.00160;
   }
 
+  get multiplier() {
+    return 1e8;
+  }
+
   _get(url, params) {
     return this._getClient().get(url, { params }).then((response) => response.data);
+  }
+
+  _getService(url, params) {
+    return this._getServiceClient().get(url, { params }).then((response) => response.data);
   }
 
   _getClient() {
@@ -43,6 +52,13 @@ module.exports = class lskCoin extends btcBaseCoin {
       this.clients[lskNode] = createClient(lskNode);
     }
     return this.clients[lskNode];
+  }
+
+  _getServiceClient() {
+    if (!this.clients[lskService]) {
+      this.clients[lskService] = createServiceClient(lskService);
+    }
+    return this.clients[lskService];
   }
 
   getHeight() {
@@ -82,7 +98,73 @@ module.exports = class lskCoin extends btcBaseCoin {
     const block = await this.getLastBlock();
     return block ? block : undefined;
   }
+
+  /**
+   * Returns balance in DASH from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * @override
+   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   */
+  async getBalance() {
+    try {
+      const cached = this.cache.getData('balance', true);
+      if (cached) { // balance is a duffs string or number
+        return this.fromSat(cached);
+      }
+      const result = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`, {});
+      if (result && result.data && (result.data.token.balance !== undefined)) {
+        const balance = result.data.token.balance;
+        this.cache.cacheData('balance', balance);
+        return this.fromSat(balance);
+      } else {
+        const balanceErrorMessage = result && result.errorMessage ? ' ' + result.errorMessage : '';
+        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
+        return this.fromSat(this.cache.getData('balance', false));
+      }
+
+    } catch (e) {
+      log.warn(`Error while getting balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
+
+  /**
+   * Returns balance in LSK from cache. It may be outdated.
+   * @override
+   * @return {Number} cached value; it may be undefined
+   */
+  get balance() {
+    try {
+      return this.fromSat(this.cache.getData('balance', false));
+    } catch (e) {
+      log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
+
+  /**
+   * Updates LSK balance in cache. Useful when we don't want to wait for network update.
+   * @override
+   * @param {Number} value New balance in LSK
+   */
+  set balance(value) {
+    try {
+      if (utils.isPositiveOrZeroNumber(value)) {
+        this.cache.cacheData('balance', this.toSat(value));
+      }
+    } catch (e) {
+      log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    }
+  }
 };
+
+function createServiceClient(url) {
+  const client = axios.create({ baseURL: url });
+  client.interceptors.response.use(null, (error) => {
+    if (error.response && Number(error.response.status) >= 500) {
+      console.error(`Request to ${url} failed.`, error);
+    }
+    return Promise.reject(error);
+  });
+  return client;
+}
 
 function createClient(url) {
   const client = axios.create({ baseURL: url });
