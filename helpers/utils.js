@@ -328,4 +328,20 @@ module.exports = {
     return str.slice(0, n) + str.slice(n).replace(searchValue, newValue);
   },
 
+  /**
+   * Converts a bytes array to the respective string representation
+   * @param {Array<number>|Uint8Array} bytes bytes array
+   * @return {string}
+   */
+  bytesToHex(bytes = []) {
+    const hex = [];
+
+    bytes.forEach((b) => {
+      hex.push((b >>> 4).toString(16));
+      hex.push((b & 0xF).toString(16));
+    });
+
+    return hex.join('');
+  },
+
 };

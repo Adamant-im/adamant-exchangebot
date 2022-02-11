@@ -3,6 +3,7 @@ const log = require('../log');
 const axios = require('axios');
 const btcBaseCoin = require('./btcBaseCoin');
 const utils = require('../utils');
+const { transactions, cryptography } = require('lisk-sdk');
 
 const lskNode = config.node_LSK[0]; // TODO: health check
 const lskService = config.service_LSK[0];
@@ -152,6 +153,128 @@ module.exports = class lskCoin extends btcBaseCoin {
     } catch (e) {
       log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
+  }
+  /**
+   * Updates LSK balance in cache. Useful when we don't want to wait for network update.
+   * @override
+   * @param {object} tx LSK transaction
+   * @return {object}
+   */
+  _mapTransaction(tx) {
+    const direction = tx.sender.address.toUpperCase() === this.account.address.toUpperCase() ? 'from' : 'to';
+
+    const mapped = {
+      id: tx.id,
+      hash: tx.id,
+      fee: tx.fee,
+      status: tx.height ? 'CONFIRMED' : 'REGISTERED',
+      data: tx.asset.data,
+      timestamp: tx.block.timestamp,
+      direction,
+      senderId: tx.sender.address,
+      recipientId: tx.asset.recipient.address,
+      amount: tx.asset.amount,
+      confirmations: tx.confirmations,
+      height: tx.height,
+      nonce: tx.nonce,
+      moduleId: tx.moduleAssetId.split(':')[0],
+      assetId: tx.moduleAssetId.split(':')[1],
+      moduleName: tx.moduleAssetName.split(':')[0],
+      assetName: tx.moduleAssetName.split(':')[1],
+    };
+
+    mapped.amount /= this.multiplier;
+    mapped.fee /= this.multiplier;
+    mapped.timestamp = parseInt(mapped.timestamp) * 1000; // timestamp in millis
+
+    return mapped;
+  }
+
+  /** @override */
+  sendTransaction(signedTx) {
+    return this._getClient().post('/api/transactions', signedTx).then((response) => {
+      return response.data.data.transactionId;
+    });
+  }
+
+  get assetSchema() {
+    return {
+      $id: 'lisk/transfer-asset',
+      title: 'Transfer transaction asset',
+      type: 'object',
+      required: ['amount', 'recipientAddress', 'data'],
+      properties: {
+        amount: {
+          dataType: 'uint64',
+          fieldNumber: 1,
+        },
+        recipientAddress: {
+          dataType: 'bytes',
+          fieldNumber: 2,
+          minLength: 20,
+          maxLength: 20,
+        },
+        data: {
+          dataType: 'string',
+          fieldNumber: 3,
+          minLength: 0,
+          maxLength: 64,
+        },
+      },
+    };
+  }
+
+  /**
+   * Creates an LSK-based transaction as an object with specific types
+   * @param {string} address Target address
+   * @param {number} amount to send (coins, not satoshis)
+   * @param {number} fee fee of transaction
+   * @param {number} nonce nonce value
+   * @param {string} data New balance in LSK
+   * @return {object}
+   */
+  _buildTransaction(address, amount, fee, nonce, data = '') {
+    const amountString = transactions.convertLSKToBeddows((+amount).toFixed(this.decimals));
+    const feeString = transactions.convertLSKToBeddows((+fee).toFixed(this.decimals));
+    const nonceString = nonce.toString();
+    const liskTx = {
+      moduleID: this.moduleId,
+      assetID: this.assetId,
+      nonce: BigInt(nonceString),
+      fee: BigInt(feeString),
+      asset: {
+        amount: BigInt(amountString),
+        recipientAddress: cryptography.getAddressFromBase32Address(address),
+        data,
+        // data: 'Sent with ADAMANT Messenger'
+      },
+      signatures: [],
+    };
+    liskTx.senderPublicKey = this.account.keyPair.publicKey;
+    const minFee = Number(transactions.computeMinFee(this.assetSchema, liskTx)) / this.multiplier;
+
+    return { liskTx, minFee };
+  }
+  /**
+   * Returns Tx status and details from the blockchain
+   * @override
+   * @param {String} txid Tx ID to fetch
+   * @param {Boolean}disableLogging
+   * @return {Object}
+   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
+   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
+   * status, confirmations || height
+   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
+   */
+  async getTransaction(txid, disableLogging = false) {
+    return this._getService(`${lskService}/api/v2/transactions/`, { transactionId: txid }).then((result) => {
+      if (typeof result !== 'object') return undefined;
+      if (result && result.data[0]) {
+        const formedTx = this._mapTransaction(result.data[0]);
+        if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
+        return formedTx;
+      }
+    });
   }
 };
 
