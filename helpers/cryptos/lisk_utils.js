@@ -225,6 +225,111 @@ module.exports = class lskCoin extends btcBaseCoin {
   }
 
   /**
+   * Build Tx and broadcasts it
+   * @abstract
+   * @param {object} params try: try number, address: recipient's address, value: amount to send in coins (not satoshis)
+   */
+  async send(params) {
+    let fee = 0;
+    try {
+      fee = this.FEE;
+      const account = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`);
+      const nonce = Number(account.data.sequence.nonce);
+      const result = await this.createTransaction(params.address, params.value, fee, nonce);
+
+      try {
+        if (result) {
+          log.log(`Successfully built Tx ${result.txId} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee: ${result.hex}.`);
+          const hash = await this.sendTransaction(result.hex);
+          try {
+            if (hash) {
+              log.log(`Successfully broadcasted Tx to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee, Tx hash: ${hash}.`);
+              return {
+                success: true,
+                hash,
+              };
+            }
+            return {
+              success: false,
+              error: `Unable to broadcast Tx, it may be dust amount or other error`,
+            };
+          } catch (e) {
+            return {
+              success: false,
+              error: e.toString(),
+            };
+          }
+        }
+        return {
+          success: false,
+          error: `Unable to create Tx hex, it may be no unspents retrieved`,
+        };
+      } catch (e) {
+        return {
+          success: false,
+          error: e.toString(),
+        };
+      }
+    } catch (e) {
+      log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee in send() of ${utils.getModuleName(module.id)} module: ` + e);
+      return {
+        success: false, error: e.toString(),
+      };
+    }
+  }
+  /**
+   * Get asset Id
+   * @return {number}
+   */
+  get assetId() {
+    return 0;
+  }
+  /**
+   * Get Token/Send module Id
+   * @return {number}
+   */
+  get moduleId() {
+    return 2;
+  }
+  get networkIdentifier() {
+    // Testnet: '15f0dacc1060e91818224a94286b13aa04279c640bd5d6f193182031d133df7c'
+    // Mainnet: '4c09e6a781fc4c7bdb936ee815de8f94190f8a7519becd9de2081832be309a99'
+    const networkIdentifier = '4c09e6a781fc4c7bdb936ee815de8f94190f8a7519becd9de2081832be309a99';
+    return Buffer.from(networkIdentifier, 'hex');
+  }
+  /**
+   * Creates a transfer transaction hex (signed JSON tx object) and ID
+   * Signed JSON tx object is ready for broadcasting to blockchain network
+   * @override
+   * @param {string} address receiver address in Base32 format
+   * @param {number} amount amount to transfer (coins, not satoshis)
+   * @param {number} fee transaction fee (coins, not satoshis)
+   * @param {number} nonce transaction nonce
+   * @return {Promise<{hex: string, txId: string}>}
+   */
+  createTransaction(address = '', amount = 0, fee, nonce, data = '') {
+    const liskTx = this._buildTransaction(address, amount, fee, nonce, data).liskTx;
+    // To use transactions.signTransaction, passPhrase is necessary
+    // So we'll use cryptography.signDataWithPrivateKey
+    const liskTxBytes = transactions.getSigningBytes(this.assetSchema, liskTx);
+    const txSignature = cryptography.signDataWithPrivateKey(
+        Buffer.concat([this.networkIdentifier, liskTxBytes]), this.account.keyPair.secretKey,
+    );
+
+    liskTx.signatures[0] = txSignature;
+    const txId = utils.bytesToHex(cryptography.hash(transactions.getBytes(this.assetSchema, liskTx)));
+
+    // To send Tx to node's core API, we should change data types
+    liskTx.senderPublicKey = utils.bytesToHex(liskTx.senderPublicKey);
+    liskTx.nonce = nonce.toString();
+    liskTx.fee = transactions.convertLSKToBeddows((+fee).toFixed(this.decimals));
+    liskTx.asset.amount = transactions.convertLSKToBeddows((+amount).toFixed(this.decimals));
+    liskTx.asset.recipientAddress = utils.bytesToHex(liskTx.asset.recipientAddress);
+    liskTx.signatures[0] = utils.bytesToHex(txSignature);
+    return Promise.resolve({ hex: liskTx, txId });
+  }
+
+  /**
    * Creates an LSK-based transaction as an object with specific types
    * @param {string} address Target address
    * @param {number} amount to send (coins, not satoshis)
