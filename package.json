@@ -10,7 +10,7 @@
     "start": "node app.js",
     "start:dev": "node app.js dev",
     "clear": "node app.js dev clear_db",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest --rootDir tests --forceExit --testTimeout 30000"
   },
   "keywords": [
     "adm",
@@ -37,8 +37,9 @@
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
-    "adamant-api": "github:Adamant-im/adamant-api-jsclient#feature/add-lisk",
+    "adamant-api": "github:Adamant-im/adamant-api-jsclient#feature/axios",
     "axios": "0.23.0",
+    "axios-mock-adapter": "^1.20.0",
     "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.1",
     "lisk-sdk": "^5.2.1",
@@ -55,7 +56,8 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-import": "^2.25.2",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.1.0"
+    "eslint-plugin-promise": "^5.1.0",
+    "jest": "^27.5.1"
   },
   "repository": {
     "type": "git",

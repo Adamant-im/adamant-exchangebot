@@ -10,8 +10,8 @@
     **/
 
   "node_ADM": [
-    "http://localhost:36666",
     "https://endless.adamant.im",
+    "http://localhost:36666",
     "https://clown.adamant.im",
     "https://bid.adamant.im",
     "https://unusual.adamant.im",
