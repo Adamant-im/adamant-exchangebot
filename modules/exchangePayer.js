@@ -75,6 +75,24 @@ module.exports = async () => {
         return;
       }
 
+      const isMinBalance = exchangerUtils.isMinBalance(outAmount, outCurrency);
+      log.info(`IS MIN BALANCE: ${isMinBalance}`);
+      if (isMinBalance) {
+        pay.update({
+          error: 27,
+          needToSendBack: true,
+        }, true);
+        msgNotify = `${config.notifyName} cannot make transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for _${outAmount}_ _${outCurrency}_. Will try to send payment back. Balance of _${outCurrency}_ is _${exchangerUtils[outCurrency].balance}_. ${etherString}${admTxDescription}.`;
+        msgSendBack = `I can't transfer _${outAmount}_ _${outCurrency}_ to you because transfer amount less than min balance - _${constants.minBalances[outCurrency]}_ _${outCurrency}_. I'll send transfer back to you.`;
+        notify(msgNotify, 'warn');
+        api.sendMessage(config.passPhrase, pay.senderId, msgSendBack).then((response) => {
+          if (!response.success) {
+            log.warn(`Failed to send ADM message '${msgSendBack}' to ${pay.senderId}. ${response.errorMessage}.`);
+          }
+        });
+        return;
+      }
+
       const result = await exchangerUtils[outCurrency].send({
         address: senderKvsOutAddress,
         value: outAmount,

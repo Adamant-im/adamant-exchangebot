@@ -11,7 +11,7 @@ const erc20_utils = require('./erc20_utils');
 const dash_utils = require('./dash_utils');
 const btc_utils = require('./btc_utils');
 const doge_utils = require('./doge_utils');
-const lisk_utils = require('./lisk_utils');
+const lisk_utils = require('./lsk_utils');
 
 module.exports = {
 
@@ -98,7 +98,7 @@ module.exports = {
     if (this.isERC20(coin)) {
       coin = 'ETH';
     }
-    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address' });
+    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address', orderBy: 'timestamp:desc' });
     if (kvsRecords.success) {
       if (kvsRecords.data.transactions.length) {
         return kvsRecords.data.transactions[0].asset.state.value;
@@ -192,6 +192,11 @@ module.exports = {
   hasTicker(coin) { // if coin has ticker like COIN/OTHERCOIN or OTHERCOIN/COIN
     const pairs = Object.keys(this.currencies).toString();
     return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
+  },
+
+  isMinBalance(transferAmount, coin) {
+    const minBalance = constants.minBalances[coin] || 0;
+    return transferAmount <= minBalance;
   },
 
   ETH: new eth_utils('ETH'),

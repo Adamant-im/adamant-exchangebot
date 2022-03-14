@@ -1,3 +1,14 @@
+const Cryptos = {
+  ADM: 'ADM',
+  BTC: 'BTC',
+  ETH: 'ETH',
+  LSK: 'LSK',
+  DOGE: 'DOGE',
+  DASH: 'DASH',
+  USDS: 'USDS',
+  BNB: 'BNB',
+};
+
 module.exports = {
 
   HOUR: 60 * 60 * 1000,
@@ -35,6 +46,12 @@ module.exports = {
     UNABLE_TO_FETCH_SENT_TX: 14,
     SENT_TX_FAILED: 21,
 
+  },
+
+  minBalances: {
+    [Cryptos.LSK]: 0.05,
+    [Cryptos.BTC]: 0.00001,
+    [Cryptos.DASH]: 0.0001,
   },
 
 };
