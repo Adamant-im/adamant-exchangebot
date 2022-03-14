@@ -3,7 +3,7 @@
   /** The exchange bot's secret phrase for concluding transactions.
       Bot's ADAMANT address will correspond this passPhrase.
     **/
-  "passPhrase": "meadow bargain turtle twelve dignity life sure hill custom recall grit shield",
+  "passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwed",
 
   /** List of nodes to fetch transactions.
       API module does a heath check.

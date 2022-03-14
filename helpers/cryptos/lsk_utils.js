@@ -1,6 +1,6 @@
 const config = require('../../modules/configReader');
 const log = require('../log');
-const LskBaseCoin = require('./base_lsk');
+const LskBaseCoin = require('./lskBaseCoin');
 const utils = require('../utils');
 const { transactions, cryptography } = require('lisk-sdk');
 
@@ -13,7 +13,7 @@ module.exports = class lskCoin extends LskBaseCoin {
   }
 
   /**
-   * Returns DASH decimals (precision)
+   * Returns LSK decimals (precision)
    * @override
    * @return {Number}
    */
@@ -60,7 +60,7 @@ module.exports = class lskCoin extends LskBaseCoin {
         });
   }
   /**
-   * Returns last block of DOGE blockchain from cache, if it's up to date.
+   * Returns last block of LSK blockchain from cache, if it's up to date.
    * If not, makes an API request and updates cached data.
    * Used only for this.getLastBlockHeight()
    * @override
@@ -81,7 +81,7 @@ module.exports = class lskCoin extends LskBaseCoin {
   }
 
   /**
-   * Returns last block height of DOGE blockchain
+   * Returns last block height of LSK blockchain
    * @override
    * @return {Number} or undefined, if unable to get block info
    */
@@ -91,25 +91,25 @@ module.exports = class lskCoin extends LskBaseCoin {
   }
 
   /**
-   * Returns balance in DASH from cache, if it's up to date. If not, makes an API request and updates cached data.
+   * Returns balance in LSK from cache, if it's up to date. If not, makes an API request and updates cached data.
    * @override
    * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
    */
   async getBalance() {
     try {
       const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a duffs string or number
-        return this.fromSat(cached);
+      if (cached) { // balance is a beddows string or number
+        return this.fromBeddows(cached);
       }
       const result = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`, {});
       if (result && result.data && (result.data.token.balance !== undefined)) {
         const balance = result.data.token.balance;
         this.cache.cacheData('balance', balance);
-        return this.fromSat(balance);
+        return this.fromBeddows(balance);
       } else {
         const balanceErrorMessage = result && result.errorMessage ? ' ' + result.errorMessage : '';
         log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
-        return this.fromSat(this.cache.getData('balance', false));
+        return this.fromBeddows(this.cache.getData('balance', false));
       }
 
     } catch (e) {
@@ -124,7 +124,7 @@ module.exports = class lskCoin extends LskBaseCoin {
    */
   get balance() {
     try {
-      return this.fromSat(this.cache.getData('balance', false));
+      return this.fromBeddows(this.cache.getData('balance', false));
     } catch (e) {
       log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
@@ -138,20 +138,27 @@ module.exports = class lskCoin extends LskBaseCoin {
   set balance(value) {
     try {
       if (utils.isPositiveOrZeroNumber(value)) {
-        this.cache.cacheData('balance', this.toSat(value));
+        this.cache.cacheData('balance', this.toBeddows(value));
       }
     } catch (e) {
       log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
   }
 
-  /** @override */
+  /**
+   * Send signed transaction to blockchain network
+   * @override
+   * @param {Object} signedTx
+   */
   sendTransaction(signedTx) {
     return this._getClient().post('/api/transactions', signedTx).then((response) => {
       return response.data.data.transactionId;
     });
   }
 
+  /**
+   * Asset schema defines in which format data is sent in the transaction asset
+   */
   get assetSchema() {
     return {
       $id: 'lisk/transfer-asset',
@@ -185,17 +192,16 @@ module.exports = class lskCoin extends LskBaseCoin {
    * @param {object} params try: try number, address: recipient's address, value: amount to send in coins (not satoshis)
    */
   async send(params) {
-    let fee = 0;
+    let fee = this.FEE;
     try {
-      fee = this.FEE;
-      const account = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`);
+      const account = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`, {});
       const nonce = Number(account.data.sequence.nonce);
+      fee = this._buildTransaction(params.address, params.value, fee, nonce).minFee;
       const result = await this.createTransaction(params.address, params.value, fee, nonce);
-
       try {
         if (result) {
-          log.log(`Successfully built Tx ${result.txId} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee: ${result.hex}.`);
-          const hash = await this.sendTransaction(result.hex);
+          log.log(`Successfully built Tx ${result.txId} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee.`);
+          const hash = await this.sendTransaction(result.tx);
           try {
             if (hash) {
               log.log(`Successfully broadcasted Tx to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee, Tx hash: ${hash}.`);
@@ -217,7 +223,7 @@ module.exports = class lskCoin extends LskBaseCoin {
         }
         return {
           success: false,
-          error: `Unable to create Tx hex, it may be no unspents retrieved`,
+          error: `Unable to create Tx`,
         };
       } catch (e) {
         return {
@@ -234,17 +240,17 @@ module.exports = class lskCoin extends LskBaseCoin {
   }
 
   /**
-   * Creates a transfer transaction hex (signed JSON tx object) and ID
+   * Creates a signed tx object and ID
    * Signed JSON tx object is ready for broadcasting to blockchain network
    * @override
    * @param {string} address receiver address in Base32 format
-   * @param {number} amount amount to transfer (coins, not satoshis)
-   * @param {number} fee transaction fee (coins, not satoshis)
+   * @param {number} amount amount to transfer (coins, not beddows)
+   * @param {number} fee transaction fee (coins, not beddows)
    * @param {number} nonce transaction nonce
-   * @return {Promise<{hex: string, txId: string}>}
+   * @return {Promise<{tx: Object, txId: string}>}
    */
   createTransaction(address = '', amount = 0, fee, nonce, data = '') {
-    const liskTx = this._buildTransaction(address, amount, fee, nonce, data).liskTx;
+    const { liskTx } = this._buildTransaction(address, amount, fee, nonce, data);
     // To use transactions.signTransaction, passPhrase is necessary
     // So we'll use cryptography.signDataWithPrivateKey
     const liskTxBytes = transactions.getSigningBytes(this.assetSchema, liskTx);
@@ -262,19 +268,15 @@ module.exports = class lskCoin extends LskBaseCoin {
     liskTx.asset.amount = transactions.convertLSKToBeddows((+amount).toFixed(this.decimals));
     liskTx.asset.recipientAddress = utils.bytesToHex(liskTx.asset.recipientAddress);
     liskTx.signatures[0] = utils.bytesToHex(txSignature);
-    return Promise.resolve({ hex: liskTx, txId });
+    return Promise.resolve({ tx: liskTx, txId });
   }
 
   /**
    * Returns Tx status and details from the blockchain
    * @override
    * @param {String} txid Tx ID to fetch
-   * @param {Boolean}disableLogging
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
-   * status, confirmations || height
-   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
+   * @param {Boolean}disableLogging Disable logging flag
+   * @return {Object} Formed tx
    */
   async getTransaction(txid, disableLogging = false) {
     return this._getService(`${lskService}/api/v2/transactions/`, { transactionId: txid }).then((result) => {
