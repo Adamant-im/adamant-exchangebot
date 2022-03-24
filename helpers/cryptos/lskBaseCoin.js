@@ -77,7 +77,7 @@ module.exports = class LskBaseCoin extends baseCoin {
   }
 
   /**
-   * Get a LSK nodeэы client for a random API endpoint
+   * Get client for a random LSK node
    * @return {Object} Axios client
    */
   _getClient() {
@@ -88,7 +88,7 @@ module.exports = class LskBaseCoin extends baseCoin {
   }
 
   /**
-   * Get a Lisk service client for a random API endpoint
+   * Get client for a random API Lisk service node
    * @return {Object} Axios client
    */
   _getServiceClient() {
