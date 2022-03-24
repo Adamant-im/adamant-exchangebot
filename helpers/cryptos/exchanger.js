@@ -194,7 +194,7 @@ module.exports = {
     return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
   },
 
-  isMinBalance(transferAmount, coin) {
+  isLowerThanMinBalance(transferAmount, coin) {
     const minBalance = constants.minBalances[coin] || 0;
     return transferAmount <= minBalance;
   },
