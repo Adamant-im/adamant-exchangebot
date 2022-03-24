@@ -17,7 +17,7 @@
     "https://unusual.adamant.im",
     "https://debate.adamant.im",
     "http://23.226.231.225:36666",
-    "http://88.198.156.44:36666",
+    "http://5.161.53.74:36666",
     "https://lake.adamant.im"
   ],
 
@@ -34,21 +34,25 @@
 
   /** List of nodes for Lisk API work **/
   "node_LSK": [
-    "https://lisknode3.adamant.im"
+    "https://lisknode3.adamant.im",
+    "https://lisknode4.adamant.im"
   ],
 
    "service_LSK": [
-     "https://liskservice3.adamant.im"
-   ],
+    "https://liskservice3.adamant.im",
+    "https://liskservice4.adamant.im"
+  ],
 
   /** List of nodes for Doge API work **/
   "node_DOGE": [
-    "https://dogenode1.adamant.im"
+    "https://dogenode1.adamant.im",
+    "https://dogenode2.adamant.im"
   ],
 
   /** List of nodes for Bitcoin API work **/
   "node_BTC": [
-    "https://btcnode1.adamant.im"
+    "https://btcnode1.adamant.im",
+    "https://btcnode2.adamant.im"
   ],
 
   /** List of nodes for Dash API work **/
