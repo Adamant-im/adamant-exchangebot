@@ -37,6 +37,8 @@
   "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
+    "@liskhq/lisk-cryptography": "^3.2.0",
+    "@liskhq/lisk-transactions": "^5.2.1",
     "adamant-api": "github:Adamant-im/adamant-api-jsclient#feature/add-lisk",
     "axios": "0.23.0",
     "bitcoinjs-lib": "^5.2.0",

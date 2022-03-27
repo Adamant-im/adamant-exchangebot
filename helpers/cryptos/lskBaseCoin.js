@@ -1,7 +1,8 @@
 const baseCoin = require('./baseCoin');
 const config = require('../../modules/configReader');
 const axios = require('axios');
-const { transactions, cryptography } = require('lisk-sdk');
+const transactions = require('@liskhq/lisk-transactions');
+const cryptography = require('@liskhq/lisk-cryptography');
 const log = require('../log');
 const api = require('../../modules/api');
 const utils = require('../utils');
@@ -15,18 +16,18 @@ module.exports = class LskBaseCoin extends baseCoin {
     super();
     this.token = token;
     this.account.keys = api[token.toLowerCase()].keys(config.passPhrase);
-    this.account.network = this.account.keys.network;
-    this.account.keyPair = this.account.keys.keyPair;
-    this.account.address = this.account.keys.address;
-    this.account.privateKey = this.account.keys.privateKey;
-    this.account.addressHex = this.account.keys.addressHex;
+    this.account = Object.assign(this.account, this.account.keys);
     this.clients = {};
 
     this.cache.balance = { lifetime: 30000 };
     this.cache.lastBlock = { lifetime: 60000 };
 
-    setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
-    setTimeout(() => this.getLastBlockHeight().then((lastBlockHeight) => log.log(`Last ${this.token} block height: ${utils.isPositiveOrZeroNumber(lastBlockHeight) ? lastBlockHeight : 'unable to receive'}`)), 1000);
+    setTimeout(() => this.getBalance().then((balance) =>
+      log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`),
+    ), 1000);
+    setTimeout(() => this.getLastBlockHeight().then((lastBlockHeight) =>
+      log.log(`Last ${this.token} block height: ${utils.isPositiveOrZeroNumber(lastBlockHeight) ? lastBlockHeight : 'unable to receive'}`),
+    ), 1000);
   }
 
   /**

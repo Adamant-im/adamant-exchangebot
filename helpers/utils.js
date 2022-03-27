@@ -336,10 +336,10 @@ module.exports = {
   bytesToHex(bytes = []) {
     const hex = [];
 
-    bytes.forEach((b) => {
-      hex.push((b >>> 4).toString(16));
-      hex.push((b & 0xF).toString(16));
-    });
+    bytes.forEach((b) => hex.push(
+        (b >>> 4).toString(16),
+        (b & 0xF).toString(16),
+    ));
 
     return hex.join('');
   },

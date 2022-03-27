@@ -2,7 +2,8 @@ const config = require('../../modules/configReader');
 const log = require('../log');
 const LskBaseCoin = require('./lskBaseCoin');
 const utils = require('../utils');
-const { transactions, cryptography } = require('lisk-sdk');
+const transactions = require('@liskhq/lisk-transactions');
+const cryptography = require('@liskhq/lisk-cryptography');
 
 const lskNode = config.node_LSK[0]; // TODO: health check
 const lskService = config.service_LSK[0];
@@ -54,10 +55,7 @@ module.exports = class lskCoin extends LskBaseCoin {
     return Buffer.from(networkIdentifier, 'hex');
   }
   getHeight() {
-    return this._get(`${lskNode}/api/node/info`).then(
-        (data) => {
-          return Number(data.data.height) || 0;
-        });
+    return this._get(`${lskNode}/api/node/info`).then((data) => Number(data.data.height) || 0);
   }
   /**
    * Returns last block of LSK blockchain from cache, if it's up to date.
@@ -87,7 +85,7 @@ module.exports = class lskCoin extends LskBaseCoin {
    */
   async getLastBlockHeight() {
     const block = await this.getLastBlock();
-    return block ? block : undefined;
+    return block || undefined;
   }
 
   /**
@@ -103,7 +101,7 @@ module.exports = class lskCoin extends LskBaseCoin {
       }
       const result = await this._get(`${lskNode}/api/accounts/${this.account.addressHex}`, {});
       if (result && result.data && (result.data.token.balance !== undefined)) {
-        const balance = result.data.token.balance;
+        const { balance } = result.data.token;
         this.cache.cacheData('balance', balance);
         return this.fromBeddows(balance);
       } else {
@@ -280,8 +278,7 @@ module.exports = class lskCoin extends LskBaseCoin {
    */
   async getTransaction(txid, disableLogging = false) {
     return this._getService(`${lskService}/api/v2/transactions/`, { transactionId: txid }).then((result) => {
-      if (typeof result !== 'object') return undefined;
-      if (result && result.data[0]) {
+      if (typeof result === 'object' && result.data[0]) {
         const formedTx = this._mapTransaction(result.data[0]);
         if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
         return formedTx;
