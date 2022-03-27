@@ -273,7 +273,7 @@ module.exports = class lskCoin extends LskBaseCoin {
    * Returns Tx status and details from the blockchain
    * @override
    * @param {String} txid Tx ID to fetch
-   * @param {Boolean}disableLogging Disable logging flag
+   * @param {Boolean} disableLogging Disable logging flag
    * @return {Object} Formed tx
    */
   async getTransaction(txid, disableLogging = false) {

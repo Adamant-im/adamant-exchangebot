@@ -11,7 +11,7 @@ const erc20_utils = require('./erc20_utils');
 const dash_utils = require('./dash_utils');
 const btc_utils = require('./btc_utils');
 const doge_utils = require('./doge_utils');
-const lisk_utils = require('./lsk_utils');
+const lsk_utils = require('./lsk_utils');
 
 module.exports = {
 
@@ -194,7 +194,7 @@ module.exports = {
     return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
   },
 
-  isMinBalance(transferAmount, coin) {
+  isLowerThanMinBalance(transferAmount, coin) {
     const minBalance = constants.minBalances[coin] || 0;
     return transferAmount <= minBalance;
   },
@@ -204,7 +204,7 @@ module.exports = {
   DASH: new dash_utils('DASH'),
   BTC: new btc_utils('BTC'),
   DOGE: new doge_utils('DOGE'),
-  LSK: new lisk_utils('LSK'),
+  LSK: new lsk_utils('LSK'),
 
 };
 
