@@ -44,7 +44,6 @@
     "axios": "0.26.1",
     "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.2",
-    "lisk-sdk": "^5.2.1",
     "mongodb": "^4.4.1",
     "web3-eth": "^1.7.1",
     "web3-utils": "^1.7.1"

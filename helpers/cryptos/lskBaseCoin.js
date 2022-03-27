@@ -220,7 +220,7 @@ function createClient(url) {
       console.error(`Request to ${url} failed.`, error);
     }
     if (error.response && Number(error.response.status) === 404) {
-      if (error.response.data && error.response.data.errors && error.response.data.errors[0] && error.response.data.errors[0].message && error.response.data.errors[0].message.includes('was not found')) {
+      if (error.response?.data?.errors[0]?.message && error.response.data.errors[0].message.includes('was not found')) {
         return error.response;
       }
     }
