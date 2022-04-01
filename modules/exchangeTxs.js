@@ -208,6 +208,13 @@ module.exports = async (itx, tx, payToUpdate) => {
         const feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
         msgNotify = `${config.notifyName} notifies about incoming transaction, that doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
         msgSendBack = `_${inAmountMessage}_ _${inCurrency}_ doesn't cover network Tx fee of ${exchangerUtils[outCurrency].FEE} ${feeCurrency}. ${sendBackMessage}`;
+      } else if (exchangerUtils.isLowerThanMinBalance(pay.outAmount, outCurrency)) { // outAmount is lower, than minimum coin balance
+        pay.error = 27;
+        pay.needToSendBack = true;
+        pay.isBasicChecksPassed = true;
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} is unable to send transaction to exchange from _${inAmountMessage}_ _${inCurrency}_ to _${pay.outAmount}_ _${outCurrency}_, as amount is less than minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. Will try to send payment back. ${admTxDescription}.`;
+        msgSendBack = `I can't pass _${pay.outAmount}_ _${outCurrency}_ to you, as amount is less than minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. ${sendBackMessage}`;
       } else { // Transaction is fine
         pay.isBasicChecksPassed = true;
         notifyType = 'log';

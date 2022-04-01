@@ -66,7 +66,7 @@ module.exports = async (pay) => {
       pay.inTxConfirmed = true;
       log.log(`Tx ${pay.inTxid} is confirmed as InstantSend verified. Currently it has ${pay.inConfirmations ? pay.inConfirmations : 0} network confirmations. ${admTxDescription}.`);
     } else {
-      log.log(`Updated Tx ${pay.inTxid} confirmations: ${pay.inConfirmations}. ${admTxDescription}.`);
+      log.log(`Updated Tx ${pay.inTxid} confirmations: ${pay.inConfirmations && pay.inConfirmations >= 0 ? pay.inConfirmations : 0}. ${admTxDescription}.`);
     }
 
     await pay.save();

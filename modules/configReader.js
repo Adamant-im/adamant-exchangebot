@@ -18,6 +18,14 @@ const fields = {
     type: Array,
     isRequired: true,
   },
+  node_LSK: {
+    type: Array,
+    isRequired: true,
+  },
+  service_LSK: {
+    type: Array,
+    isRequired: true,
+  },
   exchange_crypto: {
     type: Array,
     isRequired: true,
