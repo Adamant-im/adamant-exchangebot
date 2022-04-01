@@ -11,6 +11,7 @@ const erc20_utils = require('./erc20_utils');
 const dash_utils = require('./dash_utils');
 const btc_utils = require('./btc_utils');
 const doge_utils = require('./doge_utils');
+const lsk_utils = require('./lsk_utils');
 
 module.exports = {
 
@@ -97,7 +98,7 @@ module.exports = {
     if (this.isERC20(coin)) {
       coin = 'ETH';
     }
-    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address' });
+    const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address', orderBy: 'timestamp:desc' });
     if (kvsRecords.success) {
       if (kvsRecords.data.transactions.length) {
         return kvsRecords.data.transactions[0].asset.state.value;
@@ -193,11 +194,17 @@ module.exports = {
     return pairs.includes(',' + coin + '/') || pairs.includes('/' + coin);
   },
 
+  isLowerThanMinBalance(transferAmount, coin) {
+    const minBalance = constants.minBalances[coin] || 0;
+    return transferAmount <= minBalance;
+  },
+
   ETH: new eth_utils('ETH'),
   ADM: new adm_utils(),
   DASH: new dash_utils('DASH'),
   BTC: new btc_utils('BTC'),
   DOGE: new doge_utils('DOGE'),
+  LSK: new lsk_utils('LSK'),
 
 };
 

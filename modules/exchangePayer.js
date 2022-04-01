@@ -5,6 +5,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const log = require('../helpers/log');
 const notify = require('../helpers/notify');
 const api = require('./api');
+const utils = require('../helpers/utils');
 
 module.exports = async () => {
 
