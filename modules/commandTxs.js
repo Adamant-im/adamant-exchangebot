@@ -84,7 +84,7 @@ function help({}, {}, commandFix) {
   }
 
   if (fixedFees.length) {
-    feesString = ` Fixed rates — ${fixedFees.join(', ')}`;
+    feesString += `. Fixed rates not including fees — ${fixedFees.join(', ')}`;
   }
 
   const minValueString = config.min_value_usd ? ` I accept minimal exchange of *${config.min_value_usd}* USD equivalent.` : '';
