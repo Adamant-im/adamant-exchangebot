@@ -1,6 +1,6 @@
 {
   "name": "adamant-exchangebot",
-  "version": "2.4.3",
+  "version": "2.4.4",
   "description": "ADAMANT anonymous Exchange bot",
   "main": "index.js",
   "scripts": {

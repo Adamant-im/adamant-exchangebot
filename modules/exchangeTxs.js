@@ -218,8 +218,10 @@ module.exports = async (itx, tx, payToUpdate) => {
       } else { // Transaction is fine
         pay.isBasicChecksPassed = true;
         notifyType = 'log';
+
+        // Building a nice informative messages for admin and for user
         let conversionStringNotify = `_${inAmountMessage}_ _${inCurrency}_ (got from user) for **${pay.outAmount}** **${outCurrency}** (to be send to user) at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
-        const conversionStringSendBack = conversionStringNotify;
+        const conversionStringSendBack = `_${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
         const inCurrencyRateInUsd = pay.exchangePrice * exchangerUtils.getRate(outCurrency, 'USD');
         let decimals = inCurrencyRateInUsd < 0.02 ? 4 : 2;
         conversionStringNotify += ` (buying ${inCurrency} at ${inCurrencyRateInUsd.toFixed(decimals)} USD`;
@@ -237,7 +239,7 @@ module.exports = async (itx, tx, payToUpdate) => {
 
         conversionStringNotify += `)`;
         msgNotify = `${config.notifyName} notifies about incoming transaction to exchange ${conversionStringNotify}. Tx hash: _${inTxid}_. ${admTxDescription}.`;
-        msgSendBack = `I’ve got a request to exchange ${conversionStringSendBack}. Now I’ll validate your transfer${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ' and wait for _' + min_confirmations + '_ block confirmations, then'} make an exchange. It can take a time, please be patient.`;
+        msgSendBack = `I’ve got your request to exchange ${conversionStringSendBack}. Now I’ll validate the transaction${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ' and wait for _' + min_confirmations + '_ block confirmations, then'} make an exchange. It can take a time, please be patient.`;
       }
     }
 
