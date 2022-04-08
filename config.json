@@ -103,11 +103,17 @@
   /** If to show limit info in /help command **/
   "daily_limit_show": true,
 
-  /** Maximum price to buy specific coin in USD. Remove the line or set to 0 to disable **/
-  "max_buy_price_usd_ADM": 0.03,
+  /** Maximum price to buy specific coin in USD. Set 0 to disable **/
+  "max_buy_price_usd_ADM": 0,
 
-  /** Minimum price to sell specific coin in USD. Remove the line or set to 0 to disable **/
-  "min_sell_price_usd_ADM": 0.02,
+  /** Minimum price to sell specific coin in USD. Set to 0 to disable **/
+  "min_sell_price_usd_ADM": 0,
+
+  /** Fixed price to buy specific coin in USD. Set to 0 to disable and use market rate. **/
+  "fixed_buy_price_usd_ADM": 0,
+
+  /** Fixed price to sell specific coin in USD. Set to 0 to disable and use market rate. **/
+  "fixed_sell_price_usd_ADM": 0,
 
   /** How many confirmations to consider transaction as accepted **/
   "min_confirmations": 2,

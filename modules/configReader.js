@@ -108,10 +108,12 @@ try {
   config.notifyName = `${config.bot_name} (${config.address})`;
   config.version = require('../package.json').version;
 
-  ['min_confirmations', 'exchange_fee', 'daily_limit_usd', 'max_buy_price_usd', 'min_sell_price_usd'].forEach((param) => {
+  ['min_confirmations', 'exchange_fee', 'daily_limit_usd',
+    'max_buy_price_usd', 'min_sell_price_usd',
+    'fixed_buy_price_usd', 'fixed_sell_price_usd'].forEach((param) => {
     config.known_crypto.forEach((coin) => {
       const field = param + '_' + coin;
-      if (fields[param]) { // 'max_buy_price', 'min_sell_price' don't have default values
+      if (fields[param]) { // some params have default values
         if (!config[field] && config[field] !== 0) {
           config[field] = config[param] || fields[param].default;
         }

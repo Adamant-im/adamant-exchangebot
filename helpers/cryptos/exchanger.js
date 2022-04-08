@@ -38,18 +38,36 @@ module.exports = {
 
   /**
    * Returns rate for from/to
+   * For fixed rates: Assume the bot buys 'from' currency and sell 'to' currency
    * @param {String} from Like 'ADM'
    * @param {String} to Like 'ETH'
    * @return {Number} or NaN or undefined
    */
   getRate(from, to) {
     try {
-      let price = this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from];
-      if (!price) {
-        // We don't have direct or reverse rate, calculate it from /USD rates
-        const priceFrom = this.currencies[from + '/USD'];
-        const priceTo = this.currencies[to + '/USD'];
+      let price; let priceFrom; let priceTo;
+      if (config['fixed_buy_price_usd_' + from] || config['fixed_sell_price_usd_' + to]) {
+        // Calculate at a fixed rate
+        priceFrom = from === 'USD' ? 1 : this.currencies[from + '/USD'];
+        if (config['fixed_buy_price_usd_' + from]) {
+          priceFrom = config['fixed_buy_price_usd_' + from];
+          log.warn(`Used fixed ${from} rate of ${priceFrom} USD instead of market ${this.currencies[from + '/USD']} USD to convert ${from} to ${to} (buying ${from}).`);
+        }
+        priceTo = to === 'USD' ? 1 : this.currencies[to + '/USD'];
+        if (config['fixed_sell_price_usd_' + to]) {
+          priceTo = config['fixed_sell_price_usd_' + to];
+          log.warn(`Used fixed ${to} rate of ${priceTo} USD instead of market ${this.currencies[to + '/USD']} USD to convert ${from} to ${to} (selling ${to}).`);
+        }
         price = priceFrom / priceTo;
+      } else {
+        // Use market rate
+        price = this.currencies[from + '/' + to] || 1 / this.currencies[to + '/' + from];
+        if (!price) {
+          // We don't have direct or reverse rate, calculate it from /USD rates
+          const priceFrom = this.currencies[from + '/USD'];
+          const priceTo = this.currencies[to + '/USD'];
+          price = priceFrom / priceTo;
+        }
       }
       return price;
     } catch (e) {

@@ -41,16 +41,37 @@ module.exports = async (commandMsg, tx, itx) => {
 function help({}, {}, commandFix) {
 
   const specialFees = [];
-  const specialLimits = [];
   let oneSpecialFeeCoin = '';
   let oneSpecialFeeRate = '';
+
+  const fixedFees = [];
+  const specialDailyLimits = [];
+
   let feesString = '';
 
+  // Special fees in %
   config.known_crypto.forEach((coin) => {
     if (config['exchange_fee_' + coin] !== config.exchange_fee) {
       specialFees.push(`*${coin}*: *${config['exchange_fee_' + coin]}%*`);
       oneSpecialFeeCoin = coin;
       oneSpecialFeeRate = `${config['exchange_fee_' + coin]}%`;
+    };
+  });
+
+  // Fixed fees in USD
+  config.known_crypto.forEach((coin) => {
+    if (config['fixed_buy_price_usd_' + coin] ||config['fixed_sell_price_usd_' + coin]) {
+      let fixedFeeString = `*${coin}*: `;
+      let isBuyPrice = false;
+      if (config['fixed_buy_price_usd_' + coin]) {
+        fixedFeeString += `buying at ${config['fixed_buy_price_usd_' + coin]} USD`;
+        isBuyPrice = true;
+      }
+      if (config['fixed_sell_price_usd_' + coin]) {
+        if (isBuyPrice) fixedFeeString += ', ';
+        fixedFeeString += `selling at ${config['fixed_sell_price_usd_' + coin]} USD`;
+      }
+      fixedFees.push(fixedFeeString);
     };
   });
 
@@ -60,6 +81,10 @@ function help({}, {}, commandFix) {
     feesString = `In general, I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees. But due to the rates fluctuation, if you send me these coins, fees differ — ` + specialFees.join(', ');
   } else {
     feesString = `I take *${config.exchange_fee}%* fee, plus you pay blockchain Tx fees`;
+  }
+
+  if (fixedFees.length) {
+    feesString = ` Fixed rates — ${fixedFees.join(', ')}`;
   }
 
   const minValueString = config.min_value_usd ? ` I accept minimal exchange of *${config.min_value_usd}* USD equivalent.` : '';
@@ -73,11 +98,11 @@ function help({}, {}, commandFix) {
     config.known_crypto.forEach((coin) => {
       const coinDailyLimit = config['daily_limit_usd_' + coin];
       if (coinDailyLimit !== config.daily_limit_usd) {
-        specialLimits.push(`${coin}: ${coinDailyLimit ? coinDailyLimit + ' USD' : 'no limit' }`);
+        specialDailyLimits.push(`${coin}: ${coinDailyLimit ? coinDailyLimit + ' USD' : 'no limit' }`);
       };
     });
-    if (specialLimits.length) {
-      result += ` (buying ${specialLimits.join(', ')}).`;
+    if (specialDailyLimits.length) {
+      result += ` (buying ${specialDailyLimits.join(', ')}).`;
     } else {
       result += '.';
     }
