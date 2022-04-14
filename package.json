@@ -1,6 +1,6 @@
 {
   "name": "adamant-exchangebot",
-  "version": "2.4.0",
+  "version": "2.4.4",
   "description": "ADAMANT anonymous Exchange bot",
   "main": "index.js",
   "scripts": {
@@ -35,7 +35,7 @@
     "lsk",
     "lisk"
   ],
-  "author": "Aleksei Lebedev, RomanS <devs@adamant.im> (https://adamant.im)",
+  "author": "ADAMANT Foundation <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",
   "dependencies": {
     "@liskhq/lisk-cryptography": "^3.2.0",

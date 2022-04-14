@@ -218,8 +218,28 @@ module.exports = async (itx, tx, payToUpdate) => {
       } else { // Transaction is fine
         pay.isBasicChecksPassed = true;
         notifyType = 'log';
-        msgNotify = `${config.notifyName} notifies about incoming transaction to exchange _${inAmountMessage}_ _${inCurrency}_ for *${pay.outAmount}* *${outCurrency}* at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Tx hash: _${inTxid}_. ${admTxDescription}.`;
-        msgSendBack = `I’ve got a request to exchange _${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_. Now I’ll validate your transfer${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ' and wait for _' + min_confirmations + '_ block confirmations, then'} make an exchange. It can take a time, please be patient.`;
+
+        // Building a nice informative messages for admin and for user
+        let conversionStringNotify = `_${inAmountMessage}_ _${inCurrency}_ (got from user) for **${pay.outAmount}** **${outCurrency}** (to be send to user) at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
+        const conversionStringSendBack = `_${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
+        const inCurrencyRateInUsd = pay.exchangePrice * exchangerUtils.getRate(outCurrency, 'USD');
+        let decimals = inCurrencyRateInUsd < 0.02 ? 4 : 2;
+        conversionStringNotify += ` (buying ${inCurrency} at ${inCurrencyRateInUsd.toFixed(decimals)} USD`;
+        if (outCurrency !== 'BTC') {
+          const inCurrencyRateInBtc = pay.exchangePrice * exchangerUtils.getRate(outCurrency, 'BTC');
+          conversionStringNotify += `, ${inCurrencyRateInBtc.toFixed(8)} BTC`;
+        }
+        const outCurrencyRateInUsd = exchangerUtils.getRate(inCurrency, 'USD') / pay.exchangePrice;
+        decimals = outCurrencyRateInUsd < 0.02 ? 4 : 2;
+        conversionStringNotify += `, selling ${outCurrency} at ${outCurrencyRateInUsd.toFixed(decimals)} USD`;
+        if (inCurrency !== 'BTC') {
+          const outCurrencyRateInBtc = exchangerUtils.getRate(inCurrency, 'BTC') / pay.exchangePrice;
+          conversionStringNotify += `, ${outCurrencyRateInBtc.toFixed(8)} BTC`;
+        }
+
+        conversionStringNotify += `)`;
+        msgNotify = `${config.notifyName} notifies about incoming transaction to exchange ${conversionStringNotify}. Tx hash: _${inTxid}_. ${admTxDescription}.`;
+        msgSendBack = `I’ve got your request to exchange ${conversionStringSendBack}. Now I’ll validate the transaction${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ' and wait for _' + min_confirmations + '_ block confirmations, then'} make an exchange. It can take a time, please be patient.`;
       }
     }
 
