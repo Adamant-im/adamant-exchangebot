@@ -21,7 +21,7 @@ module.exports = class ethCoin extends baseCoin {
   constructor(token) {
     super();
     this.token = token;
-    this.cache.balance = { lifetime: 30000 }; // in wei, string
+    this.cache.balance = { lifetime: 10000 }; // in wei, string
 
     if (token === 'ETH') {
       this.reliabilityCoef = reliabilityCoefEth;

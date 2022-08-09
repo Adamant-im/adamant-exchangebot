@@ -19,8 +19,8 @@ module.exports = class LskBaseCoin extends baseCoin {
     this.account = Object.assign(this.account, this.account.keys);
     this.clients = {};
 
-    this.cache.balance = { lifetime: 30000 };
-    this.cache.lastBlock = { lifetime: 60000 };
+    this.cache.balance = { lifetime: 8000 };
+    this.cache.lastBlock = { lifetime: 8000 };
 
     setTimeout(() => this.getBalance().then((balance) =>
       log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`),

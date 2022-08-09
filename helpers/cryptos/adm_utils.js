@@ -10,8 +10,8 @@ module.exports = class admCoin extends baseCoin {
   constructor() {
     super();
     this.token = 'ADM';
-    this.cache.lastBlock = { lifetime: 5000 };
-    this.cache.balance = { lifetime: 10000 };
+    this.cache.lastBlock = { lifetime: 4000 };
+    this.cache.balance = { lifetime: 4000 };
     this.account.passPhrase = config.passPhrase;
     this.account.keyPair = config.keyPair;
     this.account.address = config.address;
