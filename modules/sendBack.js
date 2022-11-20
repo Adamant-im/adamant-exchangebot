@@ -5,6 +5,7 @@ const notify = require('../helpers/notify');
 const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const api = require('./api');
+const utils = require('../helpers/utils');
 
 module.exports = async () => {
 
@@ -141,6 +142,14 @@ module.exports = async () => {
   }
 };
 
-setInterval(() => {
-  module.exports();
+let isPreviousIterationFinished = true;
+
+setInterval(async () => {
+  if (isPreviousIterationFinished) {
+    isPreviousIterationFinished = false;
+    await module.exports();
+    isPreviousIterationFinished = true;
+  } else {
+    log.log(`Postponing iteration of ${utils.getModuleName(module.id)} module for ${constants.SENDBACK_INTERVAL} ms. Previous iteration is in progress yet.`);
+  }
 }, constants.SENDBACK_INTERVAL);
