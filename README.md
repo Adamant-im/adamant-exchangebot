@@ -18,7 +18,7 @@ Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://med
 
 ## Requirements
 
-- Ubuntu 18 / 20 (other OS had not been tested)
+- Ubuntu 18+ (other OS had not been tested)
 - NodeJS 14+
 - MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
@@ -33,11 +33,14 @@ npm i
 
 ## Pre-launch tuning
 
+The bot will use `config.jsonc` || `config.json`, if available, or `config.default.jsonc` otherwise.
+
 ```
-nano config.json
+cp config.default.jsonc config.jsonc
+nano config.jsonc
 ```
 
-Parameters: see comments in `config.json`.
+Parameters: see comments in config file.
 
 ## Launching
 
@@ -65,7 +68,9 @@ Add string:
 su - adamant
 cd ./adamant-exchangebot
 pm2 stop exchangebot
-mv config.json config_bup.json && git pull && mv config_bup.json config.json
 npm i
-pm2 start --name exchangebot app.js
 ```
+
+Update `config.jsonc` if `config.default.jsonc` changed.
+
+Then `pm2 restart exchangebot`.
