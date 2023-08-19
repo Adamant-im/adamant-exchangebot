@@ -17,8 +17,8 @@ module.exports = {
   currencies: undefined,
 
   async updateCryptoRates() {
-
     const url = config.infoservice + '/get';
+
     const rates = await axios.get(url, {})
         .then(function(response) {
           return response.data ? response.data.result : undefined;
