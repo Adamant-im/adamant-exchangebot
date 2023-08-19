@@ -20,11 +20,10 @@ module.exports = async () => {
     outTxid: null,
   });
 
-  const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
-
   for (const pay of payouts) {
-    try {
+    const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 
+    try {
       pay.counterSendExchange = ++pay.counterSendExchange || 1;
       log.log(`Sending ${pay.outAmount} ${pay.outCurrency} in exchange for ${pay.inAmountMessage} ${pay.inCurrency}. Attempt ${pay.counterSendExchange}… ${admTxDescription}.`);
 
@@ -125,7 +124,9 @@ let isPreviousIterationFinished = true;
 setInterval(async () => {
   if (isPreviousIterationFinished) {
     isPreviousIterationFinished = false;
+
     await module.exports();
+
     isPreviousIterationFinished = true;
   } else {
     log.log(`Postponing iteration of ${utils.getModuleName(module.id)} module for ${constants.EXCHANGER_INTERVAL} ms. Previous iteration is in progress yet.`);
