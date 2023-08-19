@@ -14,7 +14,6 @@ const doge_utils = require('./doge_utils');
 const lsk_utils = require('./lsk_utils');
 
 module.exports = {
-
   currencies: undefined,
 
   async updateCryptoRates() {
@@ -33,7 +32,6 @@ module.exports = {
     } else {
       log.warn(`Unable to fetch crypto rates in updateCryptoRates() of ${utils.getModuleName(module.id)} module. Request was successfull, but got unexpected results: ` + rates);
     }
-
   },
 
   /**
@@ -46,6 +44,7 @@ module.exports = {
   getRate(from, to) {
     try {
       let price; let priceFrom; let priceTo;
+
       if (config['fixed_buy_price_usd_' + from] || config['fixed_sell_price_usd_' + to]) {
         // Calculate at a fixed rate
         priceFrom = from === 'USD' ? 1 : this.currencies[from + '/USD'];
@@ -53,11 +52,13 @@ module.exports = {
           priceFrom = config['fixed_buy_price_usd_' + from];
           log.warn(`Used fixed ${from} rate of ${priceFrom} USD instead of market ${this.currencies[from + '/USD']} USD to convert ${from} to ${to} (buying ${from}).`);
         }
+
         priceTo = to === 'USD' ? 1 : this.currencies[to + '/USD'];
         if (config['fixed_sell_price_usd_' + to]) {
           priceTo = config['fixed_sell_price_usd_' + to];
           log.warn(`Used fixed ${to} rate of ${priceTo} USD instead of market ${this.currencies[to + '/USD']} USD to convert ${from} to ${to} (selling ${to}).`);
         }
+
         price = priceFrom / priceTo;
       } else {
         // Use market rate
@@ -69,6 +70,7 @@ module.exports = {
           price = priceFrom / priceTo;
         }
       }
+
       return price;
     } catch (e) {
       log.error(`Unable to calculate price of ${from} in ${to} in getPrice() of ${utils.getModuleName(module.id)} module: ` + e);
@@ -88,8 +90,10 @@ module.exports = {
     try {
       from = from.toUpperCase();
       to = to.toUpperCase();
+
       let rate = this.getRate(from, to);
       let networkFee = 0;
+
       if (considerExchangerFee) {
         rate *= 1 - config['exchange_fee_' + from] / 100;
         networkFee = this[to].FEE;
@@ -97,13 +101,16 @@ module.exports = {
           networkFee = this.convertCryptos('ETH', to, networkFee).outAmount;
         }
       };
+
       const value = rate * +amount - networkFee;
+
       return {
         outAmount: +value.toFixed(constants.PRECISION_DECIMALS),
         exchangePrice: +rate.toFixed(constants.PRECISION_DECIMALS),
       };
     } catch (e) {
       log.error(`Unable to calculate ${amount} ${from} in ${to} in convertCryptos() of ${utils.getModuleName(module.id)} module: ` + e);
+
       return {
         outAmount: NaN,
         exchangePrice: NaN,
@@ -112,10 +119,10 @@ module.exports = {
   },
 
   async getKvsCryptoAddress(coin, admAddress) {
-
     if (this.isERC20(coin)) {
       coin = 'ETH';
     }
+
     const kvsRecords = await api.get('states/get', { senderId: admAddress, key: coin.toLowerCase() + ':address', orderBy: 'timestamp:desc' });
     if (kvsRecords.success) {
       if (kvsRecords.data.transactions.length) {
@@ -126,7 +133,6 @@ module.exports = {
     } else {
       log.warn(`Failed to get ${coin} address for ${admAddress} from KVS in getKvsCryptoAddress() of ${utils.getModuleName(module.id)} module. ${kvsRecords.errorMessage}.`);
     }
-
   },
 
   async userDailyValue(senderId) {
@@ -223,7 +229,6 @@ module.exports = {
   BTC: new btc_utils('BTC'),
   DOGE: new doge_utils('DOGE'),
   LSK: new lsk_utils('LSK'),
-
 };
 
 module.exports.updateCryptoRates();

@@ -39,5 +39,4 @@ module.exports = {
     sc: '0xa2cd3d43c775978a96bdbf12d733d5a1ed94fb18',
     token: 'XCN',
   },
- 
 };
