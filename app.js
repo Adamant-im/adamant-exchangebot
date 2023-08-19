@@ -15,24 +15,26 @@ setTimeout(init, 5000);
 
 function init() {
   exchangerUtils.createErc20tokens();
+
   require('./modules/confirmationsCounter');
   require('./modules/deepExchangeValidator');
   require('./modules/exchangePayer');
   require('./modules/sendBack');
   require('./modules/sentTxChecker');
-  try {
 
+  try {
     if (doClearDB) {
       console.log('Clearing database..');
+
       db.systemDb.db.drop();
       db.incomingTxsDb.db.drop();
       db.paymentsDb.db.drop();
+
       notify(`*${config.notifyName}: database cleared*. Manually stop the Bot now.`, 'info');
     } else {
       checker();
       notify(`*${config.notifyName} started* for address _${config.address}_ (ver. ${config.version}).`, 'info');
     }
-
   } catch (e) {
     notify(`${config.notifyName} is not started. Error: ${e}`, 'error');
     process.exit(1);
