@@ -33,7 +33,14 @@
     "bnb",
     "binance coin",
     "lsk",
-    "lisk"
+    "lisk",
+    "usdt",
+    "tether",
+    "usdc",
+    "usd coin",
+    "xcn",
+    "onyxcoin",
+    "dai"
   ],
   "author": "ADAMANT Foundation <devs@adamant.im> (https://adamant.im)",
   "license": "GPL-3.0",

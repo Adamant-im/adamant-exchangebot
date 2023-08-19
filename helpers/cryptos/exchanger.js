@@ -230,4 +230,4 @@ module.exports.updateCryptoRates();
 
 setInterval(() => {
   module.exports.updateCryptoRates();
-}, constants.UPDATE_CRYPTO_RATES_INVERVAL);
+}, constants.UPDATE_CRYPTO_RATES_INTERVAL);

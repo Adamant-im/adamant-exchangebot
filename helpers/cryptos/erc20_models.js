@@ -1,5 +1,4 @@
 module.exports = {
-
   USDS: {
     sat: 1000000, // 6 decimals
     sc: '0xa4bdb11dc0a2bec88d24a3aa1e6bb17201112ebe',
@@ -20,5 +19,25 @@ module.exports = {
     sc: '0xB8c77482e45F1F44dE1745F52C74426C631bDD52',
     token: 'BNB',
   },
-
+  USDT: {
+    sat: 1000000, // 6 decimals
+    sc: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    token: 'USDT',
+  },
+  USDC: {
+    sat: 1000000, // 6 decimals
+    sc: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    token: 'USDC',
+  },
+  DAI: {
+    sat: 1000000000000000000, // 18 decimals
+    sc: '0x6b175474e89094c44da98b954eedeac495271d0f',
+    token: 'DAI',
+  },
+  XCN: {
+    sat: 1000000000000000000, // 18 decimals
+    sc: '0xa2cd3d43c775978a96bdbf12d733d5a1ed94fb18',
+    token: 'XCN',
+  },
+ 
 };

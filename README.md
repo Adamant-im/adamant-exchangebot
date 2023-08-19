@@ -9,6 +9,10 @@ Coins supported:
 - Dash (DASH) with InstantSend
 - Stably Dollar (USDS ERC20)
 - Binance Coin (BNB ERC20)
+- Dai (DAI ERC20)
+- Tether (USDT ERC20)
+- USD Coin (USDC ERC20)
+- Onyxcoin (XCN ERC20)
 
 ![Exchanging Dash to Ethereum](./assets/Exchanger-Dash-480-2x.gif)
 

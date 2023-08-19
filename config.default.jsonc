@@ -70,22 +70,22 @@
     List of cryptocurrencies you want to accept for exchange.
     If the bot will receive payment in other crypto, it will try to send back it.
   **/
-  "accepted_crypto": ["ADM", "BTC", "ETH", "USDS", "BNB", "DASH", "DOGE", "LSK"],
+  "accepted_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
 
   /**
     List of cryptocurrencies you want to send in exchange.
     If the bot will receive request for exchange in other crypto, it will try to return payment back.
   **/
-  "exchange_crypto": ["ADM", "BTC", "ETH", "USDS", "BNB", "DASH", "DOGE", "LSK"],
+  "exchange_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
 
   /**
     The bot can check and send transfers for these cryptos.
     If the bot will receive or request for crypto not in list, it will not process a payment and notify owner.
   **/
-  "known_crypto": ["ADM", "BTC", "ETH", "USDS", "RES", "BNB", "DASH", "DOGE", "LSK"],
+  "known_crypto": ["ADM", "BTC", "ETH", "USDS", "BNB", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
 
   /** List of ERC-20 tokens **/
-  "erc20": ["USDS", "RES", "BNB"],
+  "erc20": ["USDS", "BNB", "USDT", "USDC", "DAI", "XCN"],
 
   /** Percentage you take as fee for the bot's service. User pays blockchain Tx fees additionally. **/
   "exchange_fee": 5,
