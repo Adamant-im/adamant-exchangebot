@@ -1,4 +1,4 @@
-ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
+ADAMANT Exchange Bot is software that allows you to launch your own exchange, anonymous, instant, and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
 Coins supported:
 
@@ -16,14 +16,14 @@ Coins supported:
 
 ![Exchanging Dash to Ethereum](./assets/Exchanger-Dash-480-2x.gif)
 
-Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
+Read more: [Multiple anonymous crypto exchanges on the ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
 # Installation
 
 ## Requirements
 
-- Ubuntu 18+ (other OS had not been tested)
-- NodeJS 14+
+- Ubuntu 20+ (other OS had not been tested)
+- NodeJS 16+
 - MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
 ## Setup
@@ -37,14 +37,14 @@ npm i
 
 ## Pre-launch tuning
 
-The bot will use `config.jsonc` || `config.json`, if available, or `config.default.jsonc` otherwise.
+The bot will use `config.jsonc` if available, or `config.default.jsonc` otherwise.
 
 ```
 cp config.default.jsonc config.jsonc
 nano config.jsonc
 ```
 
-Parameters: see comments in config file.
+Parameters: see comments in the config file.
 
 ## Launching
 

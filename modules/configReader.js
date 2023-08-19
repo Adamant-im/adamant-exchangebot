@@ -87,8 +87,6 @@ try {
   } else {
     if (fs.existsSync('./config.jsonc')) {
       configFile = './config.jsonc';
-    } else if (fs.existsSync('./config.json')) {
-      configFile = './config.json';
     } else {
       configFile = './config.default.jsonc';
     }
