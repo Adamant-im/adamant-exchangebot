@@ -7,19 +7,22 @@ const erc20models = require('./erc20_models');
 
 const Eth = require('web3-eth');
 const ethUtils = require('web3-utils');
+
 const eth = new Eth(config.node_ETH[0]); // TODO: health check
+
 const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
 const reliabilityCoefEth = 1.3; // make sure exchanger's Tx will be accepted for ETH
 const reliabilityCoefErc20 = 3.0; // make sure exchanger's Tx will be accepted for ERC20; 2.4 is not enough for BZ
 
 const baseCoin = require('./baseCoin');
-module.exports = class ethCoin extends baseCoin {
 
+module.exports = class ethCoin extends baseCoin {
   gasPrice = '0'; // in wei, string
   gasLimit = 22000; // const base gas limit in wei
 
   constructor(token) {
     super();
+
     this.token = token;
     this.cache.balance = { lifetime: 10000 }; // in wei, string
 
@@ -32,10 +35,14 @@ module.exports = class ethCoin extends baseCoin {
       eth.accounts.wallet.add(this.account.privateKey);
       eth.defaultAccount = this.account.address;
       eth.defaultBlock = 'latest';
+
+      this.unit = 'ether';
+
       this.updateGasPrice().then(() => {
         log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? this.fromSat(this.gasPrice).toFixed(9) + ' (' + ethUtils.fromWei(this.gasPrice, 'Gwei') + ' gwei)' : 'unable to calculate'}`);
         log.log(`Estimate ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
       });
+
       setInterval(() => {
         this.updateGasPrice();
       }, updateGasPriceInterval);
@@ -44,7 +51,16 @@ module.exports = class ethCoin extends baseCoin {
       this.reliabilityCoefFromEth = reliabilityCoefErc20 / reliabilityCoefEth;
       this.erc20model = erc20models[token];
       this.contract = new eth.Contract(abiArray, this.erc20model.sc, { from: this.account.address });
+
+      const unitMap = ethUtils.unitMap;
+      const multiplier = '1'.padEnd(this.erc20model.decimals + 1, '0');
+      const unit = Object.keys(unitMap).find((k) => unitMap[k] === multiplier);
+
+      if (!unit) {
+        throw String(`No conversion unit found for ${this.token}, decimals: ${this.erc20model.decimals}. Check erc20_models.`);
+      }
     }
+
     setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
   }
 
@@ -124,7 +140,7 @@ module.exports = class ethCoin extends baseCoin {
    */
   fromSat(satValue) {
     try {
-      return +ethUtils.fromWei(String(satValue));
+      return +ethUtils.fromWei(String(satValue), this.unit);
     } catch (e) {
       log.warn(`Error while converting fromSat(${satValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
@@ -137,7 +153,7 @@ module.exports = class ethCoin extends baseCoin {
    */
   toSat(tokenValue) {
     try {
-      return ethUtils.toWei(String(tokenValue));
+      return ethUtils.toWei(String(tokenValue), this.unit);
     } catch (e) {
       log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
@@ -410,7 +426,7 @@ module.exports = class ethCoin extends baseCoin {
 
     // An eth-tx includes value of ETH
     if (receiptOrEthTx.value) {
-      tx.amount = +ethUtils.fromWei(String(receiptOrEthTx.value));
+      tx.amount = this.fromSat(receiptOrEthTx.value);
     }
 
     // A receipt includes logs for ERC20 tokens
@@ -420,6 +436,7 @@ module.exports = class ethCoin extends baseCoin {
       tx.recipientId = receiptOrEthTx.logs[0].topics[2].replace('000000000000000000000000', '');
       tx.contract = receiptOrEthTx.to;
       tx.amount = +receiptOrEthTx.logs[0].data; // from like '0x000...069cd3a5c0' to 28400920000
+      tx.amount = this.fromSat(tx.amount);
     }
 
     // An eth-tx includes input for ERC20 tokens
@@ -433,13 +450,7 @@ module.exports = class ethCoin extends baseCoin {
       tx.recipientId = '0x' + receiptOrEthTx.input.substring(10, 74).replace('000000000000000000000000', '');
       tx.contract = receiptOrEthTx.to;
       tx.amount = +('0x' + receiptOrEthTx.input.substring(74));
-    }
-
-    const token = this.getErc20token(tx.contract);
-    if (token) { // in token's decimals
-      tx.amount = tx.amount / token.sat;
-    } else {
-      tx.isAmountPlain = true;
+      tx.amount = this.fromSat(tx.amount);
     }
 
     // Remove undefined fields not to loose date when merging receipt and eth-tx
@@ -467,7 +478,7 @@ module.exports = class ethCoin extends baseCoin {
     }
 
     const status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
-    const amount = tx.amount ? ` for ${tx.amount} ${tx.isAmountPlain ? '(plain contract value)' : token}` : '';
+    const amount = tx.amount ? ` for ${tx.amount} ${token}` : '';
     const height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
     const time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
     const hash = tx.hash;

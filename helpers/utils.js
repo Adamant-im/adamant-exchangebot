@@ -234,6 +234,21 @@ module.exports = {
   },
 
   /**
+   * Returns decimals for precision
+   * 0.00001 -> 5
+   * 1000 -> 0
+   * 1 -> 0
+   * 0 -> undefined
+   * @param {Number|String} precision e.g. 0.00001
+   * @return {number} returns 5
+   */
+  getDecimalsFromPrecision(precision) {
+    if (!precision) return;
+    if (precision > 1) return 0;
+    return Math.round(Math.abs(Math.log10(+precision)));
+  },
+
+  /**
    * Returns module name from its ID
    * @param {string} id Module name, module.id
    * @return {string}
