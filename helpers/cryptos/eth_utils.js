@@ -36,6 +36,7 @@ module.exports = class ethCoin extends baseCoin {
       eth.defaultAccount = this.account.address;
       eth.defaultBlock = 'latest';
 
+      this.decimals = 18;
       this.unit = 'ether';
 
       this.updateGasPrice().then(() => {
@@ -54,9 +55,10 @@ module.exports = class ethCoin extends baseCoin {
 
       const unitMap = ethUtils.unitMap;
       const multiplier = '1'.padEnd(this.erc20model.decimals + 1, '0');
-      const unit = Object.keys(unitMap).find((k) => unitMap[k] === multiplier);
+      this.unit = Object.keys(unitMap).find((k) => unitMap[k] === multiplier);
+      this.decimals = this.erc20model.decimals;
 
-      if (!unit) {
+      if (!this.unit) {
         throw String(`No conversion unit found for ${this.token}, decimals: ${this.erc20model.decimals}. Check erc20_models.`);
       }
     }
@@ -134,9 +136,10 @@ module.exports = class ethCoin extends baseCoin {
   }
 
   /**
-   * Converts amount in sat to token. ERC20 overrides this method.
+   * Converts amount in sat to token
+   * 15000000 -> 15 USDT
    * @param {String|Number} satValue Amount in sat
-   * @return {Number} Amount in ETH
+   * @return {Number} Amount in token
    */
   fromSat(satValue) {
     try {
@@ -147,13 +150,16 @@ module.exports = class ethCoin extends baseCoin {
   }
 
   /**
-   * Converts amount in token to sat. ERC20 overrides this method.
-   * @param {String|Number} tokenValue Amount in ETH
+   * Converts amount in token to sat/wei
+   * 15.123456 USDT -> 15123456
+   * 15.12345678 USDT -> 15123457
+   * @param {String|Number} tokenValue Amount in token
    * @return {String} Amount in sat
    */
   toSat(tokenValue) {
     try {
-      return ethUtils.toWei(String(tokenValue), this.unit);
+      tokenValue = (+tokenValue).toFixed(this.decimals);
+      return ethUtils.toWei(tokenValue, this.unit);
     } catch (e) {
       log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }
