@@ -1,10 +1,11 @@
 const log = require('../../helpers/log');
 const utils = require('../utils');
 const constants = require('../const');
+const ethUtils = require('web3-utils');
 
 const ethCoin = require('./eth_utils');
-module.exports = class erc20coin extends ethCoin {
 
+module.exports = class erc20coin extends ethCoin {
   constructor(token, etherInstance) {
     super(token);
     this.etherInstance = etherInstance;
@@ -29,7 +30,15 @@ module.exports = class erc20coin extends ethCoin {
 
   toSat(tokenValue) {
     try {
-      return (tokenValue * this.erc20model.sat).toFixed(0);
+      const unitMap = ethUtils.unitMap;
+      const unit = Object.keys(unitMap).find((k) => unitMap[k] === String(this.erc20model.sat));
+
+      if (unit) {
+        const amountInSat = ethUtils.toWei(String(tokenValue), unit);
+        return amountInSat;
+      } else {
+        throw String(`No conversion unit found for ${this.token}, multiplier: ${this.erc20model.sat}. Check erc20_models.`);
+      }
     } catch (e) {
       log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
     }

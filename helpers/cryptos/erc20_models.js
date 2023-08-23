@@ -1,13 +1,42 @@
+/**
+ * Make sure 'sat' is in this ethUtils.unitMap structure
+ * Other way, update erc20_utils.toSat()
+  {
+    noether: '0',
+    wei: '1',
+    kwei: '1000',
+    Kwei: '1000',
+    babbage: '1000',
+    femtoether: '1000',
+    mwei: '1000000',
+    Mwei: '1000000',
+    lovelace: '1000000',
+    picoether: '1000000',
+    gwei: '1000000000',
+    Gwei: '1000000000',
+    shannon: '1000000000',
+    nanoether: '1000000000',
+    nano: '1000000000',
+    szabo: '1000000000000',
+    microether: '1000000000000',
+    micro: '1000000000000',
+    finney: '1000000000000000',
+    milliether: '1000000000000000',
+    milli: '1000000000000000',
+    ether: '1000000000000000000',
+    kether: '1000000000000000000000',
+    grand: '1000000000000000000000',
+    mether: '1000000000000000000000000',
+    gether: '1000000000000000000000000000',
+    tether: '1000000000000000000000000000000'
+  }
+ */
+
 module.exports = {
   USDS: {
     sat: 1000000, // 6 decimals
     sc: '0xa4bdb11dc0a2bec88d24a3aa1e6bb17201112ebe',
     token: 'USDS',
-  },
-  RES: {
-    sat: 100000, // 5 decimals
-    sc: '0x0a9f693fce6f00a51a8e0db4351b5a8078b4242e',
-    token: 'RES',
   },
   BZ: {
     sat: 1000000000000000000, // 18 decimals
