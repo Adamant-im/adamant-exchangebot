@@ -229,6 +229,7 @@ module.exports = class ethCoin extends baseCoin {
 
   /**
    * Returns Tx receipt and some details from the blockchain
+   * Internal for eth_utils method
    * @param {String} hash Tx ID to fetch
    * @return {Object}
    * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount (ERC20 only)
@@ -244,31 +245,7 @@ module.exports = class ethCoin extends baseCoin {
           log.warn(`Unable to get Tx ${hash} receipt for ${this.token} in getTransactionReceipt() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
           resolve(null);
         } else {
-          const tx = {
-            status: receipt.status,
-            height: receipt.blockNumber,
-            blockId: receipt.blockHash,
-            hash: receipt.transactionHash,
-            senderId: receipt.from,
-            recipientId: receipt.to,
-            confirmations: undefined, // we need to calc confirmations from height
-            gasUsed: receipt.gasUsed, // to calculate Tx fee
-          };
-          if (receipt.logs && receipt.logs[0] && receipt.logs[0].topics[2] && receipt.logs[0].topics[2].length > 20) {
-            // it is a ERC20 token transfer
-            tx.logs0 = receipt.logs[0];
-            tx.recipientId = receipt.logs[0].topics[2].replace('000000000000000000000000', '');
-            tx.contract = receipt.to;
-            tx.amount = +receipt.logs[0].data; // from like '0x000...069cd3a5c0' to 28400920000
-            const token = this.getErc20token(tx.contract);
-            if (token) { // in token's decimals
-              tx.amount = tx.amount / token.sat;
-            } else {
-              tx.isAmountPlain = true;
-            }
-          }
-          // log.log(`Tx receipt: ${this.formTxMessage(tx)}.`);
-          resolve(tx);
+          resolve(this.formTxUsingReceiptOrEthTx(receipt));
         }
       }).catch((e) => {
         // Duplicate of error
@@ -278,6 +255,7 @@ module.exports = class ethCoin extends baseCoin {
 
   /**
    * Returns Tx details from the blockchain
+   * Internal for eth_utils method
    * @param {String} hash Tx ID to fetch
    * @return {Object}
    * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount
@@ -293,36 +271,7 @@ module.exports = class ethCoin extends baseCoin {
           log.warn(`Unable to get Tx ${hash} details for ${this.token} in getTransactionDetails() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
           resolve(null);
         } else {
-          const tx = {
-            height: txDetails.blockNumber,
-            blockId: txDetails.blockHash,
-            hash: txDetails.hash,
-            senderId: txDetails.from,
-            recipientId: txDetails.to,
-            confirmations: undefined, // we need to calc confirmations from height
-            amount: +ethUtils.fromWei(String(txDetails.value)), // in ETH
-            gasPrice: txDetails.gasPrice, // to calculate Tx fee
-            nonce: txDetails.nonce,
-          };
-          if (txDetails.input && txDetails.input.length === 138) {
-            // it is a ERC20 token transfer
-            // Correct contract transfer transaction represents '0x' + 4 bytes 'a9059cbb' +
-            // + 32 bytes (64 chars) for contract address and 32 bytes for its value
-            // 0xa9059cbb000000000000000000000000651a2d48211428be3ffecea7a9aceeef250b019f..
-            // ..000000000000000000000000000000000000000000000000000000069cd3a5c0
-            tx.input = txDetails.input;
-            tx.recipientId = '0x' + txDetails.input.substring(10, 74).replace('000000000000000000000000', '');
-            tx.contract = txDetails.to;
-            tx.amount = +('0x' + txDetails.input.substring(74));
-            const token = this.getErc20token(tx.contract);
-            if (token) { // in token's decimals
-              tx.amount = tx.amount / token.sat;
-            } else {
-              tx.isAmountPlain = true;
-            }
-          }
-          // log.log(`Tx details: ${this.formTxMessage(tx)}.`);
-          resolve(tx);
+          resolve(this.formTxUsingReceiptOrEthTx(txDetails));
         }
       }).catch((e) => {
         // Duplicate of error
@@ -332,17 +281,21 @@ module.exports = class ethCoin extends baseCoin {
 
   /**
    * Integrates getTransactionReceipt(), getTransactionDetails(), getBlock() to fetch all available info from the blockchain
+   * It's a common method for every crypto and used in other modules to get Tx info in Exchanger's format
    * @param {String} hash Tx ID to fetch
    * @return {Object}
    */
   async getTransaction(hash) {
     let txDetails; let blockInfo; let tx;
+
     const txReceipt = await this.getTransactionReceipt(hash);
     if (txReceipt) {
       tx = txReceipt;
+
       txDetails = await this.getTransactionDetails(hash);
       if (txDetails) {
         tx = { ...tx, ...txDetails };
+
         if (tx.blockId) {
           blockInfo = await this.getBlock(tx.blockId);
           if (blockInfo) {
@@ -351,20 +304,21 @@ module.exports = class ethCoin extends baseCoin {
         }
       }
     }
+
     if (tx) {
-      log.log(`getTransaction(): ${this.formTxMessage(tx)}.`);
+      log.log(`Checking getTransaction(): ${this.formTxMessage(tx)}.`);
     }
+
     return tx;
   }
 
   async send(params) {
-
     params.try = params.try || 1;
     const tryString = ` (try number ${params.try})`;
+
     const gas = Math.round(this.gasLimit * this.reliabilityCoef * params.try);
 
     try {
-
       const txParams = {
         // nonce: this.currentNonce++, // set as default
         // gasPrice: this.gasPrice, // (deprecated after London hardfork)
@@ -372,6 +326,7 @@ module.exports = class ethCoin extends baseCoin {
         // maxPriorityFeePerGas // set as default
         gas,
       };
+
       if (this.contract) {
         txParams.value = '0x0';
         txParams.to = this.erc20model.sc;
@@ -391,15 +346,14 @@ module.exports = class ethCoin extends baseCoin {
               });
             })
             .on('receipt', (receipt) => {
-              log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(receipt)}.`);
+              log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(this.formTxUsingReceiptOrEthTx(receipt))}.`);
             })
             .on('confirmation', (confirmationNumber, receipt) => {
               if (confirmationNumber === 0) {
-                log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(receipt)}.`);
+                log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(this.formTxUsingReceiptOrEthTx(receipt))}.`);
               }
             })
             .on('error', (e, receipt) => { // If out of gas error, the second parameter is the receipt
-              // console.log('ETH-on-error', e, receipt);
               if (!e.toString().includes('Failed to check for transaction receipt')) {
                 // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
                 // With "web3-eth": "^1.6.0", still get it
@@ -413,34 +367,105 @@ module.exports = class ethCoin extends baseCoin {
             // Duplicates on-error
             });
       });
-
     } catch (e) {
       log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
+
       return {
         success: false,
         error: e.toString(),
       };
     }
-
   }
 
   getErc20token(contract) {
     let token;
+
     Object.keys(erc20models).forEach((t) => {
       if (utils.isStringEqualCI(erc20models[t].sc, contract)) {
         token = erc20models[t];
       }
     });
+
     return token;
   }
 
+  /**
+   * Builds tx info using Tx Receipt or Eth Tx info
+   * @param {Object} receiptOrEthTx Tx Receipt or Eth Tx info
+   * @return {String} Tx info in Exchanger's format
+   */
+  formTxUsingReceiptOrEthTx(receiptOrEthTx) {
+    const tx = {
+      status: receiptOrEthTx.status, // receipt only
+      height: receiptOrEthTx.blockNumber,
+      blockId: receiptOrEthTx.blockHash,
+      hash: receiptOrEthTx.transactionHash || receiptOrEthTx.hash, // differs for receipt and eth-tx
+      senderId: receiptOrEthTx.from,
+      recipientId: receiptOrEthTx.to,
+      confirmations: undefined, // we calc confirmations from height in the checker module
+      gasUsed: receiptOrEthTx.gasUsed, // to calculate Tx fee; receipt only
+      gasPrice: receiptOrEthTx.gasPrice, // to calculate Tx fee; eth-tx only
+      nonce: receiptOrEthTx.nonce, // eth-tx only
+    };
+
+    // An eth-tx includes value of ETH
+    if (receiptOrEthTx.value) {
+      tx.amount = +ethUtils.fromWei(String(receiptOrEthTx.value));
+    }
+
+    // A receipt includes logs for ERC20 tokens
+    if (receiptOrEthTx.logs?.[0]?.topics?.[2]?.length > 20) {
+      // it is a ERC20 token transfer
+      tx.logs0 = receiptOrEthTx.logs[0];
+      tx.recipientId = receiptOrEthTx.logs[0].topics[2].replace('000000000000000000000000', '');
+      tx.contract = receiptOrEthTx.to;
+      tx.amount = +receiptOrEthTx.logs[0].data; // from like '0x000...069cd3a5c0' to 28400920000
+    }
+
+    // An eth-tx includes input for ERC20 tokens
+    if (receiptOrEthTx.input?.length === 138) {
+      // it is a ERC20 token transfer
+      // Correct contract transfer transaction represents '0x' + 4 bytes 'a9059cbb' +
+      // + 32 bytes (64 chars) for contract address and 32 bytes for its value
+      // 0xa9059cbb000000000000000000000000651a2d48211428be3ffecea7a9aceeef250b019f..
+      // ..000000000000000000000000000000000000000000000000000000069cd3a5c0
+      tx.input = receiptOrEthTx.input;
+      tx.recipientId = '0x' + receiptOrEthTx.input.substring(10, 74).replace('000000000000000000000000', '');
+      tx.contract = receiptOrEthTx.to;
+      tx.amount = +('0x' + receiptOrEthTx.input.substring(74));
+    }
+
+    const token = this.getErc20token(tx.contract);
+    if (token) { // in token's decimals
+      tx.amount = tx.amount / token.sat;
+    } else {
+      tx.isAmountPlain = true;
+    }
+
+    // Remove undefined fields not to loose date when merging receipt and eth-tx
+    Object.keys(tx).forEach((key) => tx[key] === undefined && delete tx[key]);
+
+    return tx;
+  }
+
+  /**
+   * Creates info string about Transaction
+   * Sample: Tx 0xb831fc54b5113b9726d5b55dcfe531da6761e194b2d9ab2bafbde5f5dc93e549 for 100 USDT
+   *  from 0xFbaC15584dc40A97942BD9720D2c4645736CC5d9 to Me via USDT contract is accepted
+   *  and included at 17975212 blockchain height (2023-08-23 07:06 — 1692767195000), 46097 gas used,
+   *  gas price is 13461439079, 0.000620531957224663 ETH fee, nonce — 3.
+   * @param {Object} tx Tx info in Exchanger's format
+   * @return {String}
+   */
   formTxMessage(tx) {
     let token = this.getErc20token(tx.contract);
+
     if (token) {
       token = token.token;
     } else {
       token = tx.contract ? tx.contract : 'ETH';
     }
+
     const status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
     const amount = tx.amount ? ` for ${tx.amount} ${tx.isAmountPlain ? '(plain contract value)' : token}` : '';
     const height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
@@ -448,19 +473,21 @@ module.exports = class ethCoin extends baseCoin {
     const hash = tx.hash;
     const gasUsed = tx.gasUsed ? `, ${tx.gasUsed} gas used` : '';
     const gasPrice = tx.gasPrice ? `, gas price is ${tx.gasPrice}` : '';
+
     let fee;
     if (tx.gasUsed && tx.gasPrice) {
       fee = +ethUtils.fromWei(String(+tx.gasUsed * +tx.gasPrice));
     }
     fee = fee ? `, ${fee} ETH fee` : '';
+
     const nonce = tx.nonce ? `, nonce — ${tx.nonce}` : '';
     const senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
     const recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
     const contract = tx.contract ? ` via ${token} contract` : '';
     const message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`;
+
     return message;
   }
-
 };
 
 const abiArray = [{

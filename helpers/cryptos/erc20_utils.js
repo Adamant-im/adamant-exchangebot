@@ -47,5 +47,4 @@ module.exports = class erc20coin extends ethCoin {
   get FEE() {
     return +(this.etherInstance.FEE * this.reliabilityCoefFromEth).toFixed(constants.PRECISION_DECIMALS);
   }
-
 };
