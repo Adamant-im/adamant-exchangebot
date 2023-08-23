@@ -41,14 +41,14 @@ module.exports = async () => {
       let msgNotify;
 
       const outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
-      if (!outCurrencyBalance) {
+      if (!utils.isPositiveOrZeroNumber(outCurrencyBalance)) {
         log.warn(`Unable to update balance for ${outCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
         return;
       }
 
       if (exchangerUtils.isERC20(outCurrency)) {
         const ethBalance = await exchangerUtils['ETH'].getBalance();
-        if (!ethBalance) {
+        if (!utils.isPositiveOrZeroNumber(ethBalance)) {
           log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
           return;
         }
