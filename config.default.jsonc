@@ -1,0 +1,145 @@
+{
+  /**
+    The bot's secret phrase for interaction.
+    Bot's ADAMANT address will correspond to this passPhrase.
+  **/
+  "passPhrase": "qwert yuiop asdfg hjkl zxcvb nmqwed",
+
+  /**
+    List of nodes to fetch transactions.
+    API module does a health check.
+  **/
+  "node_ADM": [
+    "https://bid.adamant.im",
+    "http://localhost:36666",
+    "https://endless.adamant.im",
+    "https://clown.adamant.im",
+    "https://unusual.adamant.im",
+    "https://debate.adamant.im",
+    "http://78.47.205.206:36666",
+    "https://lake.adamant.im",
+    "https://sunshine.adamant.im"
+  ],
+
+  /** Socket connection is recommended for better user experience **/
+  "socket": true,
+
+  /** Choose socket connection, "ws" or "wss" depending on your server **/
+  "ws_type": "ws",
+
+  /** List of nodes for Ethereum API **/
+  "node_ETH": [
+    "https://ethnode1.adamant.im"
+  ],
+
+  /** List of nodes for Lisk API **/
+  "node_LSK": [
+    "https://lisknode3.adamant.im",
+    "https://lisknode4.adamant.im"
+  ],
+
+  "service_LSK": [
+    "https://liskservice3.adamant.im",
+    "https://liskservice4.adamant.im"
+  ],
+
+  /** List of nodes for Doge API **/
+  "node_DOGE": [
+    "https://dogenode1.adamant.im",
+    "https://dogenode2.adamant.im"
+  ],
+
+  /** List of nodes for Bitcoin API **/
+  "node_BTC": [
+    "https://btcnode1.adamant.im",
+    "https://btcnode2.adamant.im"
+  ],
+
+  /** List of nodes for Dash API **/
+  "node_DASH": [
+    "https://dashnode1.adamant.im"
+  ],
+
+  /** List of ADAMANT InfoServices for catching exchange rates **/
+  "infoservice": [
+    "https://info.adamant.im"
+  ],
+
+  /**
+    List of cryptocurrencies you want to accept for exchange.
+    If the bot receives payment in another crypto, it will try to send it back.
+  **/
+  "accepted_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
+
+  /**
+    List of cryptocurrencies you want to send in exchange.
+    If the bot receives a request for exchange in another crypto, it will try to return a payment.
+  **/
+  "exchange_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
+
+  /**
+    The bot can check and send transfers for these cryptos.
+    If the bot receives or is requested for crypto not in the list, it will not process payment and notify the owner.
+  **/
+  "known_crypto": ["ADM", "BTC", "ETH", "USDS", "BNB", "DASH", "DOGE", "LSK", "USDT", "USDC", "DAI", "XCN"],
+
+  /** List of ERC-20 tokens **/
+  "erc20": ["USDS", "BNB", "USDT", "USDC", "DAI", "XCN"],
+
+  /** Percentage you take as a fee for the bot's service. A user pays blockchain Tx fees additionally. **/
+  "exchange_fee": 5,
+
+  /**
+    The percentage you take as a fee if receiving payment is in a specific currency.
+    If set, this value will override general exchange_fee
+  **/
+  "exchange_fee_ADM": false,
+
+  /** Minimum payment equivalent in USD accepted **/
+  "min_value_usd": 0,
+
+  /** Daily exchange limit for one user, equivalent in USD **/
+  "daily_limit_usd": 1000,
+
+  /** Daily exchange limit to buy specific coins. Set 0, if there is no limit **/
+  "daily_limit_usd_ADM": 0,
+
+  /** If to show limit info in /help command **/
+  "daily_limit_show": true,
+
+  /** Maximum price to buy a specific coin in USD. Set 0 to disable **/
+  "max_buy_price_usd_ADM": 0,
+
+  /** Minimum price to sell a specific coin in USD. Set to 0 to disable **/
+  "min_sell_price_usd_ADM": 0,
+
+  /** Fixed price to buy a specific coin in USD. Set to 0 to disable and use the market rate. **/
+  "fixed_buy_price_usd_ADM": 0,
+
+  /** Fixed price to sell a specific coin in USD. Set to 0 to disable and use the market rate. **/
+  "fixed_sell_price_usd_ADM": 0,
+
+  /** How many confirmations to consider a transaction as accepted **/
+  "min_confirmations": 2,
+
+  /** To override min_confirmations for specific cryptocurrency **/
+  "min_confirmations_ADM": 1,
+
+  /** How to reply to user in-chat, if the first unknown command is received **/
+  "welcome_string": "Hi! 😊 I'm your exchange bot. I operate instantly and anonymously. ℹ️ Learn more about me on ADAMANT’s blog or type **/help** to see what I can.",
+
+  /** Bot's name for notifications **/
+  "bot_name": "Lovely Exchange Bot",
+
+  /** ADAMANT address for notifications and monitoring **/
+  "adamant_notify": "",
+
+  /** Slack key for notifications and monitoring **/
+  "slack": "https://hooks.slack.com/services/",
+
+  /**
+    The software will use verbosity according to log_level.
+    It can be none < error < warn < info < log.
+  **/
+  "log_level": "log"
+}

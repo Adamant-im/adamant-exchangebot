@@ -11,6 +11,7 @@ module.exports = {
     if (!time) {
       time = Date.now();
     }
+
     return Math.floor((time - EPOCH) / 1000);
   },
 
@@ -31,11 +32,9 @@ module.exports = {
    */
   satsToADM(sats, decimals = 8) {
     try {
-
       let adm = (+sats / SAT).toFixed(decimals);
       adm = +adm;
       return adm;
-
     } catch (e) { }
   },
 
@@ -46,11 +45,9 @@ module.exports = {
    */
   AdmToSats(adm) {
     try {
-
       let sats = (+adm * SAT).toFixed(0);
       sats = +sats;
       return sats;
-
     } catch (e) { }
   },
 
@@ -71,6 +68,7 @@ module.exports = {
   getRandomIntInclusive(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
+
     return Math.floor(Math.random() * (max - min + 1) + min);
   },
 
@@ -81,6 +79,7 @@ module.exports = {
    */
   isNumeric(str) {
     if (typeof str !== 'string') return false;
+
     return !isNaN(str) && !isNaN(parseFloat(str));
   },
 
@@ -157,10 +156,12 @@ module.exports = {
   tryParseJSON(jsonString) {
     try {
       const o = JSON.parse(jsonString);
+
       if (o && typeof o === 'object') {
         return o;
       }
     } catch (e) { }
+
     return false;
   },
 
@@ -171,8 +172,10 @@ module.exports = {
    */
   formatDate(timestamp) {
     if (!timestamp) return false;
+
     const formattedDate = {};
     const dateObject = new Date(timestamp);
+
     formattedDate.year = dateObject.getFullYear();
     formattedDate.month = ('0' + (dateObject.getMonth() + 1)).slice(-2);
     formattedDate.date = ('0' + dateObject.getDate()).slice(-2);
@@ -182,6 +185,7 @@ module.exports = {
     formattedDate.YYYY_MM_DD = formattedDate.year + '-' + formattedDate.month + '-' + formattedDate.date;
     formattedDate.YYYY_MM_DD_hh_mm = formattedDate.year + '-' + formattedDate.month + '-' + formattedDate.date + ' ' + formattedDate.hours + ':' + formattedDate.minutes;
     formattedDate.hh_mm_ss = formattedDate.hours + ':' + formattedDate.minutes + ':' + formattedDate.seconds;
+
     return formattedDate;
   },
 
@@ -195,16 +199,20 @@ module.exports = {
     const parts = (+num + '').split('.');
     const main = parts[0];
     const len = main.length;
+
     let output = '';
     let i = len - 1;
 
     while (i >= 0) {
       output = main.charAt(i) + output;
+
       if ((len - i) % 3 === 0 && i > 0) {
         output = ' ' + output;
       }
+
       --i;
     }
+
     if (parts.length > 1) {
       if (doBold) {
         output = `**${output}**.${parts[1]}`;
@@ -212,6 +220,7 @@ module.exports = {
         output = `${output}.${parts[1]}`;
       }
     }
+
     return output;
   },
 
@@ -225,6 +234,21 @@ module.exports = {
   },
 
   /**
+   * Returns decimals for precision
+   * 0.00001 -> 5
+   * 1000 -> 0
+   * 1 -> 0
+   * 0 -> undefined
+   * @param {Number|String} precision e.g. 0.00001
+   * @return {number} returns 5
+   */
+  getDecimalsFromPrecision(precision) {
+    if (!precision) return;
+    if (precision > 1) return 0;
+    return Math.round(Math.abs(Math.log10(+precision)));
+  },
+
+  /**
    * Returns module name from its ID
    * @param {string} id Module name, module.id
    * @return {string}
@@ -233,10 +257,13 @@ module.exports = {
     if (!id) {
       return '';
     }
+
     let n = id.lastIndexOf('\\');
+
     if (n === -1) {
       n = id.lastIndexOf('/');
     }
+
     if (n === -1) {
       return '';
     } else {
@@ -266,6 +293,7 @@ module.exports = {
       m[v] = 1;
       return m;
     }, { });
+
     return Object.keys(map);
   },
 
@@ -277,6 +305,7 @@ module.exports = {
    */
   isStringEqual(string1, string2) {
     if (typeof string1 !== 'string' || typeof string2 !== 'string') return false;
+
     return string1 === string2;
   },
 
@@ -288,6 +317,7 @@ module.exports = {
    */
   isStringEqualCI(string1, string2) {
     if (typeof string1 !== 'string' || typeof string2 !== 'string') return false;
+
     return string1.toUpperCase() === string2.toUpperCase();
   },
 
@@ -302,14 +332,18 @@ module.exports = {
     if (!str || typeof str !== 'string') {
       return '';
     }
+
     let start = 0;
     let end = str.length;
+
     while (start < end && chars.indexOf(str[start]) >= 0) {
       ++start;
     }
+
     while (end > start && chars.indexOf(str[end - 1]) >= 0) {
       --end;
     }
+
     return (start > 0 || end < str.length) ? str.substring(start, end) : str;
   },
 
@@ -324,7 +358,9 @@ module.exports = {
     if (!str || typeof str !== 'string') {
       return '';
     }
+
     const n = str.lastIndexOf(searchValue);
+
     return str.slice(0, n) + str.slice(n).replace(searchValue, newValue);
   },
 

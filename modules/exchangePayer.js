@@ -8,9 +8,8 @@ const api = require('./api');
 const utils = require('../helpers/utils');
 
 module.exports = async () => {
-
   const { paymentsDb } = db;
-  (await paymentsDb.find({
+  const payouts = await paymentsDb.find({
     isBasicChecksPassed: true,
     transactionIsValid: true,
     inTxConfirmed: true,
@@ -19,11 +18,12 @@ module.exports = async () => {
     needToSendBack: false,
     needHumanCheck: false,
     outTxid: null,
-  })).forEach(async (pay) => {
+  });
 
+  for (const pay of payouts) {
     const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
-    try {
 
+    try {
       pay.counterSendExchange = ++pay.counterSendExchange || 1;
       log.log(`Sending ${pay.outAmount} ${pay.outCurrency} in exchange for ${pay.inAmountMessage} ${pay.inCurrency}. Attempt ${pay.counterSendExchange}… ${admTxDescription}.`);
 
@@ -41,14 +41,14 @@ module.exports = async () => {
       let msgNotify;
 
       const outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
-      if (!outCurrencyBalance) {
+      if (!utils.isPositiveOrZeroNumber(outCurrencyBalance)) {
         log.warn(`Unable to update balance for ${outCurrency} in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
         return;
       }
 
       if (exchangerUtils.isERC20(outCurrency)) {
         const ethBalance = await exchangerUtils['ETH'].getBalance();
-        if (!ethBalance) {
+        if (!utils.isPositiveOrZeroNumber(ethBalance)) {
           log.warn(`Unable to update balance for ETH in ${utils.getModuleName(module.id)} module. Waiting for next try.`);
           return;
         }
@@ -116,10 +116,19 @@ module.exports = async () => {
     } catch (e) {
       log.error(`Error while sending exchange payment of ${pay.inAmountMessage} ${pay.inCurrency} for ${pay.outAmount} ${pay.outCurrency} in ${utils.getModuleName(module.id)} module. ${admTxDescription}. Error: ` + e);
     }
-
-  });
+  }
 };
 
-setInterval(() => {
-  module.exports();
+let isPreviousIterationFinished = true;
+
+setInterval(async () => {
+  if (isPreviousIterationFinished) {
+    isPreviousIterationFinished = false;
+
+    await module.exports();
+
+    isPreviousIterationFinished = true;
+  } else {
+    log.log(`Postponing iteration of ${utils.getModuleName(module.id)} module for ${constants.EXCHANGER_INTERVAL} ms. Previous iteration is in progress yet.`);
+  }
 }, constants.EXCHANGER_INTERVAL);

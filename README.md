@@ -1,4 +1,4 @@
-ADAMANT Exchange Bot is a software that allows you to launch own exchange, anonymous, instant and convenient. Exchange bots work in ADAMANT Messenger chats directly.
+ADAMANT Exchange Bot is software that allows you to launch your own exchange, anonymous, instant, and convenient. Exchange bots work in ADAMANT Messenger chats directly.
 
 Coins supported:
 
@@ -9,17 +9,21 @@ Coins supported:
 - Dash (DASH) with InstantSend
 - Stably Dollar (USDS ERC20)
 - Binance Coin (BNB ERC20)
+- Dai (DAI ERC20)
+- Tether (USDT ERC20)
+- USD Coin (USDC ERC20)
+- Onyxcoin (XCN ERC20)
 
 ![Exchanging Dash to Ethereum](./assets/Exchanger-Dash-480-2x.gif)
 
-Read more: [Multiple anonymous crypto exchanges on ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
+Read more: [Multiple anonymous crypto exchanges on the ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
 # Installation
 
 ## Requirements
 
-- Ubuntu 18 / 20 (other OS had not been tested)
-- NodeJS 14+
+- Ubuntu 20+ (other OS had not been tested)
+- NodeJS 16+
 - MongoDB ([installation instructions](https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/))
 
 ## Setup
@@ -33,11 +37,14 @@ npm i
 
 ## Pre-launch tuning
 
+The bot will use `config.jsonc` if available, or `config.default.jsonc` otherwise.
+
 ```
-nano config.json
+cp config.default.jsonc config.jsonc
+nano config.jsonc
 ```
 
-Parameters: see comments in `config.json`.
+Parameters: see comments in the config file.
 
 ## Launching
 
@@ -65,7 +72,9 @@ Add string:
 su - adamant
 cd ./adamant-exchangebot
 pm2 stop exchangebot
-mv config.json config_bup.json && git pull && mv config_bup.json config.json
 npm i
-pm2 start --name exchangebot app.js
 ```
+
+Update `config.jsonc` if `config.default.jsonc` changed.
+
+Then `pm2 restart exchangebot`.

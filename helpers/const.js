@@ -7,10 +7,13 @@ const Cryptos = {
   DASH: 'DASH',
   USDS: 'USDS',
   BNB: 'BNB',
+  USDT: 'USDT',
+  USDC: 'USDC',
+  USDC: 'DAI',
+  XCN: 'XCN',
 };
 
 module.exports = {
-
   HOUR: 60 * 60 * 1000,
   SAT: 100000000, // 1 ADM = 100000000
   ADM_EXPLORER_URL: 'https://explorer.adamant.im',
@@ -20,7 +23,7 @@ module.exports = {
   PRECISION_DECIMALS: 8, // Accuracy for converting cryptos, 9.12345678 ETH
   PRINT_DECIMALS: 8, // For pretty print, 9.12345678 ETH
   TX_CHECKER_INTERVAL: 4 * 1000, // Check for new Txs every 4 seconds; additionally Exchanger receives new Txs instantly via socket
-  UPDATE_CRYPTO_RATES_INVERVAL: 60 * 1000, // Update crypto rates every minute
+  UPDATE_CRYPTO_RATES_INTERVAL: 60 * 1000, // Update crypto rates every minute
   VALIDATOR_TX_INTERVAL: 20 * 1000, // Validate Txs every 20 sec in deepExchangeValidator
   VALIDATOR_GET_TX_RETRIES: 30, // Retries to get Tx in deepExchangeValidator. In 10 minutes Tx must appear in a blockchain, otherwise Exchanger will decline it.
   VALIDATOR_AMOUNT_DEVIATION: 0.001, // 0.1% can be a precision error
@@ -45,7 +48,6 @@ module.exports = {
     TX_FAILED: 14,
     UNABLE_TO_FETCH_SENT_TX: 14,
     SENT_TX_FAILED: 21,
-
   },
 
   minBalances: {
@@ -53,5 +55,4 @@ module.exports = {
     [Cryptos.BTC]: 0.00001,
     [Cryptos.DASH]: 0.0001,
   },
-
 };

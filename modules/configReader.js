@@ -81,18 +81,23 @@ const fields = {
 };
 
 try {
-
-  if (isDev) {
-    config = JSON.parse(jsonminify(fs.readFileSync('./config.test', 'utf-8')));
+  let configFile;
+  if (isDev || process.env.JEST_WORKER_ID) {
+    configFile = './config.test.jsonc';
   } else {
-    config = JSON.parse(jsonminify(fs.readFileSync('./config.json', 'utf-8')));
+    if (fs.existsSync('./config.jsonc')) {
+      configFile = './config.jsonc';
+    } else {
+      configFile = './config.default.jsonc';
+    }
   }
+  config = JSON.parse(jsonminify(fs.readFileSync(configFile, 'utf-8')));
 
   if (!config.node_ADM) {
     exit(`Bot's config is wrong. ADM nodes are not set. Cannot start the Bot.`);
   }
-  if (!config.passPhrase) {
-    exit(`Bot's config is wrong. No passPhrase. Cannot start the Bot.`);
+  if (!config.passPhrase || config.passPhrase.length < 35) {
+    exit(`Bot's config is wrong. Set an ADAMANT passPhrase to manage the Bot.`);
   }
 
   let keyPair;
@@ -125,18 +130,19 @@ try {
   });
 
   Object.keys(fields).forEach((f) => {
-    if (!config[f] && fields[f].isRequired) {
-      exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start the Bot.`);
-    } else if (!config[f] && config[f] !== 0 && fields[f].default) {
-      config[f] = fields[f].default;
+    if (config[f] === undefined) {
+      if (fields[f].isRequired) {
+        exit(`Bot's ${address} config is wrong. Field _${f}_ is not valid. Cannot start Bot.`);
+      } else if (fields[f].default !== undefined) {
+        config[f] = fields[f].default;
+      }
     }
-    if (config[f] && fields[f].type !== config[f].__proto__.constructor) {
+    if (config[f] !== false && fields[f].type !== config[f].__proto__.constructor) {
       exit(`Bot's ${address} config is wrong. Field type _${f}_ is not valid, expected type is _${fields[f].type.name}_. Cannot start Bot.`);
     }
   });
 
-  console.info(`Exchange Bot ${address} successfully read a config-file${isDev ? ' (dev)' : ''}.`);
-
+  console.info(`The bot ${address} successfully read the config-file '${configFile}'${isDev ? ' (dev)' : ''}.`);
 } catch (e) {
   console.error('Error reading config: ' + e);
 }

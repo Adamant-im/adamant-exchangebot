@@ -198,7 +198,7 @@ module.exports = class lskCoin extends LskBaseCoin {
       const result = await this.createTransaction(params.address, params.value, fee, nonce);
       try {
         if (result) {
-          log.log(`Successfully built Tx ${result.txId} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee.`);
+          log.log(`Successfully built Tx ${result.txId} to send ${params.value} ${this.token} to ${params.address} with ${fee} ${this.token} fee. Nonce is ${nonce}.`);
           const hash = await this.sendTransaction(result.tx);
           try {
             if (hash) {

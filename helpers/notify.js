@@ -8,13 +8,10 @@ const {
 } = config;
 
 module.exports = (message, type, silent_mode = false) => {
-
   try {
-
     log[type](removeMarkdown(message));
 
     if (!silent_mode) {
-
       if (!slack && !adamant_notify) {
         return;
       }
@@ -49,6 +46,7 @@ module.exports = (message, type, silent_mode = false) => {
               log.log(`Request to Slack with message ${message} failed. ${error}.`);
             });
       }
+
       if (adamant_notify && adamant_notify.length > 5 && adamant_notify.startsWith('U') && config.passPhrase && config.passPhrase.length > 30) {
         const mdMessage = makeBoldForMarkdown(message);
         api.sendMessage(config.passPhrase, adamant_notify, `${type}| ${mdMessage}`).then((response) => {
@@ -63,7 +61,6 @@ module.exports = (message, type, silent_mode = false) => {
   } catch (e) {
     log.error('Notifier error: ' + e);
   }
-
 };
 
 function removeMarkdown(text) {
