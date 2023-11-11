@@ -48,7 +48,7 @@
     "@liskhq/lisk-cryptography": "^3.2.1",
     "@liskhq/lisk-transactions": "^5.2.2",
     "adamant-api": "^1.8.0",
-    "axios": "^1.4.0",
+    "axios": "^1.6.0",
     "bitcoinjs-lib": "^5.2.0",
     "jsonminify": "^0.4.2",
     "mongodb": "^4.17.0",
