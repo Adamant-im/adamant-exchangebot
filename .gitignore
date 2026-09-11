@@ -1,6 +1,13 @@
-node_modules/
-logs/
-.vscode/
-tests.js
-config.test
+.idea
+node_modules
+.DS_Store
+Thumbs.db
+logs
+.vscode
+config.jsonc
 config.test.jsonc
+
+# ai
+.ai-ignored/
+.ai-tasks/
+.claude/
