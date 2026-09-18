@@ -237,8 +237,9 @@ describe('the shipped config.default.jsonc', () => {
     expect(typeof raw).toBe('object');
   });
 
-  test('passes validation as shipped', () => {
-    expect(() => buildConfig(raw, { version: '3.0.0' })).not.toThrow();
+  test('passes validation once the placeholder passphrase is replaced', () => {
+    expect(raw.passPhrase).toBe('adamant wallet twelve words here');
+    expect(() => buildConfig({ ...raw, passPhrase: TEST_PASSPHRASE }, { version: '3.0.0' })).not.toThrow();
   });
 
   test('mentions no Lisk fields', () => {

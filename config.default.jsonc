@@ -64,10 +64,10 @@
     A coin missing from this list is not processed at all, and the operator is notified.
     Each coin here needs its node list above; ERC-20 tokens use "node_ETH".
   **/
-  "known_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "USDT", "USDC", "DAI"],
+  "known_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "USDT", "USDC", "DAI", "XCN"],
 
   /** Which of the known coins are ERC-20 tokens. Each must be described in helpers/cryptos/erc20_models.js. **/
-  "erc20": ["USDT", "USDC", "DAI"],
+  "erc20": ["USDT", "USDC", "DAI", "XCN"],
 
   /** Service fee, as a percentage. The user pays the blockchain Tx fees on top of it. **/
   "exchange_fee": 5,
