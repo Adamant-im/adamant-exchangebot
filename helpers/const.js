@@ -96,6 +96,8 @@ module.exports = {
     SENT_TX_FAILED: 21,
     WRONG_TIMESTAMP: 34,
     INVALID_PAYOUT_ADDRESS: 35,
+    WRONG_ASSET: 36,
+    UNSUPPORTED_COIN: 37,
   },
 
   /**

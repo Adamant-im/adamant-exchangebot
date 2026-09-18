@@ -48,7 +48,7 @@
   "author": "ADAMANT community developers <devs@adamant.im>, ADAMANT Foundation <devs@adamant.im>",
   "license": "GPL-3.0",
   "engines": {
-    "node": ">=22.12.0",
+    "node": ">=22.13.0",
     "npm": ">=10.0.0"
   },
   "dependencies": {

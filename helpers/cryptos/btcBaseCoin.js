@@ -367,7 +367,9 @@ module.exports = class BtcBaseCoin extends BaseCoin {
       if (!hash) {
         return {
           success: false,
-          error: 'Unable to broadcast the Tx; it may be a dust amount or a node error',
+          hash: txid,
+          isAmbiguous: true,
+          error: 'Unable to confirm whether the Tx was broadcast; the node did not return a transaction id',
         };
       }
 

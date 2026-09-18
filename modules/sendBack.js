@@ -7,6 +7,7 @@ const constants = require('../helpers/const');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const utils = require('../helpers/utils');
 const { startInterval } = require('../helpers/scheduler');
+const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
 
 /** Comment attached to an ADM refund; other coins carry it in the rich message instead. */
 const REFUND_COMMENT = 'Here is your refund. Note that some of it covered the blockchain fees. Try me again!';
@@ -40,6 +41,17 @@ async function refund(pay) {
   pay.counterSendBack = ++pay.counterSendBack || 1;
 
   log.log(`Sending back ${inAmountReal} ${inCurrency}. Attempt ${pay.counterSendBack}… ${admTxDescription}.`);
+
+  if (
+    !(await ensureSupportedCoin(pay, {
+      coin: inCurrency,
+      stage: 'sending a refund',
+      admTxDescription,
+      errorField: 'errorSendBack',
+    }))
+  ) {
+    return;
+  }
 
   const outFee = exchangerUtils[inCurrency].FEE;
   const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
@@ -123,6 +135,16 @@ async function refund(pay) {
         exchangerUtils.ETH.balance -= outFee;
       }
     } else if (result.isAmbiguous) {
+      if (result.hash) {
+        await pay.update({ sentBackTx: result.hash, sendBackStartedAt: null }, true);
+
+        log.warn(
+          `The outcome of the refund of ${sentBackAmount} ${inCurrency} is uncertain, but the built Tx hash ${result.hash} is known. Tracking it instead of retrying. ${result.error}. ${admTxDescription}.`,
+        );
+
+        return;
+      }
+
       // The refund may already be in the network. Leaving the in-flight marker in place
       // keeps this payment out of the queue, and reconcileInterrupted() escalates it on
       // the next tick. Retrying here could refund the user twice.

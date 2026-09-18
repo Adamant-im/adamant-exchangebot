@@ -171,6 +171,14 @@ describe('AdmCoin', () => {
     expect(result).toEqual({ success: false, error: 'Account does not have enough ADM' });
   });
 
+  test('treats a transport failure as an ambiguous outcome', async () => {
+    api.sendMessage.mockResolvedValue({ success: false, errorMessage: 'timeout of 15000ms exceeded' });
+
+    const result = await adm.send({ address: USER, value: 2.5, comment: 'Done!' });
+
+    expect(result).toEqual({ success: false, isAmbiguous: true, error: 'timeout of 15000ms exceeded' });
+  });
+
   test('describes a transaction in one readable line', () => {
     const message = adm.formTxMessage({
       hash: 'tx-1',

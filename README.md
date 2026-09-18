@@ -48,9 +48,9 @@ Each stage is a separate module, so a log line tells you exactly where an exchan
 ## Requirements
 
 - Ubuntu 20.04 or newer — other operating systems have not been tested
-- Node.js 22.12 or newer
+- Node.js 22.13 or newer
 - npm 10 or newer
-- [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community/) 4.2 or newer
+- [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community/) 4.4 or newer
 - Funded hot wallets for every coin in `exchange_crypto`, plus ETH to pay the gas for ERC-20 payouts
 
 ## Installation

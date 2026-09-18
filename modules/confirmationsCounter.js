@@ -7,6 +7,7 @@ const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const { startInterval } = require('../helpers/scheduler');
+const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
 
 /**
  * Tracks how many confirmations a validated incoming transfer has.
@@ -23,6 +24,12 @@ async function count(pay) {
 
   try {
     log.log(`Updating the confirmations of the incoming Tx ${pay.inTxid}… ${admTxDescription}.`);
+
+    if (
+      !(await ensureSupportedCoin(pay, { coin: pay.inCurrency, stage: 'counting confirmations', admTxDescription }))
+    ) {
+      return;
+    }
 
     const tx = await exchangerUtils[pay.inCurrency].getTransaction(pay.inTxid);
 

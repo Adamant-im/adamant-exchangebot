@@ -67,6 +67,18 @@ describe('sentTxChecker.check — exchange payouts', () => {
     expect(messenger.sendTransferMessage).not.toHaveBeenCalled();
   });
 
+  test('quarantines a sent transfer whose coin adapter no longer exists', async () => {
+    const pay = createPayment({ outTxid: 'out-tx-1', outCurrency: 'LSK' });
+
+    await sentTxChecker.check(pay);
+
+    expect(pay.needHumanCheck).toBe(true);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.errorCheckOuterTX).toBe(constants.ERRORS.UNSUPPORTED_COIN);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('Automatic retries were disabled'), 'error');
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("Unsupported legacy coin 'LSK'"));
+  });
+
   test('keeps the deal open when the transfer card cannot be delivered', async () => {
     exchangerUtils.BTC.getTransaction.mockResolvedValue({ status: true, confirmations: 1, height: 10 });
     messenger.sendTransferMessage.mockResolvedValue(false);

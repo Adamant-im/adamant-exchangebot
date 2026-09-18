@@ -75,6 +75,12 @@ describe('EthCoin', () => {
     expect(eth.isValidAddress('not-an-address')).toBe(false);
   });
 
+  test('uses a nonce manager so ETH and ERC-20 sends share one nonce sequence', () => {
+    const managed = new EthCoin('ETH');
+
+    expect(managed.wallet).toBeInstanceOf(ethers.NonceManager);
+  });
+
   test('converts between wei and ETH', () => {
     expect(eth.fromSat(10n ** 18n)).toBe(1);
     expect(eth.toSat(1)).toBe(10n ** 18n);

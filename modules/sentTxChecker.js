@@ -7,6 +7,7 @@ const notify = require('../helpers/notify');
 const messenger = require('../helpers/messenger');
 const utils = require('../helpers/utils');
 const { startInterval } = require('../helpers/scheduler');
+const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
 
 /**
  * Describes the transfer the bot made for a payment — either the exchange payout or
@@ -168,6 +169,17 @@ async function check(pay) {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId} from ${pay.senderId}`;
 
   pay.tryCounterCheckOutTX = ++pay.tryCounterCheckOutTX || 1;
+
+  if (
+    !(await ensureSupportedCoin(pay, {
+      coin: sendCurrency,
+      stage: 'checking a sent transfer',
+      admTxDescription,
+      errorField: 'errorCheckOuterTX',
+    }))
+  ) {
+    return;
+  }
 
   const etherString = exchangerUtils.isERC20(sendCurrency) ? `Ether balance: ${exchangerUtils.ETH.balance}. ` : '';
 

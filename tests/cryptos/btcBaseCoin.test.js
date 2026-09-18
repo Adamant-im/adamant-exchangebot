@@ -182,7 +182,9 @@ describe('BtcBaseCoin.send', () => {
     const result = await coin.send({ address: RECIPIENT, value: 0.0005 });
 
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Unable to broadcast/);
+    expect(result.isAmbiguous).toBe(true);
+    expect(result.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.error).toMatch(/Unable to confirm whether the Tx was broadcast/);
   });
 
   test('reports a build failure instead of throwing', async () => {

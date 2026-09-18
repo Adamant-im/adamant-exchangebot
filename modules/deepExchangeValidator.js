@@ -8,6 +8,35 @@ const utils = require('../helpers/utils');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const api = require('./api');
+const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
+
+function getActualAssetLabel(tx) {
+  if (!tx?.contract) {
+    return 'ETH';
+  }
+
+  return exchangerUtils.ETH?.getErc20token?.(tx.contract)?.token || tx.contract;
+}
+
+function getExpectedAssetMismatch(pay, incomeTx) {
+  if (pay.inCurrency === 'ETH') {
+    return incomeTx.contract ? `expected ETH, got ${getActualAssetLabel(incomeTx)}` : undefined;
+  }
+
+  const expectedContract = exchangerUtils[pay.inCurrency]?.model?.sc;
+
+  if (!expectedContract) {
+    return undefined;
+  }
+
+  if (!incomeTx.contract) {
+    return `expected ${pay.inCurrency}, got ETH`;
+  }
+
+  return utils.isStringEqualCI(incomeTx.contract, expectedContract)
+    ? undefined
+    : `expected ${pay.inCurrency}, got ${getActualAssetLabel(incomeTx)}`;
+}
 
 /**
  * Verifies that the transfer a user announced in chat really happened, and that it
@@ -28,6 +57,27 @@ async function validate(pay, tx) {
 
   try {
     log.log(`Validating the ${pay.inCurrency} Tx ${pay.inTxid}… ${admTxDescription}.`);
+
+    if (
+      !(await ensureSupportedCoin(pay, {
+        coin: pay.inCurrency,
+        stage: 'validating an incoming transfer',
+        admTxDescription,
+      }))
+    ) {
+      return;
+    }
+
+    if (
+      !pay.needToSendBack &&
+      !(await ensureSupportedCoin(pay, {
+        coin: pay.outCurrency,
+        stage: 'preparing a payout after validation',
+        admTxDescription,
+      }))
+    ) {
+      return;
+    }
 
     pay.counterTxDeepValidator = ++pay.counterTxDeepValidator || 0;
 
@@ -166,6 +216,7 @@ async function validate(pay, tx) {
       // How far the transfer in its own blockchain is from the moment the user announced
       // it in chat. A large gap means the user is pointing at somebody else's old transfer.
       const deltaTimestamp = Math.abs(utils.toTimestamp(tx.timestamp) - pay.inTxTimestamp);
+      const assetMismatch = getExpectedAssetMismatch(pay, incomeTx);
 
       if (!utils.isStringEqualCI(pay.inTxSenderId, pay.senderKvsInAddress)) {
         await pay.update({
@@ -186,6 +237,16 @@ async function validate(pay, tx) {
 
         notifyType = 'error';
         msgNotify = `${config.notifyName} considers the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ to be wrong. Expected recipient: _${exchangerUtils[pay.inCurrency].account.address}_, actual recipient: _${pay.inTxRecipientId}_.`;
+        msgSendBack = `I can’t validate the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
+      } else if (assetMismatch) {
+        await pay.update({
+          transactionIsValid: false,
+          isFinished: true,
+          error: constants.ERRORS.WRONG_ASSET,
+        });
+
+        notifyType = 'error';
+        msgNotify = `${config.notifyName} considers the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ to be the wrong asset. ${assetMismatch}.`;
         msgSendBack = `I can’t validate the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
       } else if (deltaAmount > pay.inAmountReal * constants.VALIDATOR_AMOUNT_DEVIATION) {
         await pay.update({

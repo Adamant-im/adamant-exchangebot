@@ -144,6 +144,18 @@ describe('sendBack.refund', () => {
     expect(pay.needHumanCheck).toBe(false);
   });
 
+  test('quarantines a refund whose coin adapter no longer exists', async () => {
+    const pay = refundablePayment({ inCurrency: 'LSK' });
+
+    await sendBack.refund(pay);
+
+    expect(pay.needHumanCheck).toBe(true);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.errorSendBack).toBe(constants.ERRORS.UNSUPPORTED_COIN);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('no longer supported by this bot'), 'error');
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("Unsupported legacy coin 'LSK'"));
+  });
+
   test('retries a failed refund', async () => {
     exchangerUtils.ADM.send.mockResolvedValue({ success: false, error: 'node down' });
 
@@ -213,6 +225,23 @@ describe('sendBack.run', () => {
     expect(pay.sendBackStartedAt).toEqual(expect.any(Number));
     expect(pay.needHumanCheck).toBe(false);
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('Unable to confirm the outcome'));
+  });
+
+  test('tracks an ambiguous refund by hash when the built transaction id is known', async () => {
+    exchangerUtils.ADM.send.mockResolvedValue({
+      success: false,
+      isAmbiguous: true,
+      hash: 'known-back-txid',
+      error: 'the node did not answer',
+    });
+
+    const pay = refundablePayment();
+
+    await sendBack.refund(pay);
+
+    expect(pay.sentBackTx).toBe('known-back-txid');
+    expect(pay.sendBackStartedAt).toBeNull();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Tracking it instead of retrying'));
   });
 
   test('keeps processing the queue when one refund cannot be made right now', async () => {

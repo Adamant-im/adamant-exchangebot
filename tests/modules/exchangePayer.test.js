@@ -133,6 +133,18 @@ describe('exchangePayer.payOut', () => {
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Unable to update the BTC balance'));
   });
 
+  test('quarantines a payout whose coin adapter no longer exists', async () => {
+    const pay = createPayment({ outCurrency: 'LSK' });
+
+    await exchangePayer.payOut(pay);
+
+    expect(pay.needHumanCheck).toBe(true);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.error).toBe(constants.ERRORS.UNSUPPORTED_COIN);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('no longer supported by this bot'), 'error');
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining("Unsupported legacy coin 'LSK'"));
+  });
+
   test('retries a failed payout without giving up', async () => {
     exchangerUtils.BTC.send.mockResolvedValue({ success: false, error: 'node down' });
 
@@ -161,6 +173,23 @@ describe('exchangePayer.payOut', () => {
     expect(pay.payoutStartedAt).toEqual(expect.any(Number));
     expect(pay.needToSendBack).toBe(false);
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('Unable to confirm the outcome'));
+  });
+
+  test('tracks an ambiguous payout by hash when the built transaction id is known', async () => {
+    exchangerUtils.BTC.send.mockResolvedValue({
+      success: false,
+      isAmbiguous: true,
+      hash: 'known-txid',
+      error: 'the node did not answer',
+    });
+
+    const pay = createPayment();
+
+    await exchangePayer.payOut(pay);
+
+    expect(pay.outTxid).toBe('known-txid');
+    expect(pay.payoutStartedAt).toBeNull();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Tracking it instead of retrying'));
   });
 
   test('gives up and refunds once the retries are exhausted', async () => {

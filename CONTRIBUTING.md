@@ -13,7 +13,7 @@ All repository artifacts — code, comments, documentation, commits, issues, and
 
 ## Development setup
 
-Use Node.js 22.12 or newer and npm 10 or newer; `engines` in `package.json` enforces both.
+Use Node.js 22.13 or newer and npm 10 or newer; `engines` in `package.json` enforces both.
 
 ```sh
 git clone https://github.com/Adamant-im/adamant-exchangebot.git

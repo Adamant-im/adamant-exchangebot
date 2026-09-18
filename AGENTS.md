@@ -19,7 +19,7 @@ If a tradeoff is needed, preserve user funds first.
 
 ## Stack
 
-- Node.js 22.12 or newer, CommonJS, no build step
+- Node.js 22.13 or newer, CommonJS, no build step
 - `adamant-api` 3.x for every ADAMANT Node interaction: the `AdamantApi` client, `WebSocketClient`, and the `adamant-api/coins/*` key-derivation helpers
 - `ethers` 6 for Ethereum and ERC-20; `web3-eth` and `web3-utils` are gone
 - `bitcoinjs-lib` 7 for Bitcoin, Dash and Dogecoin — PSBT only, `TransactionBuilder` no longer exists

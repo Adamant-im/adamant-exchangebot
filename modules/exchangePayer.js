@@ -7,6 +7,7 @@ const notify = require('../helpers/notify');
 const messenger = require('../helpers/messenger');
 const utils = require('../helpers/utils');
 const { startInterval } = require('../helpers/scheduler');
+const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
 
 /** Comment attached to an ADM payout; other coins carry it in the rich message instead. */
 const PAYOUT_COMMENT = 'Done! Thank you for your business. Hope to see you again.';
@@ -38,6 +39,10 @@ async function payOut(pay) {
   log.log(
     `Sending ${outAmount} ${outCurrency} in exchange for ${inAmountMessage} ${inCurrency}. Attempt ${pay.counterSendExchange}… ${admTxDescription}.`,
   );
+
+  if (!(await ensureSupportedCoin(pay, { coin: outCurrency, stage: 'sending an exchange payout', admTxDescription }))) {
+    return;
+  }
 
   const outCurrencyBalance = await exchangerUtils[outCurrency].getBalance();
 
@@ -113,6 +118,16 @@ async function payOut(pay) {
   }
 
   if (result.isAmbiguous) {
+    if (result.hash) {
+      await pay.update({ outTxid: result.hash, payoutStartedAt: null }, true);
+
+      log.warn(
+        `The outcome of the exchange payment of ${outAmount} ${outCurrency} is uncertain, but the built Tx hash ${result.hash} is known. Tracking it instead of retrying. ${result.error}. ${admTxDescription}.`,
+      );
+
+      return;
+    }
+
     // The transfer may already be in the network. Leaving the in-flight marker in place
     // keeps this payment out of the queue, and reconcileInterrupted() escalates it on the
     // next tick. Retrying here could pay the user twice.

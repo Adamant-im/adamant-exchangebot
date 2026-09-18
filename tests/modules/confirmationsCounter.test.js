@@ -100,6 +100,17 @@ describe('confirmationsCounter.count', () => {
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Unable to fetch the validated Tx'));
   });
 
+  test('quarantines a payment whose incoming coin adapter no longer exists', async () => {
+    const pay = createPayment({ inCurrency: 'LSK', inTxConfirmed: false });
+
+    await counter.count(pay);
+
+    expect(pay.needHumanCheck).toBe(true);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.error).toBe(constants.ERRORS.UNSUPPORTED_COIN);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('no longer supported by this bot'), 'error');
+  });
+
   test('waits for the next tick when neither height nor confirmations are known', async () => {
     exchangerUtils.ADM.getTransaction.mockResolvedValue({ status: true, confirmations: 0, height: undefined });
 

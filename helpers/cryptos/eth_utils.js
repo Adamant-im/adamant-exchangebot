@@ -104,7 +104,10 @@ module.exports = class EthCoin extends BaseCoin {
 
     this.account.address = keys.address;
     this.account.privateKey = keys.privateKey;
-    this.wallet = new ethers.Wallet(keys.privateKey, this.provider);
+    // ETH and every ERC-20 payout share one nonce sequence, so the signer must serialize
+    // sends across the whole wallet rather than asking the provider for a fresh pending nonce
+    // on every call.
+    this.wallet = new ethers.NonceManager(new ethers.Wallet(keys.privateKey, this.provider));
 
     this.decimals = 18;
     this.reliabilityCoef = RELIABILITY_COEF_ETH;

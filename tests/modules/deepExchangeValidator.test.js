@@ -14,6 +14,24 @@ jest.mock('../../helpers/cryptos/exchanger', () => ({
     account: { address: '1ETWHRzkiNTEbQB6GGFCG75eVTPCV2AFR3' },
     isValidAddress: (address) => /^[13][1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address),
   },
+  ETH: {
+    getTransaction: jest.fn(),
+    account: { address: '0x1417282226491840087900000000000000000000' },
+    isValidAddress: (address) => /^0x[0-9a-fA-F]{40}$/.test(address),
+    getErc20token: jest.fn((contract) => {
+      if (String(contract).toLowerCase() === '0xdac17f958d2ee523a2206206994597c13d831ec7') {
+        return { token: 'USDT' };
+      }
+
+      return undefined;
+    }),
+  },
+  USDT: {
+    getTransaction: jest.fn(),
+    account: { address: '0x1417282226491840087900000000000000000000' },
+    isValidAddress: (address) => /^0x[0-9a-fA-F]{40}$/.test(address),
+    model: { sc: '0xdac17f958d2ee523a2206206994597c13d831ec7' },
+  },
 }));
 jest.mock('../../helpers/log', () => ({
   error: jest.fn(),
@@ -70,6 +88,8 @@ function incomingTx(overrides = {}) {
 beforeEach(() => {
   exchangerUtils.getKvsCryptoAddress.mockResolvedValue('1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2');
   exchangerUtils.ADM.getTransaction.mockResolvedValue(incomingTx());
+  exchangerUtils.ETH.getTransaction.mockResolvedValue(incomingTx());
+  exchangerUtils.USDT.getTransaction.mockResolvedValue(incomingTx());
 });
 
 describe('deepExchangeValidator.validate', () => {
@@ -102,6 +122,17 @@ describe('deepExchangeValidator.validate', () => {
     expect(pay.transactionIsValid).toBeNull();
     expect(pay.isFinished).toBe(false);
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('Unable to fetch the BTC address'));
+  });
+
+  test('quarantines a payment whose incoming coin adapter no longer exists', async () => {
+    const pay = createPayment({ transactionIsValid: null, inCurrency: 'LSK' });
+
+    await validator.validate(pay, admTx());
+
+    expect(pay.needHumanCheck).toBe(true);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.error).toBe(constants.ERRORS.UNSUPPORTED_COIN);
+    expect(exchangerUtils.getKvsCryptoAddress).not.toHaveBeenCalled();
   });
 
   test('escalates when the user has published no address for the coin they sent', async () => {
@@ -212,6 +243,32 @@ describe('deepExchangeValidator.validate', () => {
 
     expect(pay.transactionIsValid).toBe(false);
     expect(pay.error).toBe(constants.ERRORS.WRONG_RECIPIENT);
+  });
+
+  test('rejects an ERC-20 transfer announced as ETH', async () => {
+    exchangerUtils.ETH.getTransaction.mockResolvedValue(
+      incomingTx({
+        senderId: '0x1111111111111111111111111111111111111111',
+        recipientId: '0x1417282226491840087900000000000000000000',
+        amount: 100,
+        contract: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      }),
+    );
+    exchangerUtils.getKvsCryptoAddress.mockResolvedValue('0x1111111111111111111111111111111111111111');
+
+    const pay = createPayment({
+      transactionIsValid: null,
+      inCurrency: 'ETH',
+      outCurrency: 'BTC',
+      inAmountMessage: 100,
+      senderKvsInAddress: undefined,
+    });
+
+    await validator.validate(pay, admTx());
+
+    expect(pay.transactionIsValid).toBe(false);
+    expect(pay.error).toBe(constants.ERRORS.WRONG_ASSET);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('wrong asset'), 'error');
   });
 
   test('rejects a transfer worth less than the user claimed', async () => {
