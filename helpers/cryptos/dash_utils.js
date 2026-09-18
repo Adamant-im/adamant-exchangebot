@@ -1,234 +1,205 @@
+const { dash } = require('adamant-api/coins/dash');
+
 const config = require('../../modules/configReader');
 const log = require('../log');
 const utils = require('../utils');
+const { NodeClient } = require('./nodeClient');
+const BtcBaseCoin = require('./btcBaseCoin');
 
-const dashNode = config.node_DASH[0]; // TODO: health check
-const axios = require('axios');
+/** Fixed transfer fee, in DASH. */
+const TRANSFER_FEE = 0.0001;
 
-const btcBaseCoin = require('./btcBaseCoin');
-module.exports = class dashCoin extends btcBaseCoin {
+/** Outputs below this many duffs are not relayed. */
+const DUST_THRESHOLD = 5460;
 
+/**
+ * Dash adapter.
+ *
+ * Talks to a Dash Core node over JSON-RPC. The node runs with the address index
+ * enabled, which is what makes `getaddressbalance` and `getaddressutxos` available
+ * and what puts the spent address on every input.
+ */
+module.exports = class DashCoin extends BtcBaseCoin {
+  /** @param {string} token Ticker, `DASH` */
   constructor(token) {
-    super(token);
+    super(token, dash, config.passPhrase);
+
+    this.client = new NodeClient(token, config.node_DASH);
+
     this.cache.balance = { lifetime: 60000 };
     this.cache.lastBlock = { lifetime: 90000 };
   }
 
-  /**
-   * Returns DASH decimals (precision)
-   * @override
-   * @return {Number}
-   */
+  /** @returns {number} */
   get decimals() {
     return 8;
   }
 
+  /** @returns {number} */
+  get dustThreshold() {
+    return DUST_THRESHOLD;
+  }
+
   /**
-   * Returns fixed fee for transfers
-   * @return {Number}
+   * Fixed transfer fee, in DASH.
+   *
+   * @returns {number}
    */
   get FEE() {
-    return 0.0001;
+    return TRANSFER_FEE;
   }
 
   /**
-   * Returns balance in DASH from cache, if it's up to date. If not, makes an API request and updates cached data.
-   * @override
-   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   * Returns the bot's DASH balance, from cache when it is fresh.
+   *
+   * @returns {Promise<number|undefined>} Balance in DASH; a stale cached value when the request fails
    */
   async getBalance() {
-    try {
+    const cached = this.cache.getData('balance', true);
 
-      const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a duffs string or number
-        return this.fromSat(cached);
-      }
-      let balance = await requestDash('getaddressbalance', [this.address]);
-      if (balance && (balance.balance !== undefined)) {
-        balance = balance.balance;
-        this.cache.cacheData('balance', balance);
-        return this.fromSat(balance);
-      } else {
-        const balanceErrorMessage = balance && balance.errorMessage ? ' ' + balance.errorMessage : '';
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
-        return this.fromSat(this.cache.getData('balance', false));
-      }
-
-    } catch (e) {
-      log.warn(`Error while getting balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    if (cached !== undefined) {
+      return this.fromSat(cached);
     }
+
+    const result = await this.client.rpc('getaddressbalance', [this.address]);
+
+    if (result?.balance !== undefined) {
+      this.cache.cacheData('balance', result.balance);
+
+      return this.fromSat(result.balance);
+    }
+
+    log.warn(
+      `Failed to get the balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning the outdated cached balance.`,
+    );
+
+    return this.fromSat(this.cache.getData('balance', false));
   }
 
   /**
-   * Returns balance in DASH from cache. It may be outdated.
-   * @override
-   * @return {Number} cached value; it may be undefined
+   * Returns the chain tip height, from cache when it is fresh.
+   *
+   * @returns {Promise<number|undefined>}
    */
-  get balance() {
-    try {
-      return this.fromSat(this.cache.getData('balance', false));
-    } catch (e) {
-      log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Updates DASH balance in cache. Useful when we don't want to wait for network update.
-   * @override
-   * @param {Number} value New balance in DASH
-   */
-  set balance(value) {
-    try {
-      if (utils.isPositiveOrZeroNumber(value)) {
-        this.cache.cacheData('balance', this.toSat(value));
-      }
-    } catch (e) {
-      log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Returns last block of DASH blockchain from cache, if it's up to date.
-   * If not, makes an API request and updates cached data.
-   * Used only for this.getLastBlockHeight()
-   * @override
-   * @return {Object} or undefined, if unable to get block info
-   */
-  getLastBlock() {
+  async getLastBlock() {
     const cached = this.cache.getData('lastBlock', true);
+
     if (cached) {
       return cached;
     }
-    return requestDash('getblockcount').then((result) => {
-      if (utils.isPositiveNumber(result)) {
-        this.cache.cacheData('lastBlock', result);
-        return result;
-      } else {
-        log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + result);
-      }
-    });
+
+    const height = await this.client.rpc('getblockcount');
+
+    if (!utils.isPositiveNumber(height)) {
+      log.warn(
+        `Failed to get the last block in getLastBlock() for ${this.token} of ${utils.getModuleName(module.id)} module. Received: ${height}`,
+      );
+
+      return undefined;
+    }
+
+    this.cache.cacheData('lastBlock', height);
+
+    return height;
   }
 
   /**
-   * Returns last block height of DASH blockchain
-   * @override
-   * @return {Number} or undefined, if unable to get block info
-   */
-  async getLastBlockHeight() {
-    const block = await this.getLastBlock();
-    return block ? block : undefined;
-  }
-
-  /**
-   * Returns Tx status and details from the blockchain
-   * @override
-   * @param {String} txid Tx ID to fetch
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
-   * status, confirmations || height
-   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
+   * Fetches a transaction and maps it to the bot's common shape.
+   *
+   * @param {string} txid Transaction ID
+   * @param {boolean} [disableLogging] Do not log the result; used for bulk lookups
+   * @returns {Promise<object|undefined>}
    */
   async getTransaction(txid, disableLogging = false) {
-    return requestDash('getrawtransaction', [txid, true]).then((result) => {
-      if (typeof result !== 'object') return undefined;
-      const formedTx = this._mapTransaction(result);
-      if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
-      return formedTx;
-    });
+    const tx = await this.client.rpc('getrawtransaction', [txid, true], { quiet: true });
+
+    if (typeof tx !== 'object' || tx === null) {
+      return undefined;
+    }
+
+    const formedTx = this.mapCoreTransaction(tx);
+
+    if (!disableLogging) {
+      log.log(`${this.token} Tx status: ${this.formTxMessage(formedTx)}.`);
+    }
+
+    return formedTx;
   }
 
   /**
-   * Retrieves unspents (UTXO)
-   * @override
-   * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
+   * Fetches a transaction's raw hex.
+   *
+   * @param {string} txid Transaction ID
+   * @returns {Promise<string|undefined>}
    */
-  getUnspents() {
-    return requestDash('getaddressutxos', [this.address]).then(async (result) => {
-      if (!Array.isArray(result)) return undefined;
-      // For bitcoinjs-lib starting 6.0.0 (in 5.0.2 TransactionsBuilder is deprecated),
-      // We need raw Tx as nonWitnessUtxo for every input (unspent)
-      let fullTx;
-      for (const tx of result) {
-        fullTx = await this.getTransaction(tx.txid, true);
-        tx.hex = fullTx && fullTx.hex ? fullTx.hex : undefined;
+  async getTransactionHex(txid) {
+    const hex = await this.client.rpc('getrawtransaction', [txid]);
+
+    return typeof hex === 'string' ? hex.trim() : undefined;
+  }
+
+  /**
+   * Returns the bot's unspent outputs, each with the raw hex of the transaction that created it.
+   *
+   * @returns {Promise<Array<{txid: string, vout: number, amount: number, hex: string}>|undefined>}
+   */
+  async getUnspents() {
+    const outputs = await this.client.rpc('getaddressutxos', [this.address]);
+
+    if (!Array.isArray(outputs)) {
+      return undefined;
+    }
+
+    const unspents = [];
+
+    for (const output of outputs) {
+      const hex = await this.getTransactionHex(output.txid);
+
+      if (!hex) {
+        log.warn(
+          `Skipping the unspent output ${output.txid}:${output.outputIndex} — its raw ${this.token} Tx is unavailable.`,
+        );
+        continue;
       }
-      return result.map((tx) => ({
-        hash: tx.txid,
-        amount: tx.satoshis, // to calc transferAmount in _buildTransaction()
-        index: tx.outputIndex,
-        nonWitnessUtxo: Buffer.from(tx.hex, 'hex'),
-      }));
-    });
+
+      unspents.push({ txid: output.txid, vout: output.outputIndex, amount: output.satoshis, hex });
+    }
+
+    return unspents;
   }
 
   /**
-   * Broadcasts the specified transaction to the DASH network
-   * @override
-   * @param {string} txHex raw transaction as a HEX literal
+   * Broadcasts a signed transaction.
+   *
+   * @param {string} txHex Raw transaction, as a hex string
+   * @returns {Promise<string|undefined>} Transaction ID, or `undefined` when the broadcast failed
    */
-  sendTransaction(txHex) {
-    return requestDash('sendrawtransaction', [txHex]).then((txid) => {
-      return txid;
+  async sendTransaction(txHex) {
+    const txid = await this.client.rpc('sendrawtransaction', [txHex]);
+
+    return typeof txid === 'string' ? txid.trim() : undefined;
+  }
+
+  /**
+   * Normalizes a Dash Core transaction into the shape {@link BtcBaseCoin#mapTransaction} expects.
+   *
+   * Dash Core 18 and newer report a single `scriptPubKey.address`; older builds
+   * report `scriptPubKey.addresses`. Both are accepted here so the adapter keeps
+   * working across node upgrades.
+   *
+   * @param {object} tx Dash Core transaction
+   * @returns {object} Transaction in the bot's common shape
+   */
+  mapCoreTransaction(tx) {
+    return this.mapTransaction({
+      ...tx,
+      vout: tx.vout.map((out) => ({
+        ...out,
+        scriptPubKey: {
+          ...out.scriptPubKey,
+          addresses: out.scriptPubKey?.addresses ?? (out.scriptPubKey?.address ? [out.scriptPubKey.address] : []),
+        },
+      })),
     });
   }
-
 };
-
-/**
- * Makes a POST request to Dash node. Internal function.
- * @param {string} method Endpoint name
- * @param {*} params Endpoint params
- * @return {*} Request results or undefined
- */
-function requestDash(method, params) {
-  return axios.post(dashNode, { method, params })
-      .then((response) => {
-        response = formatRequestResults(response, true);
-        if (response.success) {
-          return response.data.result;
-        } else {
-          log.warn(`Request to ${method} RPC returned an error: ${response.errorMessage}.`);
-        }
-      })
-      .catch(function(error) {
-        log.warn(`Request to ${method} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
-      });
-}
-
-/**
- * Formats axios request results. Internal function.
- * @param {object} response Axios response
- * @param {boolean} isRequestSuccess If axios request succeed
- * @return {object} Formatted request results
- */
-function formatRequestResults(response, isRequestSuccess) {
-
-  const results = {};
-  results.details = {};
-
-  if (isRequestSuccess) {
-    results.success = (response.data !== undefined) && !response.data.error;
-    results.data = response.data;
-    results.details.status = response.status;
-    results.details.statusText = response.statusText;
-    results.details.response = response;
-    if (!results.success && results.data) {
-      results.errorMessage = `Node's reply: ${results.data.error}`;
-    }
-  } else {
-    results.success = false;
-    results.data = response.response && response.response.data;
-    results.details.status = response.response ? response.response.status : undefined;
-    results.details.statusText = response.response ? response.response.statusText : undefined;
-    results.details.error = response.toString();
-    if (response.response && response.response.data && response.response.data.error) {
-      results.details.message = typeof response.response.data.error == 'object' ? JSON.stringify(response.response.data.error) : response.response.data.error.toString().trim();
-    }
-    results.details.response = response.response;
-    results.errorMessage = `${results.details.error}${results.details.message ? '. Message: ' + results.details.message : ''}`;
-  }
-
-  return results;
-
-}

@@ -1,13 +1,21 @@
+# Editors and operating systems
 .idea
-node_modules
+.vscode
 .DS_Store
 Thumbs.db
+
+# Dependencies and build output
+node_modules
+coverage
+
+# Runtime artifacts
 logs
-.vscode
+
+# Operator configuration — holds the passphrase that controls every hot wallet
 config.jsonc
 config.test.jsonc
 
-# ai
+# AI working directories
 .ai-ignored/
 .ai-tasks/
 .claude/

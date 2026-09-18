@@ -1,0 +1,15 @@
+node_modules/
+coverage/
+logs/
+assets/
+package-lock.json
+
+# AI working directories, ignored by git as well
+
+.ai-ignored/
+.ai-tasks/
+.claude/
+
+# JSONC config files. Prettier formats them as JSON5 and adds trailing commas, which `JSON.parse` rejects after `jsonminify` has stripped the comments
+
+*.jsonc

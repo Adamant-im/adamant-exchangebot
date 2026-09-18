@@ -1,3 +1,5 @@
+const { TransactionType } = require('adamant-api');
+
 const Store = require('./Store');
 const api = require('./api');
 const txParser = require('./incomingTxsParser');
@@ -6,39 +8,59 @@ const config = require('./configReader');
 const constants = require('../helpers/const');
 const utils = require('../helpers/utils');
 
+/**
+ * Fetches ADAMANT transactions addressed to the bot and hands them to the parser.
+ *
+ * The socket subscription delivers new transactions instantly, but it can miss
+ * them across a reconnect, so this poller closes the gap by replaying everything
+ * above the last processed block.
+ *
+ * @returns {Promise<void>}
+ */
 async function check() {
-
   try {
-
     const lastProcessedBlockHeight = await Store.getLastProcessedBlockHeight();
+
     if (!lastProcessedBlockHeight) {
-      log.warn(`Unable to get last processed ADM block in check() of ${utils.getModuleName(module.id)} module. Will try next time.`);
+      log.warn(
+        `Unable to get the last processed ADM block in check() of ${utils.getModuleName(module.id)} module. Will try next time.`,
+      );
+
       return;
     }
 
-    const queryParams = {
-      'and:recipientId': config.address, // get only Txs for the bot
-      'and:types': '0,8', // get direct transfers and messages
-      'and:fromHeight': lastProcessedBlockHeight + 1, // from current height if the first run, or from the last processed block
-      'returnAsset': '1', // get messages' contents
-      'orderBy': 'timestamp:desc', // latest Txs
-    };
+    const response = await api.getTransactions({
+      recipientId: config.address,
+      // Direct transfers and in-chat messages; a transfer with a comment is both.
+      types: [TransactionType.SEND, TransactionType.CHAT_MESSAGE],
+      fromHeight: lastProcessedBlockHeight + 1,
+      returnAsset: 1,
+      orderBy: 'timestamp:desc',
+    });
 
-    const txTrx = await api.get('transactions', queryParams);
-    if (txTrx.success) {
-      for (const tx of txTrx.data.transactions) {
-        await txParser(tx);
-      }
-    } else {
-      log.warn(`Failed to get Txs in check() of ${utils.getModuleName(module.id)} module. ${txTrx.errorMessage}.`);
+    if (!response.success) {
+      log.warn(`Failed to get Txs in check() of ${utils.getModuleName(module.id)} module. ${response.errorMessage}.`);
+
+      return;
     }
 
-  } catch (e) {
-    log.error('Error while checking new transactions: ' + e);
+    for (const tx of response.transactions) {
+      await txParser(tx);
+    }
+  } catch (error) {
+    log.error(`Error while checking new transactions: ${error}`);
   }
-
 }
 
-module.exports = () => {
-  setInterval(check, constants.TX_CHECKER_INTERVAL);
-};
+/**
+ * Starts polling for new ADAMANT transactions.
+ *
+ * @returns {NodeJS.Timeout} The interval handle, so tests and shutdown code can clear it
+ */
+function start() {
+  return setInterval(() => {
+    void check();
+  }, constants.TX_CHECKER_INTERVAL);
+}
+
+module.exports = { check, start };
