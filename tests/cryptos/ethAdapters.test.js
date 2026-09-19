@@ -174,11 +174,30 @@ describe('EthCoin', () => {
 
   test('reports a rejected transaction instead of throwing', async () => {
     network.wallet.sendTransaction.mockRejectedValue(new Error('insufficient funds'));
+    network.wallet.reset = jest.fn();
 
     const result = await eth.send({ address: RECIPIENT, value: 0.5 });
 
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/insufficient funds/);
+    expect(network.wallet.reset).toHaveBeenCalled();
+  });
+
+  test('blocks later EVM sends after an ambiguous nonce outcome', async () => {
+    network.wallet.sendTransaction.mockRejectedValue(new Error('request failed after submit'));
+
+    const usdt = new Erc20Coin('USDT', eth);
+    usdt.contract = { balanceOf: jest.fn(), transfer: jest.fn() };
+
+    const first = await eth.send({ address: RECIPIENT, value: 0.5 });
+    const second = await usdt.send({ address: RECIPIENT, value: 100 });
+
+    expect(first.success).toBe(false);
+    expect(first.isAmbiguous).toBe(true);
+    expect(second.success).toBe(false);
+    expect(second.isAmbiguous).toBe(true);
+    expect(second.error).toMatch(/uncertain nonce state/i);
+    expect(usdt.contract.transfer).not.toHaveBeenCalled();
   });
 
   test('merges a receipt and a transaction into one description of an ETH transfer', async () => {

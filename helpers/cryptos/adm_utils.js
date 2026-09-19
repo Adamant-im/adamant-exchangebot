@@ -10,13 +10,15 @@ const BaseCoin = require('./baseCoin');
 /** Fixed ADAMANT transfer fee, in ADM. */
 const ADM_TRANSFER_FEE = 0.5;
 
-function isTransportFailure(errorMessage) {
+function isDefinitePreBroadcastFailure(errorMessage) {
   return (
     typeof errorMessage === 'string' &&
-    /(timeout|timed out|network error|socket hang up|econn|enotfound|eai_again|etimedout|503|504|502)/i.test(
-      errorMessage,
-    )
+    /(does not have enough adm|insufficient funds|insufficient balance)/i.test(errorMessage)
   );
+}
+
+function isAmbiguousBroadcastOutcome(errorMessage) {
+  return typeof errorMessage === 'string' && !isDefinitePreBroadcastFailure(errorMessage);
 }
 
 /**
@@ -238,7 +240,7 @@ module.exports = class AdmCoin extends BaseCoin {
       `Failed to send ${value} ${this.token} to ${address} with the comment '${comment}'${attemptInfo} in send() of ${utils.getModuleName(module.id)} module. ${payment.errorMessage}.`,
     );
 
-    if (isTransportFailure(payment.errorMessage)) {
+    if (isAmbiguousBroadcastOutcome(payment.errorMessage)) {
       return { success: false, isAmbiguous: true, error: payment.errorMessage };
     }
 

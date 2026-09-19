@@ -278,4 +278,17 @@ describe('depositClaims.authorizePayout', () => {
     });
     expect(db.depositsDb.db.updateOne).not.toHaveBeenCalled();
   });
+
+  test('refuses to authorize a payout-ready payment whose legacy incoming coin has no canonical deposit key', async () => {
+    await expect(
+      depositClaims.authorizePayout({
+        _id: 'payment-lsk',
+        senderId: 'U1',
+        inCurrency: 'LSK',
+        inTxid: 'ab'.repeat(32),
+      }),
+    ).resolves.toEqual({ status: 'manual', reason: 'invalid-deposit-key' });
+
+    expect(db.depositsDb.findOne).not.toHaveBeenCalled();
+  });
 });

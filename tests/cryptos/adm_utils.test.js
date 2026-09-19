@@ -179,6 +179,14 @@ describe('AdmCoin', () => {
     expect(result).toEqual({ success: false, isAmbiguous: true, error: 'timeout of 15000ms exceeded' });
   });
 
+  test('treats a duplicate response after a lost POST reply as an ambiguous outcome', async () => {
+    api.sendMessage.mockResolvedValue({ success: false, errorMessage: 'Transaction already exists' });
+
+    const result = await adm.send({ address: USER, value: 2.5, comment: 'Done!' });
+
+    expect(result).toEqual({ success: false, isAmbiguous: true, error: 'Transaction already exists' });
+  });
+
   test('describes a transaction in one readable line', () => {
     const message = adm.formTxMessage({
       hash: 'tx-1',
