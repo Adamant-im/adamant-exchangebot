@@ -271,6 +271,22 @@ module.exports = {
    *   or `undefined` when the KVS could not be read
    */
   async getKvsCryptoAddress(coin, admAddress) {
+    const record = await this.getKvsCryptoAddressRecord(coin, admAddress);
+
+    return record === 'none' ? 'none' : record?.address;
+  },
+
+  /**
+   * Reads the address together with the ADAMANT block that confirmed the KVS value.
+   *
+   * The block height is part of the ownership decision for an external deposit:
+   * an address published only after the transfer entered the mempool cannot claim it.
+   *
+   * @param {string} coin Ticker
+   * @param {string} admAddress User's ADAMANT address
+   * @returns {Promise<object|string|undefined>} KVS record, `'none'`, or `undefined` on failure
+   */
+  async getKvsCryptoAddressRecord(coin, admAddress) {
     const kvsCoin = this.isERC20(coin) ? 'ETH' : coin;
 
     const response = await api.getKVS({
@@ -289,7 +305,14 @@ module.exports = {
 
     const record = response.transactions?.[0];
 
-    return record ? record.asset.state.value : 'none';
+    return record
+      ? {
+          address: record.asset.state.value,
+          height: record.height,
+          timestamp: record.timestamp,
+          transactionId: record.id,
+        }
+      : 'none';
   },
 
   /**

@@ -1,6 +1,16 @@
 jest.mock('../../modules/DB', () => ({ paymentsDb: jest.fn() }));
 jest.mock('../../helpers/notify', () => jest.fn());
 jest.mock('../../helpers/messenger', () => ({ sendMessage: jest.fn().mockResolvedValue(true) }));
+jest.mock('../../modules/depositClaims', () => ({
+  CLAIM_STATUS: {
+    AWAITING_CLARIFICATION: 'awaiting-clarification',
+    INELIGIBLE: 'ineligible',
+    PENDING: 'pending',
+  },
+  getDepositKey: jest.fn((coin, txid) => `${coin.toLowerCase()}:test:${txid}`),
+  registerClaim: jest.fn().mockResolvedValue({ isNew: true }),
+  setClaimStatus: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../helpers/cryptos/exchanger', () => ({
   isKnown: jest.fn(),
   isAccepted: jest.fn(),
@@ -32,6 +42,7 @@ const exchangerUtils = require('../../helpers/cryptos/exchanger');
 const config = require('../../modules/configReader');
 const { SAT } = require('../../helpers/const');
 const exchangeTxs = require('../../modules/exchangeTxs');
+const depositClaims = require('../../modules/depositClaims');
 
 const USER = 'U16655734187932477074';
 
@@ -70,6 +81,7 @@ beforeEach(() => {
     created.push(this);
   });
   db.paymentsDb.findOne = jest.fn().mockResolvedValue(null);
+  depositClaims.registerClaim.mockResolvedValue({ isNew: true });
 
   exchangerUtils.isKnown.mockImplementation((coin) => ['ADM', 'BTC', 'ETH', 'DASH', 'DOGE', 'USDT'].includes(coin));
   exchangerUtils.isAccepted.mockReturnValue(true);
@@ -142,7 +154,7 @@ describe('exchangeTxs — rejections', () => {
   });
 
   test('refuses a transfer hash it has already processed', async () => {
-    db.paymentsDb.findOne.mockResolvedValue({ _id: 'earlier' });
+    depositClaims.registerClaim.mockResolvedValue({ isLate: true });
 
     await exchangeTxs(incomingTx('BTC'), admTx({ amount: 100 * SAT }));
 
@@ -354,7 +366,7 @@ describe('exchangeTxs — an accepted request', () => {
 
 describe('exchangeTxs — failures', () => {
   test('notifies the operator instead of throwing when processing fails', async () => {
-    db.paymentsDb.findOne.mockRejectedValue(new Error('db down'));
+    depositClaims.registerClaim.mockRejectedValue(new Error('db down'));
 
     await expect(exchangeTxs(incomingTx('BTC'), admTx({ amount: 100 * SAT }))).resolves.toBeUndefined();
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('Error while processing the exchange Tx'), 'error');

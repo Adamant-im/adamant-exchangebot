@@ -273,6 +273,29 @@ describe('EthCoin', () => {
     expect(tx.recipientId.toLowerCase()).toBe(RECIPIENT);
   });
 
+  test('observes pending ETH transfers only after installing its RPC filter', async () => {
+    const hash = `0x${'ab'.repeat(32)}`;
+
+    eth.pendingProvider = {
+      send: jest.fn().mockResolvedValueOnce('filter-1').mockResolvedValueOnce([hash]),
+      getTransaction: jest.fn().mockResolvedValue({
+        hash,
+        from: RECIPIENT,
+        to: eth.account.address,
+        value: 10n ** 18n,
+        nonce: 1,
+        data: '0x',
+      }),
+    };
+
+    await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([]);
+    await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([
+      expect.objectContaining({ hash, recipientId: eth.account.address, amount: 1 }),
+    ]);
+    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(1, 'eth_newPendingTransactionFilter', []);
+    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(2, 'eth_getFilterChanges', ['filter-1']);
+  });
+
   test('ignores logs from contracts the bot does not know', async () => {
     network.provider.getTransactionReceipt.mockResolvedValue({
       hash: '0xhash',

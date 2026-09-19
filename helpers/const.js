@@ -54,6 +54,13 @@ module.exports = {
    */
   VALIDATOR_TIMESTAMP_DEVIATION: 3 * 24 * 60 * 60 * 1000, // 3 days
 
+  /** How often coin mempools are checked for new transfers to the bot. */
+  DEPOSIT_WATCH_INTERVAL: 5 * 1000,
+  /** Claims remain open briefly so a competing ADAMANT message can be evaluated. */
+  DEPOSIT_DISPUTE_WINDOW: 5 * 60 * 1000,
+  /** KVS ownership must predate first-seen by this many confirmed ADAMANT blocks. */
+  DEPOSIT_KVS_SAFETY_BLOCKS: 2,
+
   /** How often confirmationsCounter refreshes confirmations of accepted incoming Txs. */
   CONFIRMATIONS_INTERVAL: 20 * 1000,
 
@@ -98,6 +105,8 @@ module.exports = {
     INVALID_PAYOUT_ADDRESS: 35,
     WRONG_ASSET: 36,
     UNSUPPORTED_COIN: 37,
+    DEPOSIT_CLAIM_CONFLICT: 38,
+    UNVERIFIED_DEPOSIT_OWNER: 39,
   },
 
   /**

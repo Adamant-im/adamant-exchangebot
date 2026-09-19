@@ -9,6 +9,14 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const api = require('./api');
 const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
+const depositClaims = require('./depositClaims');
+
+const AVERAGE_BLOCK_TIME = Object.freeze({
+  BTC: 10 * 60 * 1000,
+  DASH: 2.5 * 60 * 1000,
+  DOGE: 60 * 1000,
+  ETH: 12 * 1000,
+});
 
 function getActualAssetLabel(tx) {
   if (!tx?.contract) {
@@ -87,16 +95,22 @@ async function validate(pay, tx) {
 
     // The bot knows the user's ADM address directly; addresses in other blockchains
     // are published by the user in the ADAMANT KVS.
-    const senderKvsInAddress =
-      pay.senderKvsInAddress ||
-      (pay.inCurrency === 'ADM' && tx.senderId) ||
-      (await exchangerUtils.getKvsCryptoAddress(pay.inCurrency, tx.senderId));
+    const senderKvsInRecord =
+      pay.inCurrency === 'ADM'
+        ? { address: tx.senderId, height: tx.height }
+        : await exchangerUtils.getKvsCryptoAddressRecord(pay.inCurrency, tx.senderId);
+    const senderKvsInAddress = senderKvsInRecord === 'none' ? 'none' : senderKvsInRecord?.address;
     const senderKvsOutAddress =
       pay.senderKvsOutAddress ||
       (pay.outCurrency === 'ADM' && tx.senderId) ||
       (await exchangerUtils.getKvsCryptoAddress(pay.outCurrency, tx.senderId));
 
-    await pay.update({ senderKvsInAddress, senderKvsOutAddress });
+    await pay.update({
+      senderKvsInAddress,
+      senderKvsInAddressHeight: senderKvsInRecord?.height,
+      senderKvsInAddressTxId: senderKvsInRecord?.transactionId,
+      senderKvsOutAddress,
+    });
 
     if (!senderKvsInAddress) {
       log.warn(
@@ -268,12 +282,94 @@ async function validate(pay, tx) {
         notifyType = 'error';
         msgNotify = `${config.notifyName} considers the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ to be wrong. The Tx is _${(deltaTimestamp / constants.HOUR).toFixed(0)}_ hours away from the in-chat message.`;
         msgSendBack = `I can’t validate the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
-      } else {
+      } else if (
+        pay.inCurrency !== 'ADM' &&
+        config.reserved_deposit_senders.some((address) => utils.isStringEqualCI(address, pay.inTxSenderId))
+      ) {
+        await depositClaims.markManual(pay.depositKey, 'reserved-top-up-sender');
+        await pay.update({
+          transactionIsValid: true,
+          needHumanCheck: true,
+          error: constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER,
+          depositOwnershipStatus: 'reserved-top-up-sender',
+        });
+
+        notifyType = 'warn';
+        msgNotify = `${config.notifyName} received a valid transfer from the reserved top-up sender _${pay.inTxSenderId}_. It will not be settled as an exchange. **Manual review required**.`;
+        msgSendBack = `This transfer came from an address reserved for my operator's wallet top-ups, so I won’t settle it as an exchange automatically. Contact my master if this was intentional.`;
+      } else if (pay.inCurrency === 'ADM') {
         await pay.update({ transactionIsValid: true });
+      } else {
+        let observation = await depositClaims.getObservation(pay.depositKey);
+
+        if (!observation?.firstSeenSource) {
+          const baseCoin = depositClaims.isEvmCoin(pay.inCurrency) ? 'ETH' : pay.inCurrency;
+          const blockReference = Number.isFinite(pay.inTxTimestamp) ? pay.inTxTimestamp : utils.unix();
+          const estimatedFirstSeenAt =
+            blockReference - 3 * (AVERAGE_BLOCK_TIME[baseCoin] ?? constants.DEPOSIT_DISPUTE_WINDOW);
+
+          await depositClaims.recordObservation({
+            inCurrency: pay.inCurrency,
+            inTxid: pay.inTxid,
+            reliable: false,
+            source: 'confirmed-block-fallback',
+            observedAt: estimatedFirstSeenAt,
+          });
+          observation = await depositClaims.getObservation(pay.depositKey);
+        }
+
+        const kvsHeight = Number(senderKvsInRecord?.height);
+        const latestEligibleKvsHeight = Number(observation?.firstSeenAdmHeight) - constants.DEPOSIT_KVS_SAFETY_BLOCKS;
+
+        if (!observation?.firstSeenReliable || !Number.isFinite(latestEligibleKvsHeight)) {
+          await pay.update({
+            transactionIsValid: true,
+            needHumanCheck: true,
+            error: constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER,
+            depositOwnershipStatus: 'manual-first-seen',
+          });
+
+          notifyType = 'warn';
+          msgNotify = `${config.notifyName} validated the blockchain transfer, but has no trustworthy first-seen evidence for its ownership claim. The estimated first-seen time is _${observation?.firstSeenAt}_. **Manual settlement required**.`;
+          msgSendBack = `I found your _${pay.inCurrency}_ transfer, but I can’t safely prove when it first appeared relative to the address in your ADAMANT KVS. I’ve asked my master to settle it manually.`;
+        } else if (!Number.isFinite(kvsHeight) || kvsHeight > latestEligibleKvsHeight) {
+          await pay.update({
+            transactionIsValid: false,
+            isFinished: true,
+            error: constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER,
+            depositOwnershipStatus: 'late-kvs-binding',
+          });
+
+          notifyType = 'error';
+          msgNotify = `${config.notifyName} rejected a deposit claim because its KVS address was confirmed at ADAMANT height _${senderKvsInRecord?.height}_, after the safe cutoff _${latestEligibleKvsHeight}_ derived from first-seen.`;
+          msgSendBack = `I can’t accept this transfer because your _${pay.inCurrency}_ address was not confirmed in the ADAMANT KVS before the transaction first appeared. If you own the transfer, contact my master for manual review.`;
+        } else {
+          await pay.update({
+            transactionIsValid: true,
+            depositOwnershipStatus: 'eligible',
+            depositFirstSeenAt: observation.firstSeenAt,
+            depositFirstSeenAdmHeight: observation.firstSeenAdmHeight,
+          });
+        }
       }
     }
 
     await pay.save();
+
+    if (pay.transactionIsValid === true && !pay.needHumanCheck) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.ELIGIBLE, {
+        kvsHeight: pay.senderKvsInAddressHeight,
+        firstSeenAdmHeight: pay.depositFirstSeenAdmHeight,
+      });
+    } else if (pay.needHumanCheck && pay.error === constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.MANUAL, {
+        reason: pay.depositOwnershipStatus,
+      });
+    } else if (pay.transactionIsValid === false || pay.isFinished) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
+        reason: `validation-error-${pay.error}`,
+      });
+    }
 
     if (msgSendBack) {
       notify(`${msgNotify} Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);

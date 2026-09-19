@@ -53,6 +53,7 @@ const FIELDS = {
   exchange_crypto: { type: 'string[]', isRequired: true },
   known_crypto: { type: 'string[]', isRequired: true },
   erc20: { type: 'string[]', default: [] },
+  reserved_deposit_senders: { type: 'string[]', default: [] },
 
   exchange_fee: { type: 'number', default: 0, min: 0, max: 100 },
   min_value_usd: { type: 'number', default: 0, min: 0 },

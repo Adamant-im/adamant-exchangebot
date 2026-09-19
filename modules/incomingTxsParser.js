@@ -10,6 +10,7 @@ const constants = require('../helpers/const');
 const exchangeTxs = require('./exchangeTxs');
 const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
+const depositClaims = require('./depositClaims');
 const Store = require('./Store');
 
 /** Messages from one user per 24 hours above which the user is treated as a spammer. */
@@ -250,6 +251,14 @@ module.exports = async (tx) => {
     (tx.amount > 0 || (richTransfer && utils.isStringEqual(tx.senderId, config.adamant_notify)));
 
   if (isDeposit) {
+    if (richTransfer) {
+      const inCurrency = String(richTransfer.type ?? '')
+        .replace(/_transaction$/, '')
+        .toUpperCase();
+
+      await depositClaims.markOperatorTopUp(inCurrency, richTransfer.hash, tx.id);
+    }
+
     await itx.update({ isDeposit: true, isProcessed: true }, true);
     await updateProcessedTx(tx, itx, false);
 

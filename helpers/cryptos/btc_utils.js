@@ -190,6 +190,20 @@ module.exports = class BtcCoin extends BtcBaseCoin {
   }
 
   /**
+   * Returns transactions currently in the mempool that pay the bot's address.
+   *
+   * @returns {Promise<object[]|undefined>}
+   */
+  async getPendingIncomingTransactions() {
+    const transactions = await this.client.request({
+      endpoint: `/address/${this.address}/txs/mempool`,
+      description: 'pending incoming transactions',
+    });
+
+    return Array.isArray(transactions) ? transactions.map((tx) => this.mapEsploraTransaction(tx)) : undefined;
+  }
+
+  /**
    * Fetches a transaction's raw hex.
    *
    * PSBT needs the full previous transaction to sign a P2PKH input.

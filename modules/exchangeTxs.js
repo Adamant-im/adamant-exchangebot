@@ -6,6 +6,7 @@ const utils = require('../helpers/utils');
 const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const messenger = require('../helpers/messenger');
+const depositClaims = require('./depositClaims');
 
 /**
  * Error codes the basic checks store with a payment.
@@ -144,11 +145,22 @@ module.exports = async (itx, tx, payToUpdate) => {
     const { inAmountMessage, inCurrency, outCurrency, inTxid } = parseExchangeRequest(itx, tx, payToUpdate);
 
     let pay;
-    let isDuplicateTx = false;
+    let claimIsLate = false;
 
     if (payToUpdate) {
       pay = payToUpdate;
       pay.outCurrency = outCurrency;
+
+      const claim = await depositClaims.registerClaim({
+        paymentId: pay._id,
+        depositKey: pay.depositKey,
+        senderId: pay.senderId,
+        inCurrency: pay.inCurrency,
+        inTxid: pay.inTxid,
+        date: pay.date,
+      });
+
+      claimIsLate = claim.isLate;
 
       log.log(
         `Updating ${pay.inUpdateState} for an exchange of ${inAmountMessage} ${inCurrency}… ${admTxDescription}.`,
@@ -160,7 +172,18 @@ module.exports = async (itx, tx, payToUpdate) => {
         `Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency || '{ not set yet }'}… ${admTxDescription}.`,
       );
 
-      isDuplicateTx = Boolean(await paymentsDb.findOne({ inTxid }));
+      const depositKey = depositClaims.getDepositKey(inCurrency, inTxid);
+      const claim = depositKey
+        ? await depositClaims.registerClaim({
+            paymentId: tx.id,
+            depositKey,
+            senderId: tx.senderId,
+            inCurrency,
+            inTxid,
+          })
+        : {};
+
+      claimIsLate = claim.isLate;
 
       pay = new paymentsDb({
         _id: tx.id,
@@ -171,6 +194,8 @@ module.exports = async (itx, tx, payToUpdate) => {
         inCurrency,
         outCurrency,
         inTxid,
+        depositKey,
+        depositClaimVersion: 1,
         inAmountMessage: Number(inAmountMessage),
         isBasicChecksPassed: false,
         transactionIsValid: null,
@@ -196,7 +221,13 @@ module.exports = async (itx, tx, payToUpdate) => {
       notifyType = 'error';
       msgNotify = `${config.notifyName} considers the transaction of _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency || '{ not set yet }'}_ with Tx ID _${inTxid}_ to be malformed. ADM message: ${itx.decryptedMessage}. Ignoring this transaction. ${admTxDescription}.`;
       msgSendBack = `I consider the transaction of _${inAmountMessage}_ _${inCurrency}_ with Tx ID _${inTxid}_ to be malformed, so it will not be processed. If you think it’s a mistake, contact my master.`;
-    } else if (isDuplicateTx) {
+    } else if (!pay.depositKey && exchangerUtils.isKnown(inCurrency)) {
+      pay.isFinished = true;
+      pay.error = BASIC_CHECK_ERRORS.WRONG_REQUEST;
+      notifyType = 'error';
+      msgNotify = `${config.notifyName} considers the transaction id _${inTxid}_ for _${inCurrency}_ to be malformed. Ignoring this transaction. ${admTxDescription}.`;
+      msgSendBack = `I consider the transaction id _${inTxid}_ for _${inCurrency}_ to be malformed, so it will not be processed. If you think it’s a mistake, contact my master.`;
+    } else if (claimIsLate) {
       pay.isFinished = true;
       pay.error = BASIC_CHECK_ERRORS.DUPLICATE_TX;
       notifyType = 'error';
@@ -341,6 +372,16 @@ module.exports = async (itx, tx, payToUpdate) => {
     }
 
     await pay.save();
+
+    if (pay.depositKey && pay.isFinished) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
+        reason: `basic-check-error-${pay.error}`,
+      });
+    } else if (pay.depositKey && pay.inUpdateState) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.AWAITING_CLARIFICATION);
+    } else if (pay.depositKey && pay.isBasicChecksPassed) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.PENDING);
+    }
     await itx.update({ isProcessed: true }, true);
 
     if (msgNotify) {

@@ -13,6 +13,8 @@ const deepExchangeValidator = require('./modules/deepExchangeValidator');
 const exchangePayer = require('./modules/exchangePayer');
 const sendBack = require('./modules/sendBack');
 const sentTxChecker = require('./modules/sentTxChecker');
+const depositClaims = require('./modules/depositClaims');
+const depositWatcher = require('./modules/depositWatcher');
 
 const doClearDB = process.argv.includes('clear_db');
 
@@ -27,7 +29,7 @@ const doClearDB = process.argv.includes('clear_db');
 async function clearDatabase() {
   log.warn('Clearing the database…');
 
-  for (const collection of [db.systemDb, db.incomingTxsDb, db.paymentsDb]) {
+  for (const collection of [db.systemDb, db.incomingTxsDb, db.paymentsDb, db.depositsDb, db.depositClaimsDb]) {
     try {
       await collection.db.drop();
     } catch (error) {
@@ -72,6 +74,10 @@ async function start() {
 
   exchangerUtils.init();
 
+  // Migrate and audit persisted payments before any worker can validate or pay one.
+  // The unique reservation index is intentionally installed only after the audit.
+  await depositClaims.initialize();
+
   await exchangerUtils.updateCryptoRates();
   exchangerUtils.startRatesUpdates();
 
@@ -86,6 +92,11 @@ async function start() {
 
   await exchangerUtils.startCoinUpdates();
 
+  // Establish mempool baselines before accepting new chat claims. Transactions
+  // present in this first snapshot are recorded as low-confidence and cannot be
+  // paid automatically because the bot does not know when they first appeared.
+  await depositWatcher.initialize();
+
   // A payout that was in flight when the previous run stopped may or may not have
   // been broadcast. Flag those before the workers can send anything new.
   await exchangePayer.reconcileInterrupted();
@@ -97,6 +108,7 @@ async function start() {
   }
 
   checker.start();
+  depositWatcher.start();
   deepExchangeValidator.start();
   confirmationsCounter.start();
   exchangePayer.start();

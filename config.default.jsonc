@@ -69,6 +69,12 @@
   /** Which of the known coins are ERC-20 tokens. Each must be described in helpers/cryptos/erc20_models.js. **/
   "erc20": ["USDT", "USDC", "DAI", "XCN"],
 
+  /**
+    External addresses used only to top up the bot's hot wallets.
+    A transfer from one of these senders is never settled as an exchange claim.
+  **/
+  "reserved_deposit_senders": [],
+
   /** Service fee, as a percentage. The user pays the blockchain Tx fees on top of it. **/
   "exchange_fee": 5,
 

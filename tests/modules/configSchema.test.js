@@ -83,6 +83,7 @@ describe('buildConfig', () => {
     expect(() => buildConfig(rawConfig({ node_ADM: 'http://localhost:36666' }))).toThrow(/must be of type string\[\]/);
     expect(() => buildConfig(rawConfig({ exchange_fee: '5' }))).toThrow(/must be of type number/);
     expect(() => buildConfig(rawConfig({ socket: 'yes' }))).toThrow(/must be of type boolean/);
+    expect(() => buildConfig(rawConfig({ reserved_deposit_senders: '0xabc' }))).toThrow(/must be of type string\[\]/);
   });
 
   test('rejects an out-of-range fee', () => {
@@ -102,6 +103,7 @@ describe('buildConfig', () => {
     expect(config.ws_type).toBe('ws');
     expect(config.log_level).toBe('log');
     expect(config.erc20).toEqual([]);
+    expect(config.reserved_deposit_senders).toEqual([]);
     expect(config.db_url).toBe('mongodb://localhost:27017/');
     expect(config.db_name).toBe('exchangerdb');
     expect(config.min_confirmations).toBe(3);

@@ -99,6 +99,9 @@ module.exports = class EthCoin extends BaseCoin {
    */
   initEther() {
     this.provider = createProvider(config.node_ETH);
+    this.pendingNodeIndex = 0;
+    this.pendingProvider = this.createPendingProvider();
+    this.pendingFilterId = undefined;
 
     const keys = eth.keys(config.passPhrase);
 
@@ -115,6 +118,10 @@ module.exports = class EthCoin extends BaseCoin {
     this.gasPrice = 0n;
 
     this.cache.lastBlock = { lifetime: 10000 };
+  }
+
+  createPendingProvider() {
+    return new ethers.JsonRpcProvider(config.node_ETH[this.pendingNodeIndex], undefined, { staticNetwork: MAINNET });
   }
 
   /**
@@ -415,6 +422,48 @@ module.exports = class EthCoin extends BaseCoin {
     log.log(`${this.token} Tx status: ${this.formTxMessage(formedTx)}.`);
 
     return formedTx;
+  }
+
+  /**
+   * Returns new pending ETH and known ERC-20 transfers to the bot.
+   *
+   * JSON-RPC pending filters report only hashes observed after the filter is
+   * installed, which gives the watcher a real observation boundary without
+   * scanning or trusting the claimant's transaction hash.
+   *
+   * @returns {Promise<object[]|undefined>}
+   */
+  async getPendingIncomingTransactions() {
+    try {
+      if (!this.pendingFilterId) {
+        this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', []);
+
+        return [];
+      }
+
+      const hashes = await this.pendingProvider.send('eth_getFilterChanges', [this.pendingFilterId]);
+
+      if (!Array.isArray(hashes)) {
+        return undefined;
+      }
+
+      const transactions = await Promise.all(
+        hashes.map(async (hash) => {
+          const tx = await this.pendingProvider.getTransaction(hash);
+
+          return tx ? this.formTx(null, tx) : undefined;
+        }),
+      );
+
+      return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.account.address));
+    } catch (error) {
+      this.pendingFilterId = undefined;
+      this.pendingNodeIndex = (this.pendingNodeIndex + 1) % config.node_ETH.length;
+      this.pendingProvider = this.createPendingProvider();
+      log.warn(`Unable to read the Ethereum pending transaction filter. ${error}`);
+
+      return undefined;
+    }
   }
 
   /**

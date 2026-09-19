@@ -6,6 +6,7 @@ jest.mock('../../modules/Store', () => ({ updateLastProcessedBlockHeight: jest.f
 jest.mock('../../helpers/notify', () => jest.fn());
 jest.mock('../../helpers/messenger', () => ({ sendMessage: jest.fn().mockResolvedValue(true) }));
 jest.mock('../../modules/exchangeTxs', () => jest.fn().mockResolvedValue(undefined));
+jest.mock('../../modules/depositClaims', () => ({ markOperatorTopUp: jest.fn().mockResolvedValue(true) }));
 jest.mock('../../modules/commandTxs', () => jest.fn().mockResolvedValue(undefined));
 jest.mock('../../modules/unknownTxs', () => jest.fn().mockResolvedValue(undefined));
 jest.mock('adamant-api', () => {
@@ -33,6 +34,7 @@ let Store;
 let notify;
 let messenger;
 let exchangeTxs;
+let depositClaims;
 let commandTxs;
 let unknownTxs;
 let log;
@@ -73,6 +75,7 @@ beforeEach(() => {
   notify = require('../../helpers/notify');
   messenger = require('../../helpers/messenger');
   exchangeTxs = require('../../modules/exchangeTxs');
+  depositClaims = require('../../modules/depositClaims');
   commandTxs = require('../../modules/commandTxs');
   unknownTxs = require('../../modules/unknownTxs');
   log = require('../../helpers/log');
@@ -245,12 +248,15 @@ describe('incomingTxsParser — deposits', () => {
     config.adamant_notify = operator;
 
     try {
-      decodeMessage.mockReturnValue('{"type":"btc_transaction","amount":"1","hash":"abc","comments":"deposit"}');
+      const hash = 'ab'.repeat(32);
 
-      await txParser(chatTx({ senderId: operator }));
+      decodeMessage.mockReturnValue(`{"type":"btc_transaction","amount":"1","hash":"${hash}","comments":"deposit"}`);
+
+      await txParser(chatTx({ id: 'adm-topup-1', senderId: operator }));
 
       expect(exchangeTxs).not.toHaveBeenCalled();
       expect(created[0].isDeposit).toBe(true);
+      expect(depositClaims.markOperatorTopUp).toHaveBeenCalledWith('BTC', hash, 'adm-topup-1');
     } finally {
       config.adamant_notify = '';
     }

@@ -124,6 +124,25 @@ describe('BtcCoin', () => {
     expect((await coin.getTransaction('tx-1')).status).toBeUndefined();
   });
 
+  test('lists pending transfers to the bot for first-seen tracking', async () => {
+    client.request.mockResolvedValue([
+      {
+        txid: 'tx-1',
+        fee: 10000,
+        status: { confirmed: false },
+        vin: [{ prevout: { scriptpubkey_address: 'sender' } }],
+        vout: [{ value: 50000, scriptpubkey_address: coin.address }],
+      },
+    ]);
+
+    await expect(coin.getPendingIncomingTransactions()).resolves.toEqual([
+      expect.objectContaining({ hash: 'tx-1', recipientId: coin.address, status: undefined }),
+    ]);
+    expect(client.request).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: `/address/${coin.address}/txs/mempool` }),
+    );
+  });
+
   test('returns undefined for a transaction the node does not know', async () => {
     client.request.mockResolvedValue(undefined);
 
@@ -214,6 +233,26 @@ describe('DashCoin', () => {
     expect(tx.instantlock).toBe(true);
   });
 
+  test('looks up pending address transactions for first-seen tracking', async () => {
+    client.rpc.mockImplementation((method) => {
+      if (method === 'getaddressmempool') {
+        return Promise.resolve([{ txid: 'tx-1' }, { txid: 'tx-1' }]);
+      }
+
+      return Promise.resolve({
+        txid: 'tx-1',
+        confirmations: 0,
+        vin: [{ address: 'sender', value: 1 }],
+        vout: [{ value: 0.4, scriptPubKey: { address: coin.address } }],
+      });
+    });
+
+    await expect(coin.getPendingIncomingTransactions()).resolves.toEqual([
+      expect.objectContaining({ hash: 'tx-1', recipientId: coin.address }),
+    ]);
+    expect(client.rpc).toHaveBeenCalledWith('getaddressmempool', [{ addresses: [coin.address] }]);
+  });
+
   test('maps unspent outputs to the common shape and fetches their raw hex', async () => {
     client.rpc.mockImplementation((method) => {
       if (method === 'getaddressutxos') {
@@ -297,6 +336,28 @@ describe('DogeCoin', () => {
     expect(tx.fee).toBe(1);
   });
 
+  test('filters the Insight address history down to pending incoming transactions', async () => {
+    client.request.mockImplementation(({ endpoint }) => {
+      if (endpoint.startsWith('/api/txs/')) {
+        return Promise.resolve({ txs: [{ txid: 'pending' }, { txid: 'confirmed', confirmations: 2 }] });
+      }
+
+      return Promise.resolve({
+        txid: 'pending',
+        confirmations: 0,
+        vin: [{ addr: 'sender', value: 2 }],
+        vout: [{ value: '1', scriptPubKey: { addresses: [coin.address] } }],
+      });
+    });
+
+    await expect(coin.getPendingIncomingTransactions()).resolves.toEqual([
+      expect.objectContaining({ hash: 'pending', recipientId: coin.address }),
+    ]);
+    expect(client.request).toHaveBeenCalledWith(
+      expect.objectContaining({ endpoint: expect.stringContaining(`/api/txs/?address=${coin.address}`) }),
+    );
+  });
+
   test('requests unspent outputs with the node cache disabled', async () => {
     client.request.mockImplementation(({ endpoint }) => {
       if (endpoint.includes('/utxo')) {
@@ -343,6 +404,7 @@ describe('UTXO adapters share one interface', () => {
       'getBalance',
       'getLastBlockHeight',
       'getTransaction',
+      'getPendingIncomingTransactions',
       'getUnspents',
       'sendTransaction',
       'send',

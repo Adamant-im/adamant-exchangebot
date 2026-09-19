@@ -50,7 +50,7 @@ If a tradeoff is needed, preserve user funds first.
 - `helpers/cryptos/nodeClient.js` — HTTP and JSON-RPC access to coin nodes, with failover across the configured list
 - `helpers/cryptos/*_utils.js` — the per-coin adapters
 
-Every coin adapter implements one narrow interface: `getBalance`, `getLastBlockHeight`, `getTransaction`, `send`, `isValidAddress`, `FEE`. The pipeline never talks to a node directly. Preserve that boundary — it is what makes the planned move to a wallet SDK a local change.
+Every coin adapter implements one narrow interface: `getBalance`, `getLastBlockHeight`, `getTransaction`, `send`, `isValidAddress`, `FEE`. External-coin adapters also expose `getPendingIncomingTransactions` so the deposit watcher can record first-seen evidence without talking to a node directly. Preserve that boundary — it is what makes the planned move to a wallet SDK a local change.
 
 ## Validation Commands
 

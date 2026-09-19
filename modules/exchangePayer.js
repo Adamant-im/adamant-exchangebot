@@ -8,6 +8,7 @@ const messenger = require('../helpers/messenger');
 const utils = require('../helpers/utils');
 const { startInterval } = require('../helpers/scheduler');
 const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
+const depositClaims = require('./depositClaims');
 
 /** Comment attached to an ADM payout; other coins carry it in the rich message instead. */
 const PAYOUT_COMMENT = 'Done! Thank you for your business. Hope to see you again.';
@@ -31,6 +32,39 @@ const PAYOUT_ERRORS = {
  */
 async function payOut(pay) {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
+
+  const authorization = await depositClaims.authorizePayout(pay);
+
+  if (
+    authorization.status !== depositClaims.AUTHORIZATION_STATUS.AUTHORIZED &&
+    authorization.status !== depositClaims.AUTHORIZATION_STATUS.ALREADY_AUTHORIZED
+  ) {
+    if (authorization.status === depositClaims.AUTHORIZATION_STATUS.MANUAL) {
+      await pay.update(
+        {
+          needHumanCheck: true,
+          error: constants.ERRORS.DEPOSIT_CLAIM_CONFLICT,
+          depositAuthorizationReason: authorization.reason,
+        },
+        true,
+      );
+      notify(
+        `${config.notifyName} stopped an automatic payout for deposit _${pay.depositKey}_: ${authorization.reason}. **Manual settlement required**. ${admTxDescription}.`,
+        'error',
+      );
+    } else if (authorization.status === depositClaims.AUTHORIZATION_STATUS.CLAIMED) {
+      await pay.update(
+        {
+          isFinished: true,
+          error: constants.ERRORS.DEPOSIT_CLAIM_CONFLICT,
+          depositAuthorizationReason: authorization.reason,
+        },
+        true,
+      );
+    }
+
+    return;
+  }
 
   const { outAmount, inCurrency, outCurrency, senderKvsOutAddress, inAmountMessage } = pay;
 

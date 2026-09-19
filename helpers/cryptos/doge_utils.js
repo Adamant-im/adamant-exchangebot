@@ -144,6 +144,31 @@ module.exports = class DogeCoin extends BtcBaseCoin {
   }
 
   /**
+   * Returns unconfirmed transactions involving the bot's address.
+   *
+   * @returns {Promise<object[]|undefined>}
+   */
+  async getPendingIncomingTransactions() {
+    const response = await this.client.request({
+      endpoint: `/api/txs/?address=${this.address}&pageNum=0`,
+      description: 'pending incoming transactions',
+    });
+    const entries = Array.isArray(response?.txs) ? response.txs : Array.isArray(response) ? response : undefined;
+
+    if (!entries) {
+      return undefined;
+    }
+
+    const txids = entries
+      .filter((tx) => !tx.confirmations && !tx.blockheight && !tx.blockhash)
+      .map((tx) => tx.txid)
+      .filter(Boolean);
+    const transactions = await Promise.all(txids.map((txid) => this.getTransaction(txid, true)));
+
+    return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.address));
+  }
+
+  /**
    * Fetches a transaction's raw hex.
    *
    * @param {string} txid Transaction ID

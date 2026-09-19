@@ -127,6 +127,24 @@ module.exports = class DashCoin extends BtcBaseCoin {
   }
 
   /**
+   * Returns transactions currently in the mempool that touch the bot's address.
+   *
+   * @returns {Promise<object[]|undefined>}
+   */
+  async getPendingIncomingTransactions() {
+    const entries = await this.client.rpc('getaddressmempool', [{ addresses: [this.address] }]);
+
+    if (!Array.isArray(entries)) {
+      return undefined;
+    }
+
+    const txids = [...new Set(entries.map((entry) => entry.txid).filter(Boolean))];
+    const transactions = await Promise.all(txids.map((txid) => this.getTransaction(txid, true)));
+
+    return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.address));
+  }
+
+  /**
    * Fetches a transaction's raw hex.
    *
    * @param {string} txid Transaction ID

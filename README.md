@@ -39,11 +39,12 @@ Read more: [Multiple anonymous crypto exchanges on the ADAMANT platform](https:/
 Each stage is a separate module, so a log line tells you exactly where an exchange is.
 
 1. `incomingTxsParser` classifies every incoming ADAMANT message as a command, an exchange request, an answer to a clarification, or small talk
-2. `exchangeTxs` runs the basic checks: known and accepted coins, amount, duplicate transfer, limits, price guards, and the quote
-3. `deepExchangeValidator` fetches the transfer from its own blockchain and verifies the sender, the recipient, the amount and the timestamp
-4. `confirmationsCounter` waits for `min_confirmations`, or for an InstantSend lock
-5. `exchangePayer` sends the payout; `sendBack` refunds when the exchange cannot proceed
-6. `sentTxChecker` confirms the outgoing transfer and closes the deal
+2. `depositWatcher` records new transfers to the bot when they first appear in each external mempool; an incomplete startup snapshot is never trusted for automatic settlement
+3. `exchangeTxs` runs the basic checks, creates a chain-scoped deposit claim and calculates the quote
+4. `deepExchangeValidator` verifies the on-chain sender, recipient, asset, amount and timestamp, then checks that the sender's KVS address predates the saved first-seen height
+5. `confirmationsCounter` waits for `min_confirmations`, or for an InstantSend lock
+6. `exchangePayer` and `sendBack` atomically reserve the canonical deposit before moving funds; competing eligible claims or missing first-seen evidence require operator review
+7. `sentTxChecker` confirms the outgoing transfer and closes the deal
 
 ## Requirements
 
@@ -84,6 +85,7 @@ Every parameter is documented in the file itself. These are the ones to set befo
 | `accepted_crypto`                                | Coins the bot takes in                                                              |
 | `exchange_crypto`                                | Coins the bot pays out in                                                           |
 | `erc20`                                          | Which known coins are ERC-20 tokens                                                 |
+| `reserved_deposit_senders`                       | External sender addresses reserved for operator wallet top-ups                      |
 | `exchange_fee`                                   | Service fee, as a percentage                                                        |
 | `min_value_usd`                                  | Minimum accepted payment, as a USD equivalent                                       |
 | `daily_limit_usd`                                | Daily exchange limit per user                                                       |
@@ -119,7 +121,7 @@ npm run start:dev  # reads config.test.jsonc
 npm run clear      # drops the bot's collections — destructive, see below
 ```
 
-`npm run clear` empties the `systems`, `incomingtxs` and `payments` collections. The bot then forgets every in-flight exchange, so stop it manually afterwards and only do this on a bot with nothing in flight.
+`npm run clear` empties the `systems`, `incomingtxs`, `payments`, `deposits` and `depositclaims` collections. The bot then forgets every in-flight exchange, so stop it manually afterwards and only do this on a bot with nothing in flight.
 
 ### With pm2
 
@@ -186,6 +188,8 @@ pm2 restart exchangebot
 - Set `adamant_notify` so failures reach a human. A bot that cannot pay out or refund unattended will strand funds until someone looks.
 - The bot needs no inbound port. Run it behind a firewall.
 - If the bot is interrupted while broadcasting a payout, it will not re-send that payout automatically on the next start — it flags the payment and notifies you, because a blind retry could pay a user twice. Check the coin's blockchain before acting.
+- On upgrade, existing external payments without reliable mempool first-seen evidence and duplicate canonical deposit keys are quarantined for operator reconciliation before automatic settlement resumes
+- The pending-transaction APIs of every enabled external node must be available. A watcher outage fails closed: affected deposits are sent to manual review instead of being paid from block timestamps alone
 - Report a vulnerability privately to <devs@adamant.im> rather than in a public issue.
 
 ## Development

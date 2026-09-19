@@ -27,6 +27,8 @@ const INDEXES = {
     { key: { isFinished: 1, inTxConfirmed: 1, needToSendBack: 1 } },
     { key: { isFinished: 1, outTxid: 1, sentBackTx: 1 } },
   ],
+  deposits: [{ key: { reservedBy: 1 } }, { key: { firstSeenAt: 1 } }],
+  depositclaims: [{ key: { depositKey: 1, status: 1, registeredAt: 1 } }, { key: { senderId: 1, registeredAt: -1 } }],
 };
 
 const client = new MongoClient(config.db_url, {
@@ -55,7 +57,7 @@ function defineTripwire(name) {
   });
 }
 
-['db', 'systemDb', 'incomingTxsDb', 'paymentsDb'].forEach(defineTripwire);
+['db', 'systemDb', 'incomingTxsDb', 'paymentsDb', 'depositsDb', 'depositClaimsDb'].forEach(defineTripwire);
 
 /**
  * Replaces a tripwire with the real value.
@@ -105,6 +107,8 @@ collections.ready = client.connect().then(async (connected) => {
   defineCollection('systemDb', model(db.collection('systems')));
   defineCollection('incomingTxsDb', model(db.collection('incomingtxs')));
   defineCollection('paymentsDb', model(db.collection('payments')));
+  defineCollection('depositsDb', model(db.collection('deposits')));
+  defineCollection('depositClaimsDb', model(db.collection('depositclaims')));
 
   await ensureIndexes(db);
 

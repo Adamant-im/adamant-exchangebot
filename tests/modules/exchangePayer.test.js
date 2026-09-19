@@ -1,6 +1,16 @@
 jest.mock('../../modules/DB', () => ({ paymentsDb: { find: jest.fn() } }));
 jest.mock('../../helpers/notify', () => jest.fn());
 jest.mock('../../helpers/messenger', () => ({ sendMessage: jest.fn().mockResolvedValue(true) }));
+jest.mock('../../modules/depositClaims', () => ({
+  AUTHORIZATION_STATUS: {
+    AUTHORIZED: 'authorized',
+    ALREADY_AUTHORIZED: 'already-authorized',
+    WAIT: 'wait',
+    MANUAL: 'manual',
+    CLAIMED: 'claimed',
+  },
+  authorizePayout: jest.fn().mockResolvedValue({ status: 'authorized' }),
+}));
 jest.mock('../../helpers/cryptos/exchanger', () => ({
   isERC20: jest.fn().mockReturnValue(false),
   BTC: { getBalance: jest.fn(), FEE: 0.0001, balance: 1, send: jest.fn() },
