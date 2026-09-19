@@ -92,9 +92,9 @@ async function start() {
 
   await exchangerUtils.startCoinUpdates();
 
-  // Establish mempool baselines before accepting new chat claims. Transactions
-  // present in this first snapshot are recorded as low-confidence and cannot be
-  // paid automatically because the bot does not know when they first appeared.
+  // Try to establish mempool baselines before accepting new chat claims. This is
+  // time-bounded: an unavailable watcher cannot stop the rest of the bot, and any
+  // deposit without trustworthy first-seen evidence requires manual settlement.
   await depositWatcher.initialize();
 
   // A payout that was in flight when the previous run stopped may or may not have

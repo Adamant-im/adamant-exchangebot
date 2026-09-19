@@ -71,6 +71,8 @@
 
   /**
     External addresses used only to top up the bot's hot wallets.
+    The list applies to every supported external coin: BTC, DASH, DOGE, ETH and ERC-20 tokens.
+    ADAMANT transfers are not covered because their sender is verified by the ADAMANT transaction.
     A transfer from one of these senders is never settled as an exchange claim.
   **/
   "reserved_deposit_senders": [],

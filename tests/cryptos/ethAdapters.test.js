@@ -10,6 +10,7 @@ const ethers = require('ethers');
 const EthCoin = require('../../helpers/cryptos/eth_utils');
 const Erc20Coin = require('../../helpers/cryptos/erc20_utils');
 const erc20models = require('../../helpers/cryptos/erc20_models');
+const constants = require('../../helpers/const');
 const log = require('../../helpers/log');
 
 const RECIPIENT = '0x651a2d48211428be3ffecea7a9aceeef250b019f';
@@ -292,8 +293,69 @@ describe('EthCoin', () => {
     await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([
       expect.objectContaining({ hash, recipientId: eth.account.address, amount: 1 }),
     ]);
-    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(1, 'eth_newPendingTransactionFilter', []);
+    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(1, 'eth_newPendingTransactionFilter', [true]);
     expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(2, 'eth_getFilterChanges', ['filter-1']);
+  });
+
+  test('uses full pending transactions without one RPC lookup per hash', async () => {
+    const hash = `0x${'cd'.repeat(32)}`;
+
+    eth.pendingProvider = {
+      send: jest
+        .fn()
+        .mockResolvedValueOnce('filter-1')
+        .mockResolvedValueOnce([
+          {
+            hash,
+            blockHash: null,
+            blockNumber: null,
+            from: RECIPIENT,
+            to: eth.account.address,
+            value: '0xde0b6b3a7640000',
+            gasPrice: '0x1',
+            nonce: '0x1',
+            input: '0x',
+          },
+        ]),
+      getTransaction: jest.fn(),
+    };
+
+    await eth.getPendingIncomingTransactions();
+    await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([
+      expect.objectContaining({ hash, recipientId: eth.account.address, amount: 1 }),
+    ]);
+    expect(eth.pendingProvider.getTransaction).not.toHaveBeenCalled();
+  });
+
+  test('falls back to the standard hash-only pending filter for older nodes', async () => {
+    eth.pendingProvider = {
+      send: jest
+        .fn()
+        .mockRejectedValueOnce(new Error('invalid params'))
+        .mockResolvedValueOnce('filter-1')
+        .mockResolvedValueOnce([]),
+      getTransaction: jest.fn(),
+    };
+
+    await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([]);
+    await expect(eth.getPendingIncomingTransactions()).resolves.toEqual([]);
+    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(1, 'eth_newPendingTransactionFilter', [true]);
+    expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(2, 'eth_newPendingTransactionFilter', []);
+  });
+
+  test('fails closed when an Ethereum pending snapshot exceeds its work limit', async () => {
+    eth.pendingProvider = {
+      send: jest
+        .fn()
+        .mockResolvedValueOnce('filter-1')
+        .mockResolvedValueOnce(Array(constants.DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS + 1).fill(`0x${'ef'.repeat(32)}`)),
+      getTransaction: jest.fn(),
+    };
+
+    await eth.getPendingIncomingTransactions();
+    await expect(eth.getPendingIncomingTransactions()).resolves.toBeUndefined();
+    expect(eth.pendingProvider.getTransaction).not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('above the safe limit'));
   });
 
   test('ignores logs from contracts the bot does not know', async () => {

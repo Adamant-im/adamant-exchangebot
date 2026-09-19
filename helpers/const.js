@@ -56,6 +56,14 @@ module.exports = {
 
   /** How often coin mempools are checked for new transfers to the bot. */
   DEPOSIT_WATCH_INTERVAL: 5 * 1000,
+  /** Maximum time startup or a scheduler tick waits for one coin watcher. */
+  DEPOSIT_WATCH_POLL_TIMEOUT: 20 * 1000,
+  /** Maximum number of full Ethereum mempool changes parsed in one poll. */
+  DEPOSIT_WATCH_MAX_EVM_CHANGES: 1000,
+  /** Lower cap for older nodes that require one follow-up RPC call per hash. */
+  DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS: 250,
+  /** Concurrent transaction lookups for Ethereum nodes that return hashes only. */
+  DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY: 10,
   /** Claims remain open briefly so a competing ADAMANT message can be evaluated. */
   DEPOSIT_DISPUTE_WINDOW: 5 * 60 * 1000,
   /** KVS ownership must predate first-seen by this many confirmed ADAMANT blocks. */

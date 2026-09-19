@@ -24,6 +24,9 @@ const BASE_GAS_LIMIT = 22000;
 const RELIABILITY_COEF_ETH = 1.3;
 const RELIABILITY_COEF_ERC20 = 3.0;
 
+/** Bound pending-filter requests so a dead node cannot stall the watcher forever. */
+const PENDING_RPC_REQUEST_TIMEOUT = 15000;
+
 /** Minimal ERC-20 interface — everything the bot reads, sends and decodes. */
 const ERC20_ABI = [
   'function decimals() view returns (uint8)',
@@ -37,6 +40,14 @@ const erc20Interface = new ethers.Interface(ERC20_ABI);
 
 /** The network the bot works on. ERC-20 contract addresses are mainnet addresses. */
 const MAINNET = ethers.Network.from('mainnet');
+
+function createPendingJsonRpcProvider(url) {
+  const request = new ethers.FetchRequest(url);
+
+  request.timeout = PENDING_RPC_REQUEST_TIMEOUT;
+
+  return new ethers.JsonRpcProvider(request, undefined, { staticNetwork: MAINNET });
+}
 
 /**
  * Builds a provider over the configured Ethereum nodes.
@@ -121,7 +132,7 @@ module.exports = class EthCoin extends BaseCoin {
   }
 
   createPendingProvider() {
-    return new ethers.JsonRpcProvider(config.node_ETH[this.pendingNodeIndex], undefined, { staticNetwork: MAINNET });
+    return createPendingJsonRpcProvider(config.node_ETH[this.pendingNodeIndex]);
   }
 
   /**
@@ -436,24 +447,60 @@ module.exports = class EthCoin extends BaseCoin {
   async getPendingIncomingTransactions() {
     try {
       if (!this.pendingFilterId) {
-        this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', []);
+        try {
+          // Current Geth versions can return full pending transactions. This keeps
+          // a five-second poll to one RPC call instead of one call per mempool hash.
+          this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', [true]);
+        } catch {
+          // Older clients implement the standard hash-only form. Keep it as a
+          // bounded compatibility fallback rather than requiring a specific Geth.
+          this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', []);
+        }
 
         return [];
       }
 
-      const hashes = await this.pendingProvider.send('eth_getFilterChanges', [this.pendingFilterId]);
+      const changes = await this.pendingProvider.send('eth_getFilterChanges', [this.pendingFilterId]);
 
-      if (!Array.isArray(hashes)) {
+      if (!Array.isArray(changes)) {
         return undefined;
       }
 
-      const transactions = await Promise.all(
-        hashes.map(async (hash) => {
-          const tx = await this.pendingProvider.getTransaction(hash);
+      const hasFullTransactions = changes.every((tx) => tx && typeof tx === 'object');
+      const workLimit = hasFullTransactions
+        ? constants.DEPOSIT_WATCH_MAX_EVM_CHANGES
+        : constants.DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS;
 
-          return tx ? this.formTx(null, tx) : undefined;
-        }),
-      );
+      if (changes.length > workLimit) {
+        log.warn(
+          `Ethereum pending filter returned ${changes.length} changes, above the safe limit of ${workLimit}. Skipping this snapshot; matching deposits will require manual review.`,
+        );
+
+        return undefined;
+      }
+
+      let transactions;
+
+      if (hasFullTransactions) {
+        transactions = changes
+          .filter((tx) => utils.isStringEqualCI(tx.to, this.account.address) || Boolean(this.getErc20token(tx.to)))
+          .map((tx) => this.formTx(null, this.normalizePendingRpcTransaction(tx)));
+      } else {
+        transactions = [];
+
+        for (let index = 0; index < changes.length; index += constants.DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY) {
+          const batch = changes.slice(index, index + constants.DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY);
+          const fetched = await Promise.all(
+            batch.map(async (hash) => {
+              const tx = await this.pendingProvider.getTransaction(hash);
+
+              return tx ? this.formTx(null, tx) : undefined;
+            }),
+          );
+
+          transactions.push(...fetched);
+        }
+      }
 
       return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.account.address));
     } catch (error) {
@@ -464,6 +511,26 @@ module.exports = class EthCoin extends BaseCoin {
 
       return undefined;
     }
+  }
+
+  /**
+   * Converts a full transaction returned directly by Geth into the fields used by `formTx`.
+   *
+   * @param {object} tx Raw JSON-RPC transaction
+   * @returns {object}
+   */
+  normalizePendingRpcTransaction(tx) {
+    return {
+      hash: tx.hash,
+      blockNumber: tx.blockNumber === null || tx.blockNumber === undefined ? undefined : Number(tx.blockNumber),
+      blockHash: tx.blockHash ?? undefined,
+      from: tx.from,
+      to: tx.to,
+      value: tx.value === null || tx.value === undefined ? 0n : BigInt(tx.value),
+      gasPrice: tx.gasPrice === null || tx.gasPrice === undefined ? undefined : BigInt(tx.gasPrice),
+      nonce: tx.nonce === null || tx.nonce === undefined ? undefined : Number(tx.nonce),
+      data: tx.input ?? tx.data ?? '0x',
+    };
   }
 
   /**

@@ -85,7 +85,7 @@ Every parameter is documented in the file itself. These are the ones to set befo
 | `accepted_crypto`                                | Coins the bot takes in                                                              |
 | `exchange_crypto`                                | Coins the bot pays out in                                                           |
 | `erc20`                                          | Which known coins are ERC-20 tokens                                                 |
-| `reserved_deposit_senders`                       | External sender addresses reserved for operator wallet top-ups                      |
+| `reserved_deposit_senders`                       | Top-up sender addresses reserved across all supported external coins                |
 | `exchange_fee`                                   | Service fee, as a percentage                                                        |
 | `min_value_usd`                                  | Minimum accepted payment, as a USD equivalent                                       |
 | `daily_limit_usd`                                | Daily exchange limit per user                                                       |
@@ -189,7 +189,9 @@ pm2 restart exchangebot
 - The bot needs no inbound port. Run it behind a firewall.
 - If the bot is interrupted while broadcasting a payout, it will not re-send that payout automatically on the next start — it flags the payment and notifies you, because a blind retry could pay a user twice. Check the coin's blockchain before acting.
 - On upgrade, existing external payments without reliable mempool first-seen evidence and duplicate canonical deposit keys are quarantined for operator reconciliation before automatic settlement resumes
-- The pending-transaction APIs of every enabled external node must be available. A watcher outage fails closed: affected deposits are sent to manual review instead of being paid from block timestamps alone
+- `reserved_deposit_senders` applies to BTC, DASH, DOGE, ETH and every supported ERC-20 token. The bot compares it with the actual on-chain sender without case sensitivity; ADM is excluded because its transaction already authenticates the sender
+- The watcher polls each external hot wallet every five seconds. BTC, DASH and DOGE use address-scoped node calls. Ethereum's pending filter is global and is filtered to the bot's ETH/ERC-20 address locally; current Geth nodes return full transactions in one bounded response, while hash-only nodes use capped concurrent lookups
+- The pending-transaction APIs of every enabled external node must be available. Watcher calls are time-bounded and isolated per coin, so a stalled watcher cannot stop the exchange workers or observation of other coins. Affected deposits fail closed to manual review instead of being paid from block timestamps alone
 - Report a vulnerability privately to <devs@adamant.im> rather than in a public issue.
 
 ## Development
