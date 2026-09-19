@@ -22,6 +22,7 @@ jest.mock('../../helpers/cryptos/exchanger', () => ({
   getRate: jest.fn(),
   convertCryptos: jest.fn(),
   userDailyValue: jest.fn(),
+  reserveDailyLimit: jest.fn().mockResolvedValue(true),
   getExchangedCryptoList: jest.fn(),
   acceptedCryptoList: 'ADM, BTC, ETH',
   BTC: { FEE: 0.0001 },

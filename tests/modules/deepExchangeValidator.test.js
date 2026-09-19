@@ -1,5 +1,5 @@
 jest.mock('../../modules/DB', () => ({ paymentsDb: { find: jest.fn() } }));
-jest.mock('../../modules/api', () => ({ getTransaction: jest.fn() }));
+jest.mock('../../modules/api', () => ({ getTransaction: jest.fn(), getKvsRecord: jest.fn() }));
 jest.mock('../../helpers/notify', () => jest.fn());
 jest.mock('../../helpers/messenger', () => ({ sendMessage: jest.fn().mockResolvedValue(true) }));
 jest.mock('../../modules/depositClaims', () => ({

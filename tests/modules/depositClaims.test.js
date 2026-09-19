@@ -291,4 +291,19 @@ describe('depositClaims.authorizePayout', () => {
 
     expect(db.depositsDb.findOne).not.toHaveBeenCalled();
   });
+
+  test('blocks authorization while a competing claim is awaiting clarification', async () => {
+    db.depositsDb.findOne.mockResolvedValue(readyDeposit());
+    db.depositClaimsDb.find.mockResolvedValue([
+      { paymentId: 'payment-1', senderId: 'U1', status: 'eligible', registeredAt: 1 },
+      { paymentId: 'payment-2', senderId: 'U2', status: 'awaiting-clarification', registeredAt: 2 },
+    ]);
+
+    await expect(depositClaims.authorizePayout({ ...payment }, 1_000_000)).resolves.toMatchObject({
+      status: 'wait',
+      reason: 'unresolved-claim',
+    });
+
+    expect(db.depositsDb.db.updateOne).not.toHaveBeenCalled();
+  });
 });

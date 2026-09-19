@@ -37,4 +37,20 @@ const api = new AdamantApi({
   socket,
 });
 
-module.exports = api;
+/**
+ * Reads a KVS record with plain query parameters.
+ *
+ * `adamant-api` v3 prefixes every filter with `and:`, which released ADAMANT nodes
+ * drop on `/api/states/get` (adamant-api-jsclient#97). A filtered query then returns
+ * every KVS record in the network, and the first one is the latest write by any
+ * account under any key. Until the SDK fix ships, the bot queries with plain
+ * parameters, which the nodes honour, and validates the record afterwards.
+ *
+ * @param {object} params Query parameters, for example `{ senderId, key }`
+ * @returns {Promise<object>} The node response
+ */
+async function getKvsRecord(params) {
+  return api.get('states/get', params);
+}
+
+module.exports = { ...api, getKvsRecord };

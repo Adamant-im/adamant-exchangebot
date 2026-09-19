@@ -310,15 +310,23 @@ module.exports = async (tx) => {
   switch (messageDirective) {
     case 'exchange':
       await exchangeTxs(itx, tx);
+      await itx.update({ isProcessed: true }, true);
+      await updateProcessedTx(tx, itx, false);
       break;
     case 'update':
       await exchangeTxs(itx, tx, payToUpdate);
+      await itx.update({ isProcessed: true }, true);
+      await updateProcessedTx(tx, itx, false);
       break;
     case 'command':
       await commandTxs(decryptedMessage, tx, itx);
+      await itx.update({ isProcessed: true }, true);
+      await updateProcessedTx(tx, itx, false);
       break;
     default:
       await unknownTxs(tx, itx);
+      await itx.update({ isProcessed: true }, true);
+      await updateProcessedTx(tx, itx, false);
       break;
   }
 };

@@ -355,36 +355,38 @@ module.exports = class BtcBaseCoin extends BaseCoin {
       return { success: false, error };
     }
 
-    try {
-      const { hex, txid } = await this.createTransaction(address, value, fee);
+    return this.withUtxoLock(async () => {
+      try {
+        const { hex, txid } = await this.createTransaction(address, value, fee);
 
-      log.log(
-        `Successfully built Tx ${txid} to send ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee.`,
-      );
+        log.log(
+          `Successfully built Tx ${txid} to send ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee.`,
+        );
 
-      const hash = await this.sendTransaction(hex);
+        const hash = await this.sendTransaction(hex);
 
-      if (!hash) {
-        return {
-          success: false,
-          hash: txid,
-          isAmbiguous: true,
-          error: 'Unable to confirm whether the Tx was broadcast; the node did not return a transaction id',
-        };
+        if (!hash) {
+          return {
+            success: false,
+            hash: txid,
+            isAmbiguous: true,
+            error: 'Unable to confirm whether the Tx was broadcast; the node did not return a transaction id',
+          };
+        }
+
+        log.log(
+          `Successfully broadcast a Tx to send ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee, Tx hash: ${hash}.`,
+        );
+
+        return { success: true, hash };
+      } catch (error) {
+        log.warn(
+          `Error while sending ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee in send() of ${utils.getModuleName(module.id)} module: ${error}`,
+        );
+
+        return { success: false, error: error.toString() };
       }
-
-      log.log(
-        `Successfully broadcast a Tx to send ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee, Tx hash: ${hash}.`,
-      );
-
-      return { success: true, hash };
-    } catch (error) {
-      log.warn(
-        `Error while sending ${value} ${this.token} to ${address} with a ${fee} ${this.token} fee in send() of ${utils.getModuleName(module.id)} module: ${error}`,
-      );
-
-      return { success: false, error: error.toString() };
-    }
+    });
   }
 
   /**
@@ -506,5 +508,37 @@ module.exports = class BtcBaseCoin extends BaseCoin {
         utils.isPositiveOrZeroNumber(lastBlockHeight) ? lastBlockHeight : 'unable to receive'
       }`,
     );
+  }
+
+  /**
+   * Runs `operation` while holding this wallet's UTXO lock.
+   *
+   * `exchangePayer` and `sendBack` run on independent timers, so two concurrent
+   * transfers can otherwise read the same UTXO set and spend the same outpoint.
+   *
+   * @param {() => Promise<object>} operation Transfer operation
+   * @returns {Promise<object>} The operation's result
+   */
+  async withUtxoLock(operation) {
+    const previous = this.utxoLock ?? Promise.resolve();
+    let release;
+
+    const lock = new Promise((resolve) => {
+      release = resolve;
+    });
+
+    this.utxoLock = lock;
+
+    await previous;
+
+    try {
+      return await operation();
+    } finally {
+      release();
+
+      if (this.utxoLock === lock) {
+        this.utxoLock = undefined;
+      }
+    }
   }
 };

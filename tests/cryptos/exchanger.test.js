@@ -1,5 +1,5 @@
 jest.mock('axios');
-jest.mock('../../modules/api', () => ({ getKVS: jest.fn() }));
+jest.mock('../../modules/api', () => ({ getKVS: jest.fn(), getKvsRecord: jest.fn() }));
 jest.mock('../../modules/DB', () => ({
   paymentsDb: { find: jest.fn().mockResolvedValue([]) },
   incomingTxsDb: { find: jest.fn().mockResolvedValue([]) },
@@ -313,31 +313,45 @@ describe('exchanger.userDailyValue', () => {
 
 describe('exchanger.getKvsCryptoAddress', () => {
   test('returns the address the user published', async () => {
-    api.getKVS.mockResolvedValue({
+    api.getKvsRecord.mockResolvedValue({
       success: true,
-      transactions: [{ asset: { state: { value: '0xabc' } } }],
+      transactions: [{ senderId: 'U1', asset: { state: { key: 'eth:address', value: '0xabc' } } }],
     });
 
     await expect(exchangerUtils.getKvsCryptoAddress('ETH', 'U1')).resolves.toBe('0xabc');
-    expect(api.getKVS).toHaveBeenCalledWith({ senderId: 'U1', key: 'eth:address', orderBy: 'timestamp:desc' });
+    expect(api.getKvsRecord).toHaveBeenCalledWith({
+      senderId: 'U1',
+      key: 'eth:address',
+      orderBy: 'timestamp:desc',
+      limit: 1,
+    });
   });
 
   test('looks up an ERC-20 token under the user’s Ethereum address', async () => {
-    api.getKVS.mockResolvedValue({ success: true, transactions: [] });
+    api.getKvsRecord.mockResolvedValue({ success: true, transactions: [] });
 
     await exchangerUtils.getKvsCryptoAddress('USDT', 'U1');
 
-    expect(api.getKVS).toHaveBeenCalledWith(expect.objectContaining({ key: 'eth:address' }));
+    expect(api.getKvsRecord).toHaveBeenCalledWith(expect.objectContaining({ key: 'eth:address' }));
+  });
+
+  test('ignores a record written by another account under another key', async () => {
+    api.getKvsRecord.mockResolvedValue({
+      success: true,
+      transactions: [{ senderId: 'U999', asset: { state: { key: 'eth:address', value: '0xstranger' } } }],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddress('ETH', 'U1')).resolves.toBeUndefined();
   });
 
   test('returns "none" when the user has published no address', async () => {
-    api.getKVS.mockResolvedValue({ success: true, transactions: [] });
+    api.getKvsRecord.mockResolvedValue({ success: true, transactions: [] });
 
     await expect(exchangerUtils.getKvsCryptoAddress('BTC', 'U1')).resolves.toBe('none');
   });
 
   test('returns undefined when the KVS cannot be read, so the bot retries later', async () => {
-    api.getKVS.mockResolvedValue({ success: false, errorMessage: 'node down' });
+    api.getKvsRecord.mockResolvedValue({ success: false, errorMessage: 'node down' });
 
     await expect(exchangerUtils.getKvsCryptoAddress('BTC', 'U1')).resolves.toBeUndefined();
   });

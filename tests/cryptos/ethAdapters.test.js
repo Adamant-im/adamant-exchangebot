@@ -195,7 +195,7 @@ describe('EthCoin', () => {
     expect(first.success).toBe(false);
     expect(first.isAmbiguous).toBe(true);
     expect(second.success).toBe(false);
-    expect(second.isAmbiguous).toBe(true);
+    expect(second.isDeferred).toBe(true);
     expect(second.error).toMatch(/uncertain nonce state/i);
     expect(usdt.contract.transfer).not.toHaveBeenCalled();
   });

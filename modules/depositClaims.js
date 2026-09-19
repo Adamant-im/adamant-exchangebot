@@ -344,7 +344,9 @@ async function authorizePayout(pay, now = utils.unix()) {
   }
 
   const claims = await db.depositClaimsDb.find({ depositKey }, { sort: { registeredAt: 1, _id: 1 } });
-  const unresolved = claims.filter((claim) => claim.status === CLAIM_STATUS.PENDING);
+  const unresolved = claims.filter(
+    (claim) => claim.status === CLAIM_STATUS.PENDING || claim.status === CLAIM_STATUS.AWAITING_CLARIFICATION,
+  );
 
   if (unresolved.length) {
     return { status: AUTHORIZATION_STATUS.WAIT, reason: 'unresolved-claim' };

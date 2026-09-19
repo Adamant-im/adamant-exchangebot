@@ -327,47 +327,63 @@ module.exports = async (itx, tx, payToUpdate) => {
         notifyType = 'warn';
         msgNotify = `${config.notifyName} reports an incoming transaction to sell ${outCurrency} at ${outCurrencyPriceUsd} USD, which is below the ${minOutCurrencySellPriceUsd} USD set in the config. Got _${inAmountMessage} ${inCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
         msgSendBack = `${outCurrency} currently trades at ${outCurrencyPriceUsd} USD, which is too low. I’ll hold off selling it because the rate may swing. Try again later. ${sendBackMessage}`;
-      }
-    }
-
-    if (!pay.isFinished && !pay.needToSendBack && !pay.inUpdateState) {
-      await pay.update(exchangerUtils.convertCryptos(inCurrency, outCurrency, pay.inAmountMessage, true));
-
-      const feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
-      const networkFee = exchangerUtils[outCurrency].FEE;
-
-      if (!pay.outAmount || Number.isNaN(pay.outAmount)) {
-        pay.error = BASIC_CHECK_ERRORS.WRONG_AMOUNT;
-        pay.needToSendBack = true;
-        pay.isBasicChecksPassed = true;
-        notifyType = 'warn';
-        msgNotify = `${config.notifyName} is unable to calculate the _${outCurrency}_ value of _${pay.inAmountMessage}_ _${inCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
-        msgSendBack = `I can’t calculate how much _${outCurrency}_ _${inAmountMessage}_ _${inCurrency}_ is worth. ${sendBackMessage}`;
-      } else if (!utils.isPositiveNumber(pay.outAmount)) {
-        pay.error = BASIC_CHECK_ERRORS.WRONG_REQUEST;
-        pay.needToSendBack = true;
-        pay.isBasicChecksPassed = true;
-        notifyType = 'warn';
-        msgNotify = `${config.notifyName} reports an incoming transaction that doesn’t cover the network Tx fee of ${networkFee} ${feeCurrency}: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
-        msgSendBack = `_${inAmountMessage}_ _${inCurrency}_ doesn’t cover the network Tx fee of ${networkFee} ${feeCurrency}. ${sendBackMessage}`;
-      } else if (exchangerUtils.isLowerThanMinBalance(pay.outAmount, outCurrency)) {
-        pay.error = BASIC_CHECK_ERRORS.BELOW_MIN_TRANSFER;
-        pay.needToSendBack = true;
-        pay.isBasicChecksPassed = true;
-        notifyType = 'warn';
-        msgNotify = `${config.notifyName} is unable to exchange _${inAmountMessage}_ _${inCurrency}_ for _${pay.outAmount}_ _${outCurrency}_, because that is less than the minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
-        msgSendBack = `I can’t send you _${pay.outAmount}_ _${outCurrency}_, because that is less than the minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. ${sendBackMessage}`;
       } else {
-        pay.isBasicChecksPassed = true;
-        notifyType = 'log';
+        const reserved = await exchangerUtils.reserveDailyLimit(
+          tx.senderId,
+          pay.inAmountMessageUsd,
+          pay._id,
+          userDailyLimit,
+        );
 
-        const conversionStringSendBack = `_${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
+        if (!reserved) {
+          pay.error = BASIC_CHECK_ERRORS.DAILY_LIMIT_EXCEEDED;
+          pay.needToSendBack = true;
+          pay.isBasicChecksPassed = true;
+          notifyType = 'warn';
+          msgNotify = `${config.notifyName} reports that _${tx.senderId}_ is over their daily exchange limit. Will try to send the payment back. ${admTxDescription}.`;
+          msgSendBack = `You are over your daily exchange limit. I’ll send the transfer back to you. Come back tomorrow.`;
+        }
+      }
 
-        msgNotify = `${config.notifyName} reports an incoming transaction to exchange ${formRateDescription(pay, inCurrency, outCurrency)}. Tx hash: _${inTxid}_. ${admTxDescription}.`;
-        msgSendBack =
-          `I’ve got your request to exchange ${conversionStringSendBack}. Now I’ll validate the transaction` +
-          `${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ` and wait for _${minConfirmations}_ block confirmations, then`} make the exchange. ` +
-          'That can take a while, so please be patient.';
+      if (!pay.isFinished && !pay.needToSendBack && !pay.inUpdateState) {
+        await pay.update(exchangerUtils.convertCryptos(inCurrency, outCurrency, pay.inAmountMessage, true));
+
+        const feeCurrency = exchangerUtils.isERC20(outCurrency) ? 'ETH' : outCurrency;
+        const networkFee = exchangerUtils[outCurrency].FEE;
+
+        if (!pay.outAmount || Number.isNaN(pay.outAmount)) {
+          pay.error = BASIC_CHECK_ERRORS.WRONG_AMOUNT;
+          pay.needToSendBack = true;
+          pay.isBasicChecksPassed = true;
+          notifyType = 'warn';
+          msgNotify = `${config.notifyName} is unable to calculate the _${outCurrency}_ value of _${pay.inAmountMessage}_ _${inCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
+          msgSendBack = `I can’t calculate how much _${outCurrency}_ _${inAmountMessage}_ _${inCurrency}_ is worth. ${sendBackMessage}`;
+        } else if (!utils.isPositiveNumber(pay.outAmount)) {
+          pay.error = BASIC_CHECK_ERRORS.WRONG_REQUEST;
+          pay.needToSendBack = true;
+          pay.isBasicChecksPassed = true;
+          notifyType = 'warn';
+          msgNotify = `${config.notifyName} reports an incoming transaction that doesn’t cover the network Tx fee of ${networkFee} ${feeCurrency}: _${inAmountMessage}_ _${inCurrency}_ to _${outCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
+          msgSendBack = `_${inAmountMessage}_ _${inCurrency}_ doesn’t cover the network Tx fee of ${networkFee} ${feeCurrency}. ${sendBackMessage}`;
+        } else if (exchangerUtils.isLowerThanMinBalance(pay.outAmount, outCurrency)) {
+          pay.error = BASIC_CHECK_ERRORS.BELOW_MIN_TRANSFER;
+          pay.needToSendBack = true;
+          pay.isBasicChecksPassed = true;
+          notifyType = 'warn';
+          msgNotify = `${config.notifyName} is unable to exchange _${inAmountMessage}_ _${inCurrency}_ for _${pay.outAmount}_ _${outCurrency}_, because that is less than the minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
+          msgSendBack = `I can’t send you _${pay.outAmount}_ _${outCurrency}_, because that is less than the minimum of _${constants.minBalances[outCurrency]}_ _${outCurrency}_. ${sendBackMessage}`;
+        } else {
+          pay.isBasicChecksPassed = true;
+          notifyType = 'log';
+
+          const conversionStringSendBack = `_${inAmountMessage}_ _${inCurrency}_ for **${pay.outAmount}** **${outCurrency}** at _${pay.exchangePrice}_ _${outCurrency}_ / _${inCurrency}_`;
+
+          msgNotify = `${config.notifyName} reports an incoming transaction to exchange ${formRateDescription(pay, inCurrency, outCurrency)}. Tx hash: _${inTxid}_. ${admTxDescription}.`;
+          msgSendBack =
+            `I’ve got your request to exchange ${conversionStringSendBack}. Now I’ll validate the transaction` +
+            `${exchangerUtils.isFastPayments(inCurrency) ? ' and' : ` and wait for _${minConfirmations}_ block confirmations, then`} make the exchange. ` +
+            'That can take a while, so please be patient.';
+        }
       }
     }
 

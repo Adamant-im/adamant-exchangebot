@@ -81,6 +81,50 @@ function getSendCoordinator(coin) {
   return coin.ethInstance ?? coin;
 }
 
+/**
+ * Serializes EVM sends across the shared wallet.
+ *
+ * `NonceManager` allocates sequential nonces but does not wait for one send to
+ * finish before another starts, so two concurrent sends can both pass the barrier
+ * check and the later one may be stuck behind an uncertain nonce. One mutex per
+ * wallet covers the barrier check, the nonce allocation, the broadcast and the
+ * result classification.
+ *
+ * @type {Map<object, Promise<void>>}
+ */
+const sendLocks = new Map();
+
+/**
+ * Runs `operation` while holding the wallet's send lock.
+ *
+ * @param {EthCoin} coin Coin adapter whose wallet the operation uses
+ * @param {() => Promise<object>} operation Send operation
+ * @returns {Promise<object>} The operation's result
+ */
+async function withSendLock(coin, operation) {
+  const coordinator = getSendCoordinator(coin);
+  const previous = sendLocks.get(coordinator) ?? Promise.resolve();
+  let release;
+
+  const lock = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  sendLocks.set(coordinator, lock);
+
+  await previous;
+
+  try {
+    return await operation();
+  } finally {
+    release();
+
+    if (sendLocks.get(coordinator) === lock) {
+      sendLocks.delete(coordinator);
+    }
+  }
+}
+
 function getErrorMessage(error) {
   return [error?.shortMessage, error?.info?.error?.message, error?.reason, error?.message]
     .filter((part) => typeof part === 'string' && part.trim())
@@ -681,72 +725,76 @@ module.exports = class EthCoin extends BaseCoin {
     const attempt = params.try || 1;
     const attemptInfo = ` (attempt ${attempt})`;
     const gasLimit = Math.round(this.gasLimit * this.reliabilityCoef * attempt);
-    const coordinator = getSendCoordinator(this);
+    return withSendLock(this, async () => {
+      const coordinator = getSendCoordinator(this);
 
-    if (coordinator.sendBarrierReason) {
-      log.warn(
-        `Refusing to send ${value} ${this.token}${attemptInfo}: the shared EVM signer is waiting for nonce reconciliation. ${coordinator.sendBarrierReason}.`,
-      );
-
-      return {
-        success: false,
-        isAmbiguous: true,
-        error: coordinator.sendBarrierReason,
-      };
-    }
-
-    if (!this.isValidAddress(address)) {
-      const error = `'${address}' is not a valid Ethereum address`;
-
-      log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
-
-      return { success: false, error };
-    }
-
-    const amount = this.toSat(value);
-
-    if (amount === undefined) {
-      const error = `unable to convert ${value} ${this.token} to the token's smallest unit`;
-
-      log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
-
-      return { success: false, error };
-    }
-
-    try {
-      const tx = this.contract
-        ? await this.contract.transfer(address, amount, { gasLimit })
-        : await this.wallet.sendTransaction({ to: address, value: amount, gasLimit });
-
-      log.log(
-        `Sent a Tx to transfer ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}, Tx hash: ${tx.hash}.`,
-      );
-
-      return { success: true, hash: tx.hash };
-    } catch (error) {
-      const message = getErrorMessage(error) || error.toString();
-
-      if (isDefinitePreBroadcastFailure(error)) {
-        coordinator.wallet.reset?.();
-
+      if (coordinator.sendBarrierReason) {
         log.warn(
-          `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo} before broadcast. Reset the shared nonce state. ${message}`,
+          `Refusing to send ${value} ${this.token}${attemptInfo}: the shared EVM signer is waiting for nonce reconciliation. ${coordinator.sendBarrierReason}.`,
         );
 
-        return { success: false, error: message };
+        // Nothing was broadcast and nothing was signed, so this is a deferral rather
+        // than an uncertain outcome: the caller may retry on a later tick.
+        return {
+          success: false,
+          isDeferred: true,
+          error: coordinator.sendBarrierReason,
+        };
       }
 
-      coordinator.sendBarrierReason = `A previous EVM send has an uncertain nonce state and needs reconciliation. Last error: ${message}`;
+      if (!this.isValidAddress(address)) {
+        const error = `'${address}' is not a valid Ethereum address`;
 
-      // ethers throws both for a rejected transaction and for a transport failure after
-      // the transaction was submitted, and the two are not reliably distinguishable. The
-      // outcome is therefore unknown, and the caller must not retry on its own.
-      log.error(
-        `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}. ${message}`,
-      );
+        log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
 
-      return { success: false, isAmbiguous: true, error: coordinator.sendBarrierReason };
-    }
+        return { success: false, error };
+      }
+
+      const amount = this.toSat(value);
+
+      if (amount === undefined) {
+        const error = `unable to convert ${value} ${this.token} to the token's smallest unit`;
+
+        log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
+
+        return { success: false, error };
+      }
+
+      try {
+        const tx = this.contract
+          ? await this.contract.transfer(address, amount, { gasLimit })
+          : await this.wallet.sendTransaction({ to: address, value: amount, gasLimit });
+
+        log.log(
+          `Sent a Tx to transfer ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}, Tx hash: ${tx.hash}.`,
+        );
+
+        return { success: true, hash: tx.hash };
+      } catch (error) {
+        const message = getErrorMessage(error) || error.toString();
+
+        if (isDefinitePreBroadcastFailure(error)) {
+          coordinator.wallet.reset?.();
+
+          log.warn(
+            `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo} before broadcast. Reset the shared nonce state. ${message}`,
+          );
+
+          return { success: false, error: message };
+        }
+
+        coordinator.sendBarrierReason = `A previous EVM send has an uncertain nonce state and needs reconciliation. Last error: ${message}`;
+
+        // ethers throws both for a rejected transaction and for a transport failure after
+        // the transaction was submitted, and the two are not reliably distinguishable. The
+        // outcome is therefore unknown, and the caller must not retry on its own.
+        log.error(
+          `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}. ${message}`,
+        );
+
+        return { success: false, isAmbiguous: true, error: coordinator.sendBarrierReason };
+      }
+    });
   }
 
   /**

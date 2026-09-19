@@ -224,6 +224,27 @@ describe('per-coin config overrides', () => {
       /'exchange_fee_BTC' must be a number/,
     );
   });
+
+  test('applies the base field bounds to per-coin overrides', () => {
+    expect(() => buildConfig(rawConfig({ exchange_fee_BTC: -100 }))).toThrow(
+      /'exchange_fee_BTC' must be not less than 0/,
+    );
+    expect(() => buildConfig(rawConfig({ exchange_fee_BTC: 101 }))).toThrow(
+      /'exchange_fee_BTC' must be not greater than 100/,
+    );
+    expect(() => buildConfig(rawConfig({ min_confirmations_BTC: -5 }))).toThrow(
+      /'min_confirmations_BTC' must be not less than 0/,
+    );
+    expect(() => buildConfig(rawConfig({ daily_limit_usd_BTC: -1 }))).toThrow(
+      /'daily_limit_usd_BTC' must be not less than 0/,
+    );
+  });
+
+  test('requires an integer confirmation threshold', () => {
+    expect(() => buildConfig(rawConfig({ min_confirmations_BTC: 1.5 }))).toThrow(
+      /'min_confirmations_BTC' must be an integer/,
+    );
+  });
 });
 
 describe('the shipped config.default.jsonc', () => {

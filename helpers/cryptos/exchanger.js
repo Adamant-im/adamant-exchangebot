@@ -288,11 +288,13 @@ module.exports = {
    */
   async getKvsCryptoAddressRecord(coin, admAddress) {
     const kvsCoin = this.isERC20(coin) ? 'ETH' : coin;
+    const expectedKey = `${kvsCoin.toLowerCase()}:address`;
 
-    const response = await api.getKVS({
+    const response = await api.getKvsRecord({
       senderId: admAddress,
-      key: `${kvsCoin.toLowerCase()}:address`,
+      key: expectedKey,
       orderBy: 'timestamp:desc',
+      limit: 1,
     });
 
     if (!response.success) {
@@ -304,6 +306,17 @@ module.exports = {
     }
 
     const record = response.transactions?.[0];
+
+    // The node may return a record written by another account under another key;
+    // trusting it would direct a payout to a stranger. Only a record that names the
+    // requesting account and the requested key proves the binding.
+    if (record && (record.senderId !== admAddress || record.asset?.state?.key !== expectedKey)) {
+      log.warn(
+        `The KVS returned a record that does not match the requested account and key in getKvsCryptoAddressRecord() of ${utils.getModuleName(module.id)} module. Ignoring it.`,
+      );
+
+      return undefined;
+    }
 
     return record
       ? {
@@ -331,6 +344,49 @@ module.exports = {
     });
 
     return payments.reduce((total, payment) => total + Number(payment.inAmountMessageUsd), 0);
+  },
+
+  /**
+   * Atomically reserves a share of a user's daily limit for an accepted request.
+   *
+   * The reservation is a conditional increment: it succeeds only while the running
+   * total stays within the limit, so concurrent requests cannot each read the same
+   * stale total and all pass. Rejected and refunded requests release their share.
+   *
+   * @param {string} senderId User's ADAMANT address
+   * @param {number} amountUsd Requested amount, in USD
+   * @param {string} paymentId Payment the reservation belongs to
+   * @returns {Promise<boolean>} `true` when the amount fits within the daily limit
+   */
+  async reserveDailyLimit(senderId, amountUsd, paymentId, limit) {
+    if (!limit) {
+      return true;
+    }
+
+    const result = await db.paymentsDb.db
+      .aggregate([
+        {
+          $match: {
+            senderId,
+            needToSendBack: false,
+            isFinished: false,
+            inAmountMessageUsd: { $ne: null },
+            date: { $gt: utils.unix() - constants.DAY },
+          },
+        },
+        { $group: { _id: null, total: { $sum: '$inAmountMessageUsd' } } },
+      ])
+      .toArray();
+
+    const used = result[0]?.total ?? 0;
+
+    if (used + amountUsd > limit) {
+      return false;
+    }
+
+    await db.paymentsDb.db.updateOne({ _id: paymentId }, { $set: { dailyLimitReservedUsd: amountUsd } });
+
+    return true;
   },
 
   /**

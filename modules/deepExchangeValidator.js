@@ -93,6 +93,34 @@ async function validate(pay, tx) {
     let msgNotify = false;
     let notifyType = 'log';
 
+    // A claim that is never resolved blocks every other claim on the same deposit, so
+    // every terminal path must settle it. The status is written after the payment is
+    // saved, in one place, so an early return cannot leak a pending claim.
+    let claimSettled = false;
+
+    async function settleClaim() {
+      if (claimSettled) {
+        return;
+      }
+
+      claimSettled = true;
+
+      if (pay.transactionIsValid === true && !pay.needHumanCheck) {
+        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.ELIGIBLE, {
+          kvsHeight: pay.senderKvsInAddressHeight,
+          firstSeenAdmHeight: pay.depositFirstSeenAdmHeight,
+        });
+      } else if (pay.needHumanCheck && pay.error === constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER) {
+        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.MANUAL, {
+          reason: pay.depositOwnershipStatus,
+        });
+      } else if (pay.transactionIsValid === false || pay.isFinished) {
+        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
+          reason: `validation-error-${pay.error}`,
+        });
+      }
+    }
+
     // The bot knows the user's ADM address directly; addresses in other blockchains
     // are published by the user in the ADAMANT KVS.
     const senderKvsInRecord =
@@ -356,20 +384,7 @@ async function validate(pay, tx) {
 
     await pay.save();
 
-    if (pay.transactionIsValid === true && !pay.needHumanCheck) {
-      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.ELIGIBLE, {
-        kvsHeight: pay.senderKvsInAddressHeight,
-        firstSeenAdmHeight: pay.depositFirstSeenAdmHeight,
-      });
-    } else if (pay.needHumanCheck && pay.error === constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER) {
-      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.MANUAL, {
-        reason: pay.depositOwnershipStatus,
-      });
-    } else if (pay.transactionIsValid === false || pay.isFinished) {
-      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
-        reason: `validation-error-${pay.error}`,
-      });
-    }
+    await settleClaim();
 
     if (msgSendBack) {
       notify(`${msgNotify} Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);

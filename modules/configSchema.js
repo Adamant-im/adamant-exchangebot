@@ -14,9 +14,9 @@ const MIN_PASSPHRASE_LENGTH = 35;
  * `fallback` is used when the general parameter is not set either.
  */
 const PER_COIN_FIELDS = [
-  { name: 'min_confirmations', base: 'min_confirmations', fallback: 3 },
-  { name: 'exchange_fee', base: 'exchange_fee', fallback: 0 },
-  { name: 'daily_limit_usd', base: 'daily_limit_usd', fallback: 0 },
+  { name: 'min_confirmations', base: 'min_confirmations', fallback: 3, min: 0, isInteger: true },
+  { name: 'exchange_fee', base: 'exchange_fee', fallback: 0, min: 0, max: 100 },
+  { name: 'daily_limit_usd', base: 'daily_limit_usd', fallback: 0, min: 0 },
   { name: 'max_buy_price_usd', base: undefined, fallback: 0 },
   { name: 'min_sell_price_usd', base: undefined, fallback: 0 },
   { name: 'fixed_buy_price_usd', base: undefined, fallback: 0 },
@@ -161,7 +161,8 @@ function applyFieldDefaults(raw) {
  * @throws {ConfigError} When a per-coin override is not a finite number
  */
 function applyPerCoinDefaults(config) {
-  for (const { name, base, fallback } of PER_COIN_FIELDS) {
+  for (const fieldMeta of PER_COIN_FIELDS) {
+    const { name, base, fallback } = fieldMeta;
     const generalValue = base === undefined ? undefined : config[base];
 
     for (const coin of config.known_crypto) {
@@ -175,6 +176,18 @@ function applyPerCoinDefaults(config) {
 
       if (typeof value !== 'number' || !Number.isFinite(value)) {
         throw new ConfigError(`Field '${field}' must be a number, got ${typeof value}.`);
+      }
+
+      if (fieldMeta.isInteger && !Number.isInteger(value)) {
+        throw new ConfigError(`Field '${field}' must be an integer, got ${value}.`);
+      }
+
+      if (fieldMeta.min !== undefined && value < fieldMeta.min) {
+        throw new ConfigError(`Field '${field}' must be not less than ${fieldMeta.min}, got ${value}.`);
+      }
+
+      if (fieldMeta.max !== undefined && value > fieldMeta.max) {
+        throw new ConfigError(`Field '${field}' must be not greater than ${fieldMeta.max}, got ${value}.`);
       }
     }
   }
