@@ -202,3 +202,39 @@ describe('AdmCoin', () => {
     expect(message).toContain('4 confirmations');
   });
 });
+
+describe('AdmCoin.send — classifying a failure', () => {
+  /** @type {AdmCoin} */
+  let adm;
+
+  beforeEach(() => {
+    adm = new AdmCoin();
+  });
+
+  test.each([
+    ['Account U1 does not have enough ADM: balance 0.1', 'not enough ADM'],
+    ["Wrong 'addressOrPublicKey' parameter: U123", 'a parameter the SDK refused'],
+    ['Unable to get public key for U123. It is necessary for sending an encrypted message', 'an unknown public key'],
+    ['No compatible ADAMANT nodes are available. Minimum required version is 0.8.0', 'no usable node'],
+  ])('treats %s as a definite failure, because nothing was sent', async (errorMessage) => {
+    api.sendMessage.mockResolvedValue({ success: false, errorMessage });
+
+    const result = await adm.send({ address: USER, value: 1, comment: 'test' });
+
+    expect(result).toMatchObject({ success: false });
+    // Retryable: the caller may try again without risking a second transfer.
+    expect(result.isAmbiguous).toBeUndefined();
+  });
+
+  test.each([
+    ['Transaction already exists', 'a duplicate after a lost reply'],
+    ['timeout of 5000ms exceeded', 'a timeout'],
+    ['Request to https://node/api/transactions/process failed', 'a transport failure'],
+  ])('treats %s as an uncertain outcome, because the transfer may be in the network', async (errorMessage) => {
+    api.sendMessage.mockResolvedValue({ success: false, errorMessage });
+
+    const result = await adm.send({ address: USER, value: 1, comment: 'test' });
+
+    expect(result).toMatchObject({ success: false, isAmbiguous: true });
+  });
+});

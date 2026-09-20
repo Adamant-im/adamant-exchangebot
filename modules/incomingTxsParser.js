@@ -12,9 +12,24 @@ const commandTxs = require('./commandTxs');
 const unknownTxs = require('./unknownTxs');
 const depositClaims = require('./depositClaims');
 const Store = require('./Store');
+const api = require('./api');
 
 /** Messages from one user per 24 hours above which the user is treated as a spammer. */
 const SPAM_THRESHOLD_PER_DAY = 65;
+
+/** Stored incoming records that never finished are retried after this long. */
+const REPLAY_DELAY = 2 * 60 * 1000;
+
+/** Attempts at finishing a stored incoming record before the operator is asked to. */
+const MAX_REPLAY_ATTEMPTS = 5;
+
+/**
+ * Transactions whose handler is running in this process right now. The replay sweep
+ * skips them, so a slow handler is never run twice at the same time.
+ *
+ * @type {Set<string>}
+ */
+const inFlightTxs = new Set();
 
 /** How long a processed transaction stays in the in-memory cache. */
 const PROCESSED_TX_TTL = constants.DAY;
@@ -182,6 +197,9 @@ module.exports = async (tx) => {
 
       for (const payment of pendingPayments) {
         await payment.update({ isIgnored: true, isProcessed: true, inUpdateState: undefined }, true);
+        // The abandoned request still holds a claim on its deposit. Leaving it open would
+        // block the deposit forever; see depositClaims.abandonClaim().
+        await depositClaims.abandonClaim(payment, 'abandoned-clarification');
       }
 
       notify(
@@ -283,6 +301,9 @@ module.exports = async (tx) => {
   }
 
   await itx.save();
+  // The checkpoint may move now: the stored record, with isProcessed still false, is
+  // what guarantees the transaction is handled. If the handler below fails or the
+  // process stops before it finishes, replayUnprocessed() picks the record up again.
   await updateProcessedTx(tx, itx, false);
 
   // Tell the user once, when the limit is first tripped.
@@ -307,26 +328,141 @@ module.exports = async (tx) => {
     return;
   }
 
-  switch (messageDirective) {
-    case 'exchange':
-      await exchangeTxs(itx, tx);
-      await itx.update({ isProcessed: true }, true);
-      await updateProcessedTx(tx, itx, false);
-      break;
-    case 'update':
-      await exchangeTxs(itx, tx, payToUpdate);
-      await itx.update({ isProcessed: true }, true);
-      await updateProcessedTx(tx, itx, false);
-      break;
-    case 'command':
-      await commandTxs(decryptedMessage, tx, itx);
-      await itx.update({ isProcessed: true }, true);
-      await updateProcessedTx(tx, itx, false);
-      break;
-    default:
-      await unknownTxs(tx, itx);
-      await itx.update({ isProcessed: true }, true);
-      await updateProcessedTx(tx, itx, false);
-      break;
+  inFlightTxs.add(tx.id);
+
+  try {
+    switch (messageDirective) {
+      case 'exchange':
+        await exchangeTxs(itx, tx);
+        break;
+      case 'update':
+        await exchangeTxs(itx, tx, payToUpdate);
+        break;
+      case 'command':
+        await commandTxs(decryptedMessage, tx, itx);
+        break;
+      default:
+        await unknownTxs(tx, itx);
+        break;
+    }
+
+    await itx.update({ isProcessed: true }, true);
+  } finally {
+    inFlightTxs.delete(tx.id);
   }
 };
+
+/**
+ * Finishes stored incoming records whose handler never completed.
+ *
+ * A record is stored before its handler runs, so a crash, a failed database write or
+ * an exception in the handler leaves it with `isProcessed: false`. Only transfers are
+ * replayed — a missed reply to small talk or a command is not worth a duplicate — and
+ * each replay first checks whether the handler had in fact already done its work, so
+ * a replay never creates a second payment.
+ *
+ * @returns {Promise<void>}
+ */
+async function replayUnprocessed() {
+  const records = await db.incomingTxsDb.find({
+    isProcessed: false,
+    isSpam: { $ne: true },
+    isDeposit: { $ne: true },
+    date: { $lt: utils.unix() - REPLAY_DELAY },
+  });
+
+  for (const itx of records) {
+    if (inFlightTxs.has(itx.txid)) {
+      continue;
+    }
+
+    inFlightTxs.add(itx.txid);
+
+    try {
+      await replayRecord(itx);
+    } catch (error) {
+      log.error(`Unable to finish the stored incoming Tx ${itx.txid}. Will try again later. ${error}`);
+    } finally {
+      inFlightTxs.delete(itx.txid);
+    }
+  }
+}
+
+/**
+ * Finishes one stored incoming record, or hands it to the operator after too many attempts.
+ *
+ * @param {object} itx Stored incoming-transaction document
+ * @returns {Promise<void>}
+ */
+async function replayRecord(itx) {
+  const attempts = (itx.replayAttempts ?? 0) + 1;
+
+  if (attempts > MAX_REPLAY_ATTEMPTS) {
+    await itx.update({ isProcessed: true, processingFailed: true }, true);
+
+    notify(
+      `${config.notifyName} could not process the incoming Tx _${itx.txid}_ from _${itx.senderId}_ after ${MAX_REPLAY_ATTEMPTS} attempts. **Attention needed** — check it manually. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${itx.txid}.`,
+      'error',
+    );
+
+    return;
+  }
+
+  await itx.update({ replayAttempts: attempts }, true);
+
+  const isTransfer = itx.messageDirective === 'exchange' || itx.messageDirective === 'update';
+
+  if (!isTransfer) {
+    await itx.update({ isProcessed: true }, true);
+
+    return;
+  }
+
+  // The handler may have created the payment before the process stopped.
+  if (itx.messageDirective === 'exchange' && (await db.paymentsDb.findOne({ _id: itx.txid }))) {
+    await itx.update({ isProcessed: true }, true);
+
+    return;
+  }
+
+  let payToUpdate;
+
+  if (itx.messageDirective === 'update') {
+    payToUpdate = await db.paymentsDb.findOne({ _id: itx.payToUpdateId });
+
+    // The clarification was applied, or the request was dropped since.
+    if (!payToUpdate || payToUpdate.inUpdateState === undefined || payToUpdate.inUpdateState === null) {
+      await itx.update({ isProcessed: true }, true);
+
+      return;
+    }
+  }
+
+  // The stored copy of the message is not proof of anything; the transaction is read
+  // from the blockchain again.
+  const response = await api.getTransaction(itx.txid, { returnAsset: 1 });
+
+  if (!response.success || !response.transaction) {
+    log.warn(
+      `Unable to fetch the ADM Tx ${itx.txid} to finish its stored record. ${response.errorMessage}. Will try again later.`,
+    );
+
+    return;
+  }
+
+  const tx = response.transaction;
+
+  if (tx.recipientId !== config.address || tx.senderId !== itx.senderId) {
+    await itx.update({ isProcessed: true, processingFailed: true }, true);
+    log.error(`The ADM Tx ${itx.txid} no longer matches its stored record. Marked as failed.`);
+
+    return;
+  }
+
+  log.log(`Finishing the stored incoming Tx ${itx.txid} (attempt ${attempts})…`);
+
+  await exchangeTxs(itx, tx, payToUpdate);
+  await itx.update({ isProcessed: true }, true);
+}
+
+module.exports.replayUnprocessed = replayUnprocessed;

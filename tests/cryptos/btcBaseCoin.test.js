@@ -353,3 +353,59 @@ describe('buildTransaction across the UTXO coins', () => {
     expect(() => coin.buildTransaction(RECIPIENT, 50, [utxo], coin.FEE)).toThrow();
   });
 });
+
+describe('spending the same outpoint twice', () => {
+  /** @type {BtcCoin} */
+  let coin;
+  let utxo;
+
+  beforeEach(() => {
+    coin = new BtcCoin('BTC');
+    utxo = createFundingUtxo(coin.address, coin.account.network, coin.toSat(1));
+    // A node that reports only confirmed spends — Dash's getaddressutxos does — keeps
+    // listing an outpoint that the bot has already spent in the mempool.
+    coin.getUnspents = jest.fn().mockResolvedValue([utxo]);
+    coin.sendTransaction = jest.fn().mockResolvedValue('broadcast-hash');
+  });
+
+  test('does not select an outpoint the bot has already spent', async () => {
+    const first = await coin.send({ address: RECIPIENT, value: 0.1 });
+    const second = await coin.send({ address: RECIPIENT, value: 0.1 });
+
+    expect(first.success).toBe(true);
+    // Without the registry the second transfer would spend the same outpoint and
+    // conflict with the first, leaving a payout tracked by a transaction id that can
+    // never confirm.
+    expect(second.success).toBe(false);
+    expect(coin.sendTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test('remembers the outpoints even when the node never confirmed the broadcast', async () => {
+    coin.sendTransaction.mockResolvedValue(undefined);
+
+    const first = await coin.send({ address: RECIPIENT, value: 0.1 });
+
+    expect(first).toMatchObject({ isAmbiguous: true });
+    expect(coin.excludeLocallySpent([utxo])).toEqual([]);
+  });
+
+  test('forgets an outpoint once the node stops listing it', async () => {
+    await coin.send({ address: RECIPIENT, value: 0.1 });
+
+    const other = createFundingUtxo(coin.address, coin.account.network, coin.toSat(2), 1);
+
+    // The spend is visible to the node now: the old outpoint is gone from its list.
+    expect(coin.excludeLocallySpent([other])).toEqual([other]);
+    expect(coin.spentOutpoints.size).toBe(0);
+  });
+
+  test('keeps a failed build out of the registry', async () => {
+    coin.getUnspents.mockResolvedValue([]);
+
+    const result = await coin.send({ address: RECIPIENT, value: 0.1 });
+
+    expect(result.success).toBe(false);
+    expect(result.isAmbiguous).toBeUndefined();
+    expect(coin.spentOutpoints?.size ?? 0).toBe(0);
+  });
+});

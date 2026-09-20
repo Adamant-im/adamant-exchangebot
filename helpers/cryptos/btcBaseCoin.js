@@ -4,6 +4,7 @@ const log = require('../log');
 const constants = require('../const');
 const utils = require('../utils');
 const BaseCoin = require('./baseCoin');
+const { createKeyedMutex } = require('../mutex');
 
 /**
  * Shared behaviour of the UTXO coins: Bitcoin, Dash and Dogecoin.
@@ -15,6 +16,23 @@ const BaseCoin = require('./baseCoin');
  *
  * @abstract
  */
+/**
+ * Serializes building and broadcasting per wallet.
+ *
+ * `exchangePayer` and `sendBack` run on independent timers; without the lock both
+ * could read the same UTXO set and spend the same outpoint.
+ */
+const withWalletLock = createKeyedMutex();
+
+/**
+ * How long an outpoint spent by the bot's own transfer is kept out of coin selection
+ * when the node still lists it as unspent. Some UTXO sources — Dash's
+ * `getaddressutxos` among them — only reflect confirmed spends, so an outpoint spent
+ * by a transfer still in the mempool would otherwise be selected again, and the
+ * second transfer would conflict with the first.
+ */
+const SPENT_OUTPOINT_TTL = 60 * 60 * 1000;
+
 module.exports = class BtcBaseCoin extends BaseCoin {
   /**
    * @param {string} token Ticker, for example `BTC`
@@ -323,7 +341,7 @@ module.exports = class BtcBaseCoin extends BaseCoin {
    * @throws {Error} When the UTXOs cannot be fetched or cannot cover the transfer
    */
   async createTransaction(address, amount, fee) {
-    const unspents = await this.getUnspents();
+    const unspents = this.excludeLocallySpent(await this.getUnspents());
 
     if (!unspents?.length) {
       throw new Error(`No unspent outputs retrieved for ${this.token}`);
@@ -364,6 +382,10 @@ module.exports = class BtcBaseCoin extends BaseCoin {
         );
 
         const hash = await this.sendTransaction(hex);
+
+        // Whether or not the node answered, the transaction may be in the mempool now,
+        // so its inputs must not be selected again.
+        this.rememberSpentInputs(hex);
 
         if (!hash) {
           return {
@@ -513,32 +535,57 @@ module.exports = class BtcBaseCoin extends BaseCoin {
   /**
    * Runs `operation` while holding this wallet's UTXO lock.
    *
-   * `exchangePayer` and `sendBack` run on independent timers, so two concurrent
-   * transfers can otherwise read the same UTXO set and spend the same outpoint.
-   *
    * @param {() => Promise<object>} operation Transfer operation
    * @returns {Promise<object>} The operation's result
    */
-  async withUtxoLock(operation) {
-    const previous = this.utxoLock ?? Promise.resolve();
-    let release;
+  withUtxoLock(operation) {
+    return withWalletLock(this, operation);
+  }
 
-    const lock = new Promise((resolve) => {
-      release = resolve;
-    });
+  /**
+   * Removes outpoints this bot has already spent from a list of unspent outputs.
+   *
+   * An entry is forgotten once the node stops listing the outpoint — the spend is then
+   * visible there — or after {@link SPENT_OUTPOINT_TTL}, by which time a transaction
+   * that never confirmed has been dropped.
+   *
+   * @param {Array<{txid: string, vout: number}>|undefined} unspents Outputs reported by the node
+   * @returns {Array<{txid: string, vout: number}>|undefined}
+   */
+  excludeLocallySpent(unspents) {
+    if (!Array.isArray(unspents)) {
+      return unspents;
+    }
 
-    this.utxoLock = lock;
+    this.spentOutpoints ??= new Map();
 
-    await previous;
+    const now = utils.unix();
+    const listed = new Set(unspents.map((unspent) => `${unspent.txid}:${unspent.vout}`));
 
-    try {
-      return await operation();
-    } finally {
-      release();
-
-      if (this.utxoLock === lock) {
-        this.utxoLock = undefined;
+    for (const [outpoint, spentAt] of this.spentOutpoints) {
+      if (!listed.has(outpoint) || now - spentAt > SPENT_OUTPOINT_TTL) {
+        this.spentOutpoints.delete(outpoint);
       }
+    }
+
+    return unspents.filter((unspent) => !this.spentOutpoints.has(`${unspent.txid}:${unspent.vout}`));
+  }
+
+  /**
+   * Records the inputs of a transaction the bot has broadcast as spent.
+   *
+   * @param {string} hex Signed transaction
+   */
+  rememberSpentInputs(hex) {
+    this.spentOutpoints ??= new Map();
+
+    const now = utils.unix();
+
+    for (const input of bitcoin.Transaction.fromHex(hex).ins) {
+      // Input hashes are stored in little-endian order; transaction IDs are shown reversed.
+      const txid = Buffer.from(input.hash).reverse().toString('hex');
+
+      this.spentOutpoints.set(`${txid}:${input.index}`, now);
     }
   }
 };

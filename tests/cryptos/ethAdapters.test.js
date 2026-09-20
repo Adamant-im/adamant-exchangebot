@@ -4,6 +4,7 @@ jest.mock('../../helpers/log', () => ({
   info: jest.fn(),
   log: jest.fn(),
 }));
+jest.mock('../../helpers/notify', () => jest.fn());
 
 const ethers = require('ethers');
 
@@ -196,7 +197,7 @@ describe('EthCoin', () => {
     expect(first.isAmbiguous).toBe(true);
     expect(second.success).toBe(false);
     expect(second.isDeferred).toBe(true);
-    expect(second.error).toMatch(/uncertain nonce state/i);
+    expect(second.error).toMatch(/uncertain outcome/i);
     expect(usdt.contract.transfer).not.toHaveBeenCalled();
   });
 
@@ -362,8 +363,8 @@ describe('EthCoin', () => {
     expect(eth.pendingProvider.send).toHaveBeenNthCalledWith(2, 'eth_newPendingTransactionFilter', []);
   });
 
-  test('fails closed when an Ethereum pending snapshot exceeds its work limit', async () => {
-    eth.pendingProvider = {
+  test('fails the poll when an Ethereum pending snapshot exceeds its work limit', async () => {
+    const pendingProvider = {
       send: jest
         .fn()
         .mockResolvedValueOnce('filter-1')
@@ -371,10 +372,14 @@ describe('EthCoin', () => {
       getTransaction: jest.fn(),
     };
 
+    eth.pendingProvider = pendingProvider;
+
     await eth.getPendingIncomingTransactions();
-    await expect(eth.getPendingIncomingTransactions()).resolves.toBeUndefined();
-    expect(eth.pendingProvider.getTransaction).not.toHaveBeenCalled();
-    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('above the safe limit'));
+    // The changes are consumed, so the watcher must treat the gap as a failed poll: the
+    // next snapshot is then low-confidence, and deposits in the gap go to manual review.
+    await expect(eth.getPendingIncomingTransactions()).rejects.toThrow(/above the limit/);
+    expect(pendingProvider.getTransaction).not.toHaveBeenCalled();
+    expect(eth.pendingFilterId).toBeUndefined();
   });
 
   test('ignores logs from contracts the bot does not know', async () => {
@@ -497,5 +502,125 @@ describe('erc20_models', () => {
 
   test('the model list is frozen', () => {
     expect(Object.isFrozen(erc20models)).toBe(true);
+  });
+});
+
+describe('EthCoin — paused sends and their reconciliation', () => {
+  const notify = require('../../helpers/notify');
+
+  /** @type {EthCoin} */
+  let eth;
+  let network;
+  let nodes;
+  let now;
+
+  beforeEach(() => {
+    eth = new EthCoin('ETH');
+    network = stubNetwork(eth);
+    network.provider.getTransactionCount = jest.fn();
+    network.wallet.getNonce = jest.fn().mockResolvedValue(7);
+    network.wallet.reset = jest.fn();
+    nodes = [{ getTransactionCount: jest.fn() }, { getTransactionCount: jest.fn() }];
+    eth.nodeProviders = nodes;
+    eth.gasPrice = 1000000000n;
+    now = 1_000_000_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+  });
+
+  test('pauses on an uncertain outcome, remembering the nonce the send used', async () => {
+    network.wallet.sendTransaction.mockRejectedValue(new Error('socket hang up'));
+
+    const result = await eth.send({ address: RECIPIENT, value: 0.5 });
+
+    expect(result).toMatchObject({ success: false, isAmbiguous: true });
+    expect(eth.sendBarrier).toMatchObject({ nonce: 7, since: now });
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('paused all ETH and ERC-20 sends'), 'warn');
+  });
+
+  test('resumes once the uncertain nonce has been mined', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockResolvedValue(8);
+
+    await expect(eth.getSendBlocker()).resolves.toBeUndefined();
+    expect(eth.sendBarrier).toBeUndefined();
+    // The next send re-reads the nonce from the network.
+    expect(network.wallet.reset).toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('nonce 7 was mined'), 'info');
+  });
+
+  test('stays paused while any node still has a pending transaction with that nonce', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockResolvedValue(7);
+    nodes[0].getTransactionCount.mockResolvedValue(7);
+    nodes[1].getTransactionCount.mockResolvedValue(8);
+
+    await expect(eth.getSendBlocker()).resolves.toMatch(/uncertain outcome at nonce 7/);
+    expect(eth.sendBarrier.unusedChecks).toBe(0);
+  });
+
+  test('resumes only after no node has known the nonce for long enough, across several checks', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockResolvedValue(7);
+    nodes[0].getTransactionCount.mockResolvedValue(7);
+    nodes[1].getTransactionCount.mockResolvedValue(7);
+
+    for (let check = 1; check <= 3; check += 1) {
+      now += 5 * 60 * 1000;
+      await eth.getSendBlocker();
+    }
+
+    expect(eth.sendBarrier).toBeUndefined();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('was never used'), 'info');
+  });
+
+  test('does not resume on the first unused observation, however old the pause is', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockResolvedValue(7);
+    nodes[0].getTransactionCount.mockResolvedValue(7);
+    nodes[1].getTransactionCount.mockResolvedValue(7);
+    now += 60 * 60 * 1000;
+
+    await eth.getSendBlocker();
+
+    expect(eth.sendBarrier).toBeDefined();
+  });
+
+  test('checks the network at most once a minute', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockResolvedValue(7);
+    nodes.forEach((node) => node.getTransactionCount.mockResolvedValue(7));
+
+    now += 61 * 1000;
+    await eth.getSendBlocker();
+    now += 10 * 1000;
+    await eth.getSendBlocker();
+
+    expect(network.provider.getTransactionCount).toHaveBeenCalledTimes(1);
+  });
+
+  test('keeps the pause when reconciliation itself fails', async () => {
+    eth.pauseSends(7, 'socket hang up');
+    network.provider.getTransactionCount.mockRejectedValue(new Error('node down'));
+
+    await expect(eth.getSendBlocker()).resolves.toBeDefined();
+  });
+
+  test('cannot reconcile a pause without a known nonce, and says a restart is needed', async () => {
+    eth.pauseSends(undefined, 'socket hang up');
+
+    await expect(eth.getSendBlocker()).resolves.toBeDefined();
+    expect(network.provider.getTransactionCount).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('only after a restart'), 'warn');
+  });
+
+  test('an ERC-20 adapter shares the pause of the Ethereum wallet', async () => {
+    const usdt = new Erc20Coin('USDT', eth);
+
+    eth.pauseSends(7, 'socket hang up');
+
+    network.provider.getTransactionCount.mockResolvedValue(7);
+    nodes.forEach((node) => node.getTransactionCount.mockResolvedValue(8));
+
+    await expect(usdt.getSendBlocker()).resolves.toMatch(/nonce 7/);
   });
 });

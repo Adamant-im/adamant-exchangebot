@@ -8,6 +8,9 @@ const config = require('./configReader');
 const constants = require('../helpers/const');
 const utils = require('../helpers/utils');
 
+/** Transactions read per poll. A backlog larger than this is worked off over several ticks. */
+const CHECK_PAGE_SIZE = 100;
+
 /**
  * Fetches ADAMANT transactions addressed to the bot and hands them to the parser.
  *
@@ -33,9 +36,16 @@ async function check() {
       recipientId: config.address,
       // Direct transfers and in-chat messages; a transfer with a comment is both.
       types: [TransactionType.SEND, TransactionType.CHAT_MESSAGE],
-      fromHeight: lastProcessedBlockHeight + 1,
+      // Inclusive: the last processed block is read again, so a second transaction
+      // in that block is not skipped when the first one moved the checkpoint.
+      // Already handled transactions are de-duplicated by the parser.
+      fromHeight: lastProcessedBlockHeight,
       returnAsset: 1,
-      orderBy: 'timestamp:desc',
+      // Oldest first, so the checkpoint only ever moves past transactions that
+      // already have a stored record. Newest-first processing could move it past an
+      // older transaction that then failed, and that transaction would be lost.
+      orderBy: 'height:asc',
+      limit: CHECK_PAGE_SIZE,
     });
 
     if (!response.success) {
@@ -44,6 +54,9 @@ async function check() {
       return;
     }
 
+    // A failure stops the batch on purpose: the newer transactions are fetched again
+    // on the next tick, and the checkpoint cannot move past one that failed before
+    // its record was stored.
     for (const tx of response.transactions) {
       await txParser(tx);
     }

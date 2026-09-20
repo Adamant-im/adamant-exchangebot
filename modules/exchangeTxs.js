@@ -7,6 +7,17 @@ const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const messenger = require('../helpers/messenger');
 const depositClaims = require('./depositClaims');
+const { createKeyedMutex } = require('../helpers/mutex');
+
+/**
+ * Serializes exchange requests per user.
+ *
+ * The daily limit is a read-check-write: sum today's volume, compare, then store the
+ * new payment. Two requests from one user handled at once — a socket delivery and a
+ * REST poll, or two transfers in one block — would both read the same total and both
+ * pass. Holding one lock per user until the payment is stored makes the check exact.
+ */
+const withSenderLock = createKeyedMutex();
 
 /**
  * Error codes the basic checks store with a payment.
@@ -135,7 +146,18 @@ function formRateDescription(pay, inCurrency, outCurrency) {
  * @param {object} [payToUpdate] Payment that is awaiting clarification
  * @returns {Promise<void>}
  */
-module.exports = async (itx, tx, payToUpdate) => {
+module.exports = (itx, tx, payToUpdate) =>
+  withSenderLock(tx?.senderId ?? itx?.senderId, () => handleExchangeRequest(itx, tx, payToUpdate));
+
+/**
+ * Runs the basic checks for one exchange request; see the exported function.
+ *
+ * @param {object} itx Stored incoming transaction
+ * @param {object} tx ADAMANT transaction
+ * @param {object} [payToUpdate] Payment that is awaiting clarification
+ * @returns {Promise<void>}
+ */
+async function handleExchangeRequest(itx, tx, payToUpdate) {
   const admTxDescription =
     `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx?.id} from ${tx?.senderId}` +
     `${payToUpdate ? ` as an update for Tx ${payToUpdate._id}` : ''}`;
@@ -274,7 +296,9 @@ module.exports = async (itx, tx, payToUpdate) => {
     } else {
       pay.inAmountMessageUsd = exchangerUtils.convertCryptos(inCurrency, 'USD', pay.inAmountMessage).outAmount;
 
-      const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId);
+      // Excludes this payment itself, which is already stored when a clarification is
+      // being applied. Exact because requests from one user are serialized.
+      const userDailyValue = await exchangerUtils.userDailyValue(tx.senderId, pay._id);
       // 0 means "no limit".
       const userDailyLimit = config[`daily_limit_usd_${outCurrency}`] || undefined;
 
@@ -327,22 +351,6 @@ module.exports = async (itx, tx, payToUpdate) => {
         notifyType = 'warn';
         msgNotify = `${config.notifyName} reports an incoming transaction to sell ${outCurrency} at ${outCurrencyPriceUsd} USD, which is below the ${minOutCurrencySellPriceUsd} USD set in the config. Got _${inAmountMessage} ${inCurrency}_. Will try to send the payment back. ${admTxDescription}.`;
         msgSendBack = `${outCurrency} currently trades at ${outCurrencyPriceUsd} USD, which is too low. I’ll hold off selling it because the rate may swing. Try again later. ${sendBackMessage}`;
-      } else {
-        const reserved = await exchangerUtils.reserveDailyLimit(
-          tx.senderId,
-          pay.inAmountMessageUsd,
-          pay._id,
-          userDailyLimit,
-        );
-
-        if (!reserved) {
-          pay.error = BASIC_CHECK_ERRORS.DAILY_LIMIT_EXCEEDED;
-          pay.needToSendBack = true;
-          pay.isBasicChecksPassed = true;
-          notifyType = 'warn';
-          msgNotify = `${config.notifyName} reports that _${tx.senderId}_ is over their daily exchange limit. Will try to send the payment back. ${admTxDescription}.`;
-          msgSendBack = `You are over your daily exchange limit. I’ll send the transfer back to you. Come back tomorrow.`;
-        }
       }
 
       if (!pay.isFinished && !pay.needToSendBack && !pay.inUpdateState) {
@@ -411,4 +419,4 @@ module.exports = async (itx, tx, payToUpdate) => {
       'error',
     );
   }
-};
+}

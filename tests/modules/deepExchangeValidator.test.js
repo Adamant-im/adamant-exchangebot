@@ -155,6 +155,7 @@ describe('deepExchangeValidator.validate', () => {
     expect(pay.isFinished).toBe(true);
     expect(pay.error).toBe(constants.ERRORS.UNSUPPORTED_COIN);
     expect(exchangerUtils.getKvsCryptoAddress).not.toHaveBeenCalled();
+    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(pay._id, 'ineligible', expect.any(Object));
   });
 
   test('escalates when the user has published no address for the coin they sent', async () => {
@@ -168,6 +169,13 @@ describe('deepExchangeValidator.validate', () => {
     expect(pay.needHumanCheck).toBe(true);
     expect(pay.isFinished).toBe(true);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('cannot fetch the _BTC_ address'), 'error');
+    // Otherwise the claim stays pending forever and blocks every other claim on the
+    // deposit: any account without a KVS address could freeze someone else's payout.
+    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(
+      pay._id,
+      'ineligible',
+      expect.objectContaining({ reason: `validation-error-${constants.ERRORS.NO_IN_KVS_ADDRESS}` }),
+    );
   });
 
   test('refunds when the user has published no payout address', async () => {
@@ -294,6 +302,8 @@ describe('deepExchangeValidator.validate', () => {
 
     expect(pay.transactionIsValid).toBe(false);
     expect(pay.error).toBe(constants.ERRORS.WRONG_ASSET);
+    // The sender check proved it is the owner's own transfer; it waits for the operator.
+    expect(pay.needHumanCheck).toBe(true);
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('wrong asset'), 'error');
   });
 
@@ -334,12 +344,12 @@ describe('deepExchangeValidator.validate', () => {
 
     expect(pay.transactionIsValid).toBe(false);
     expect(pay.isFinished).toBe(true);
+    // It may be a new user's own money, published moments before sending: it must be
+    // visible to the operator rather than sit silently in the hot wallet.
+    expect(pay.needHumanCheck).toBe(true);
     expect(pay.depositOwnershipStatus).toBe('late-kvs-binding');
-    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(
-      pay._id,
-      'ineligible',
-      expect.objectContaining({ reason: `validation-error-${constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER}` }),
-    );
+    // A manual claim neither blocks nor wins the deposit, so the real owner's claim is unaffected.
+    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(pay._id, 'manual', { reason: 'late-kvs-binding' });
   });
 
   test('requires manual settlement when the mempool first-seen evidence is unreliable', async () => {
@@ -493,6 +503,18 @@ describe('deepExchangeValidator.validate', () => {
 
     await expect(validator.validate(pay, admTx())).resolves.toBeUndefined();
     expect(log.error).toHaveBeenCalledWith(expect.stringContaining('Failed to validate the Tx'));
+    // Nothing was stored, so the claim must not run ahead of the payment.
+    expect(depositClaims.setClaimStatus).not.toHaveBeenCalled();
+  });
+
+  test('keeps the claim pending while the transfer is still being looked for', async () => {
+    exchangerUtils.ADM.getTransaction.mockResolvedValue(null);
+
+    const pay = createPayment({ transactionIsValid: null, counterTxDeepValidator: 0 });
+
+    await validator.validate(pay, admTx());
+
+    expect(depositClaims.setClaimStatus).not.toHaveBeenCalled();
   });
 });
 

@@ -18,7 +18,7 @@ const config = require('../../modules/configReader');
 const checker = require('../../modules/checkerTransactions');
 
 describe('checkerTransactions.check', () => {
-  test('asks only for the bot’s own transfers and chat messages above the last processed block', async () => {
+  test('asks for the bot’s own transfers and chat messages from the last processed block, oldest first', async () => {
     Store.getLastProcessedBlockHeight.mockResolvedValue(54632450);
     api.getTransactions.mockResolvedValue({ success: true, transactions: [] });
 
@@ -27,10 +27,24 @@ describe('checkerTransactions.check', () => {
     expect(api.getTransactions).toHaveBeenCalledWith({
       recipientId: config.address,
       types: [TransactionType.SEND, TransactionType.CHAT_MESSAGE],
-      fromHeight: 54632451,
+      // Inclusive: a second transaction in the last processed block is not skipped.
+      fromHeight: 54632450,
       returnAsset: 1,
-      orderBy: 'timestamp:desc',
+      // Oldest first, so the checkpoint never moves past a transaction with no stored record.
+      orderBy: 'height:asc',
+      limit: 100,
     });
+  });
+
+  test('stops the batch at the first failure, so the checkpoint cannot move past it', async () => {
+    Store.getLastProcessedBlockHeight.mockResolvedValue(1);
+    api.getTransactions.mockResolvedValue({ success: true, transactions: [{ id: 'a' }, { id: 'b' }] });
+    txParser.mockRejectedValueOnce(new Error('db down'));
+
+    await checker.check();
+
+    expect(txParser).toHaveBeenCalledTimes(1);
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('db down'));
   });
 
   test('hands every transaction to the parser', async () => {

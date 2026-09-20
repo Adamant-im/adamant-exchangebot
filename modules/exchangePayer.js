@@ -61,12 +61,26 @@ async function payOut(pay) {
         },
         true,
       );
+    } else {
+      depositClaims.reportWait(pay, authorization.reason, 'payout');
     }
 
     return;
   }
 
+  depositClaims.clearWait(pay);
+
   const { outAmount, inCurrency, outCurrency, senderKvsOutAddress, inAmountMessage } = pay;
+
+  // A paused signer would only refuse the send. Checking first keeps the payment out of
+  // the in-flight state and does not spend one of its attempts.
+  const sendBlocker = await exchangerUtils[outCurrency]?.getSendBlocker?.();
+
+  if (sendBlocker) {
+    depositClaims.reportWait(pay, `${outCurrency} sends are paused. ${sendBlocker}`, 'payout');
+
+    return;
+  }
 
   pay.counterSendExchange = ++pay.counterSendExchange || 1;
 
@@ -147,6 +161,15 @@ async function payOut(pay) {
     } else {
       exchangerUtils[outCurrency].balance -= outAmount + exchangerUtils[outCurrency].FEE;
     }
+
+    return;
+  }
+
+  if (result.isDeferred) {
+    // Nothing was signed or sent. The attempt does not count, and the payment stays queued.
+    pay.counterSendExchange -= 1;
+    await pay.update({ payoutStartedAt: null }, true);
+    depositClaims.reportWait(pay, result.error, 'payout');
 
     return;
   }

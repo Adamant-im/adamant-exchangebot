@@ -10,13 +10,44 @@ const BaseCoin = require('./baseCoin');
 /** Fixed ADAMANT transfer fee, in ADM. */
 const ADM_TRANSFER_FEE = 0.5;
 
+/**
+ * Failures `adamant-api` reports before it sends anything: its own parameter
+ * validation, a recipient public key it could not resolve, and the absence of a
+ * compatible node. Matched at the start of the message, in the exact form the SDK
+ * builds them, so a node's reply can never be mistaken for one.
+ */
+const SDK_PRE_FLIGHT_FAILURES = [
+  /^Wrong '[^']+' parameter/,
+  /^Unable to get public key for /,
+  /^No compatible ADAMANT nodes are available/,
+];
+
+/**
+ * Tells whether a failed ADM send provably never reached the network.
+ *
+ * Only these failures may be retried automatically. Anything else — a timeout, a lost
+ * reply, "already exists" after a retried POST — may mean the transfer was accepted.
+ *
+ * @param {string} errorMessage Error returned by `adamant-api`
+ * @returns {boolean}
+ */
 function isDefinitePreBroadcastFailure(errorMessage) {
+  if (typeof errorMessage !== 'string') {
+    return false;
+  }
+
   return (
-    typeof errorMessage === 'string' &&
-    /(does not have enough adm|insufficient funds|insufficient balance)/i.test(errorMessage)
+    /(does not have enough adm|insufficient funds|insufficient balance)/i.test(errorMessage) ||
+    SDK_PRE_FLIGHT_FAILURES.some((pattern) => pattern.test(errorMessage))
   );
 }
 
+/**
+ * Tells whether a failed ADM send may have reached the network.
+ *
+ * @param {string} errorMessage Error returned by `adamant-api`
+ * @returns {boolean}
+ */
 function isAmbiguousBroadcastOutcome(errorMessage) {
   return typeof errorMessage === 'string' && !isDefinitePreBroadcastFailure(errorMessage);
 }

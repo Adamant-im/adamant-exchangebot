@@ -253,6 +253,63 @@ async function markManual(depositKey, reason) {
   ]);
 }
 
+/**
+ * Last reason logged for each payment that is waiting, so a payout that waits for a
+ * long time is visible in the log without a line on every worker tick.
+ *
+ * @type {Map<string, string>}
+ */
+const reportedWaits = new Map();
+
+/**
+ * Logs why a payout or refund is waiting — once per payment and reason.
+ *
+ * @param {object} pay Payment document
+ * @param {string} reason Why it waits
+ * @param {string} action What waits, for example `payout` or `refund`
+ */
+function reportWait(pay, reason, action) {
+  const key = String(pay._id);
+
+  if (reportedWaits.get(key) === reason) {
+    return;
+  }
+
+  reportedWaits.set(key, reason);
+  log.log(`The ${action} of payment ${pay._id} is waiting: ${reason}.`);
+}
+
+/**
+ * Forgets the logged waiting reason of a payment that is no longer waiting.
+ *
+ * @param {object} pay Payment document
+ */
+function clearWait(pay) {
+  reportedWaits.delete(String(pay._id));
+}
+
+/**
+ * Closes the claim of a request the user abandoned, and hands its deposit to the operator.
+ *
+ * A request awaiting clarification is dropped when the same user sends a new transfer.
+ * Its claim must not stay open — that would block the deposit forever — and it must
+ * not simply become ineligible either, because the deposit would then be open to any
+ * competing claimant. Manual review keeps the funds safe and visible.
+ *
+ * @param {object} pay The abandoned payment
+ * @param {string} reason Why the claim was abandoned
+ * @returns {Promise<void>}
+ */
+async function abandonClaim(pay, reason) {
+  const depositKey = pay.depositKey ?? getDepositKey(pay.inCurrency, pay.inTxid);
+
+  await setClaimStatus(pay._id, CLAIM_STATUS.INELIGIBLE, { reason });
+
+  if (depositKey) {
+    await markManual(depositKey, reason);
+  }
+}
+
 async function markOperatorTopUp(inCurrency, inTxid, admTxId) {
   const depositKey = getDepositKey(inCurrency, inTxid);
 
@@ -330,6 +387,14 @@ async function authorizePayout(pay, now = utils.unix()) {
   }
 
   if (deposit.pendingRegistrations > 0) {
+    // A registration takes milliseconds. A counter that stays raised is left over from
+    // a failed write, and waiting on it would block the deposit without anyone knowing.
+    if (now - (deposit.lastClaimAt ?? deposit.createdAt ?? now) > constants.DEPOSIT_UNRESOLVED_CLAIM_TIMEOUT) {
+      await markManual(depositKey, 'stale-claim-registration');
+
+      return { status: AUTHORIZATION_STATUS.MANUAL, reason: 'stale-claim-registration' };
+    }
+
     return { status: AUTHORIZATION_STATUS.WAIT, reason: 'claim-registration-in-progress' };
   }
 
@@ -349,6 +414,17 @@ async function authorizePayout(pay, now = utils.unix()) {
   );
 
   if (unresolved.length) {
+    // A competing claim is normally validated within minutes. One that stays open far
+    // longer — a stalled validation, an abandoned clarification — must not hold the
+    // deposit indefinitely, so it is handed to the operator instead.
+    const oldestUnresolvedAt = Math.min(...unresolved.map((claim) => claim.registeredAt ?? now));
+
+    if (now - oldestUnresolvedAt > constants.DEPOSIT_UNRESOLVED_CLAIM_TIMEOUT) {
+      await markManual(depositKey, 'unresolved-claim-timeout');
+
+      return { status: AUTHORIZATION_STATUS.MANUAL, reason: 'unresolved-claim-timeout' };
+    }
+
     return { status: AUTHORIZATION_STATUS.WAIT, reason: 'unresolved-claim' };
   }
 
@@ -420,16 +496,96 @@ async function quarantinePayments(filter, reason) {
   return result.modifiedCount;
 }
 
+/** Version of the one-time backfill that migrated pre-claims payments. */
+const BACKFILL_VERSION = 1;
+
 /**
- * Backfills canonical keys before the unique reservation index is created.
+ * Prepares deposit claims before any worker starts.
  *
- * Existing duplicate deposits and external in-flight payments without trustworthy
- * first-seen evidence are quarantined. Historical completed records are retained
- * for audit and never reopened.
+ * Every start resets leftover registration counters: no registration can be in flight
+ * yet, so a raised counter is left over from a crash or a failed write.
+ *
+ * The first start after the upgrade also backfills canonical keys and claims for
+ * existing payments — once. Later starts audit only unfinished payments, because
+ * re-deriving the status of settled claims on every restart would overwrite decisions
+ * the validator already made, for example turning a manual claim back into an
+ * eligible one.
  *
  * @returns {Promise<void>}
  */
 async function initialize() {
+  const reset = await db.depositsDb.db.updateMany(
+    { pendingRegistrations: { $gt: 0 } },
+    { $set: { pendingRegistrations: 0 } },
+  );
+
+  if (reset.modifiedCount) {
+    log.warn(
+      `Reset the claim registration counter of ${reset.modifiedCount} deposit(s) left over from a previous run.`,
+    );
+  }
+
+  const system = await db.systemDb.findOne();
+  const isBackfilled = system?.depositClaimsBackfillVersion === BACKFILL_VERSION;
+
+  const quarantined = isBackfilled ? await auditUnfinishedPayments() : await backfillPayments();
+
+  await db.paymentsDb.db.createIndex(
+    { depositKey: 1 },
+    {
+      name: 'unique_reserved_deposit',
+      unique: true,
+      partialFilterExpression: { depositReserved: true },
+    },
+  );
+
+  if (!isBackfilled) {
+    await db.systemDb.db.updateOne(
+      {},
+      { $set: { depositClaimsBackfillVersion: BACKFILL_VERSION, depositClaimsBackfilledAt: utils.unix() } },
+      { upsert: true },
+    );
+  }
+
+  if (quarantined) {
+    notify(
+      `${config.notifyName} quarantined ${quarantined} existing payment(s) while preparing deposit claims. Review them before manual settlement.`,
+      'warn',
+    );
+  }
+}
+
+/**
+ * Quarantines unfinished payments whose deposit key cannot be built.
+ *
+ * @returns {Promise<number>} How many payments were quarantined
+ */
+async function auditUnfinishedPayments() {
+  const payments = await db.paymentsDb.find({ isFinished: false, inTxid: { $exists: true } });
+  let quarantined = 0;
+
+  for (const pay of payments) {
+    if (!getDepositKey(pay.inCurrency, pay.inTxid)) {
+      quarantined += await quarantinePayments({ _id: pay._id }, 'invalid-deposit-key');
+    }
+  }
+
+  log.log(`Deposit claims are ready; audited ${payments.length} unfinished payment(s).`);
+
+  return quarantined;
+}
+
+/**
+ * Backfills canonical keys and claims for every payment stored before claims existed.
+ *
+ * Existing duplicate deposits and external in-flight payments without trustworthy
+ * first-seen evidence are quarantined. A deposit that has already moved funds — paid
+ * out or refunded — is reserved for its payment, so it can never be claimed again.
+ * Historical records are kept for audit and never reopened.
+ *
+ * @returns {Promise<number>} How many payments were quarantined
+ */
+async function backfillPayments() {
   const payments = await db.paymentsDb.find({ inTxid: { $exists: true }, inCurrency: { $exists: true } });
   let invalid = 0;
   const legacyByDeposit = new Map();
@@ -473,6 +629,15 @@ async function initialize() {
     } else if (pay.transactionIsValid === false || pay.isFinished) {
       await setClaimStatus(pay._id, CLAIM_STATUS.INELIGIBLE, { migrated: true });
     }
+
+    if (pay.outTxid || pay.sentBackTx) {
+      // Funds already left the bot for this deposit. The payment predates the claim
+      // system, so nothing else marks the deposit as spent.
+      await db.depositsDb.db.updateOne(
+        { _id: depositKey, reservedBy: null },
+        { $set: { reservedBy: pay._id, reservedAt: utils.unix(), reservedByBackfill: true } },
+      );
+    }
   }
 
   let quarantined = invalid;
@@ -496,29 +661,18 @@ async function initialize() {
     );
   }
 
-  await db.paymentsDb.db.createIndex(
-    { depositKey: 1 },
-    {
-      name: 'unique_reserved_deposit',
-      unique: true,
-      partialFilterExpression: { depositReserved: true },
-    },
-  );
+  log.log(`Canonical deposit claims are ready; backfilled ${payments.length} existing payment(s).`);
 
-  if (quarantined) {
-    notify(
-      `${config.notifyName} quarantined ${quarantined} existing payment(s) while installing canonical deposit claims. Review them before manual settlement.`,
-      'warn',
-    );
-  }
-
-  log.log(`Canonical deposit claims are ready; audited ${payments.length} existing payment(s).`);
+  return quarantined;
 }
 
 module.exports = {
   AUTHORIZATION_STATUS,
   CLAIM_STATUS,
+  abandonClaim,
   authorizePayout,
+  clearWait,
+  reportWait,
   getDepositKey,
   getObservation,
   initialize,

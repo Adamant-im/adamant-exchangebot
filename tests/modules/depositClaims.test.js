@@ -1,5 +1,6 @@
 jest.mock('../../modules/DB', () => ({
-  depositsDb: { findOne: jest.fn(), db: { updateOne: jest.fn() } },
+  systemDb: { findOne: jest.fn(), db: { updateOne: jest.fn() } },
+  depositsDb: { findOne: jest.fn(), db: { updateOne: jest.fn(), updateMany: jest.fn() } },
   depositClaimsDb: { find: jest.fn(), db: { insertOne: jest.fn(), updateOne: jest.fn() } },
   paymentsDb: {
     find: jest.fn(),
@@ -21,6 +22,9 @@ const HASH = `0x${'A1'.repeat(32)}`;
 const DEPOSIT_KEY = `eip155:1:${'a1'.repeat(32)}`;
 
 beforeEach(() => {
+  db.systemDb.findOne.mockReset().mockResolvedValue(null);
+  db.systemDb.db.updateOne.mockReset().mockResolvedValue({ acknowledged: true });
+  db.depositsDb.db.updateMany.mockReset().mockResolvedValue({ modifiedCount: 0 });
   db.depositsDb.db.updateOne.mockReset().mockResolvedValue({ acknowledged: true, matchedCount: 1, modifiedCount: 1 });
   db.depositsDb.findOne.mockReset();
   db.depositClaimsDb.find.mockReset();
@@ -305,5 +309,190 @@ describe('depositClaims.authorizePayout', () => {
     });
 
     expect(db.depositsDb.db.updateOne).not.toHaveBeenCalled();
+  });
+});
+
+describe('depositClaims.initialize — every start', () => {
+  test('resets registration counters left over from a previous run before any worker starts', async () => {
+    db.depositsDb.db.updateMany.mockResolvedValue({ modifiedCount: 2 });
+
+    await depositClaims.initialize();
+
+    expect(db.depositsDb.db.updateMany).toHaveBeenCalledWith(
+      { pendingRegistrations: { $gt: 0 } },
+      { $set: { pendingRegistrations: 0 } },
+    );
+  });
+
+  test('backfills once, then records that it has', async () => {
+    await depositClaims.initialize();
+
+    expect(db.paymentsDb.find).toHaveBeenCalledWith({ inTxid: { $exists: true }, inCurrency: { $exists: true } });
+    expect(db.systemDb.db.updateOne).toHaveBeenCalledWith(
+      {},
+      { $set: expect.objectContaining({ depositClaimsBackfillVersion: 1 }) },
+      { upsert: true },
+    );
+  });
+
+  test('after the backfill, audits only unfinished payments and leaves settled claims alone', async () => {
+    db.systemDb.findOne.mockResolvedValue({ depositClaimsBackfillVersion: 1 });
+    db.paymentsDb.find.mockResolvedValue([
+      {
+        _id: 'manual-payment',
+        senderId: 'U1',
+        inCurrency: 'BTC',
+        inTxid: '11'.repeat(32),
+        depositKey: `bitcoin:mainnet:${'11'.repeat(32)}`,
+        depositClaimVersion: 1,
+        transactionIsValid: true,
+        needHumanCheck: true,
+        isFinished: false,
+      },
+    ]);
+
+    await depositClaims.initialize();
+
+    expect(db.paymentsDb.find).toHaveBeenCalledWith({ isFinished: false, inTxid: { $exists: true } });
+    // Re-deriving statuses on every restart would turn this manual claim back into an
+    // eligible one.
+    expect(db.depositClaimsDb.db.updateOne).not.toHaveBeenCalled();
+    expect(db.depositClaimsDb.db.insertOne).not.toHaveBeenCalled();
+    expect(db.systemDb.db.updateOne).not.toHaveBeenCalled();
+  });
+
+  test('reserves a deposit that already moved funds before the upgrade, so it cannot be claimed again', async () => {
+    const hash = '33'.repeat(32);
+
+    db.paymentsDb.find.mockResolvedValue([
+      {
+        _id: 'paid-payment',
+        senderId: 'U1',
+        inCurrency: 'ADM',
+        inTxid: 'adm-tx-9',
+        outTxid: 'payout-hash',
+        transactionIsValid: true,
+        isFinished: true,
+      },
+      {
+        _id: 'refunded-payment',
+        senderId: 'U2',
+        inCurrency: 'BTC',
+        inTxid: hash,
+        sentBackTx: 'refund-hash',
+        transactionIsValid: true,
+        isFinished: true,
+      },
+    ]);
+
+    await depositClaims.initialize();
+
+    expect(db.depositsDb.db.updateOne).toHaveBeenCalledWith(
+      { _id: 'adamant:mainnet:adm-tx-9', reservedBy: null },
+      { $set: expect.objectContaining({ reservedBy: 'paid-payment', reservedByBackfill: true }) },
+    );
+    expect(db.depositsDb.db.updateOne).toHaveBeenCalledWith(
+      { _id: `bitcoin:mainnet:${hash}`, reservedBy: null },
+      { $set: expect.objectContaining({ reservedBy: 'refunded-payment', reservedByBackfill: true }) },
+    );
+  });
+});
+
+describe('depositClaims.authorizePayout — bounded waits', () => {
+  const payment = { _id: 'payment-1', senderId: 'U1', inCurrency: 'ETH', inTxid: HASH, depositKey: DEPOSIT_KEY };
+  const now = 10 * 60 * 60 * 1000;
+
+  test('hands the deposit to the operator once a competing claim has stayed unresolved too long', async () => {
+    db.depositsDb.findOne.mockResolvedValue({
+      _id: DEPOSIT_KEY,
+      claimVersion: 2,
+      pendingRegistrations: 0,
+      firstSeenReliable: true,
+      firstSeenAdmHeight: 100,
+      firstSeenAt: 1,
+    });
+    db.depositClaimsDb.find.mockResolvedValue([
+      { paymentId: 'payment-1', senderId: 'U1', status: 'eligible', registeredAt: now - 2 * 60 * 60 * 1000 },
+      { paymentId: 'payment-2', senderId: 'U2', status: 'pending', registeredAt: now - 2 * 60 * 60 * 1000 },
+    ]);
+
+    await expect(depositClaims.authorizePayout({ ...payment }, now)).resolves.toEqual({
+      status: 'manual',
+      reason: 'unresolved-claim-timeout',
+    });
+    expect(db.depositsDb.db.updateOne).toHaveBeenCalledWith(
+      { _id: DEPOSIT_KEY },
+      { $set: expect.objectContaining({ manualReview: true, manualReason: 'unresolved-claim-timeout' }) },
+    );
+  });
+
+  test('waits, without escalating, while a competing claim is fresh', async () => {
+    db.depositsDb.findOne.mockResolvedValue({
+      _id: DEPOSIT_KEY,
+      claimVersion: 2,
+      pendingRegistrations: 0,
+      firstSeenReliable: true,
+      firstSeenAdmHeight: 100,
+      firstSeenAt: 1,
+    });
+    db.depositClaimsDb.find.mockResolvedValue([
+      { paymentId: 'payment-2', senderId: 'U2', status: 'pending', registeredAt: now - 60 * 1000 },
+    ]);
+
+    await expect(depositClaims.authorizePayout({ ...payment }, now)).resolves.toEqual({
+      status: 'wait',
+      reason: 'unresolved-claim',
+    });
+    expect(db.depositsDb.db.updateOne).not.toHaveBeenCalled();
+  });
+
+  test('hands the deposit to the operator when a registration counter stays raised', async () => {
+    db.depositsDb.findOne.mockResolvedValue({
+      _id: DEPOSIT_KEY,
+      claimVersion: 2,
+      pendingRegistrations: 1,
+      lastClaimAt: now - 2 * 60 * 60 * 1000,
+    });
+
+    await expect(depositClaims.authorizePayout({ ...payment }, now)).resolves.toEqual({
+      status: 'manual',
+      reason: 'stale-claim-registration',
+    });
+  });
+});
+
+describe('depositClaims.abandonClaim', () => {
+  test('closes the claim and hands the deposit to the operator', async () => {
+    await depositClaims.abandonClaim(
+      { _id: 'old-payment', inCurrency: 'ETH', inTxid: HASH, depositKey: DEPOSIT_KEY },
+      'abandoned-clarification',
+    );
+
+    expect(db.depositClaimsDb.db.updateOne).toHaveBeenCalledWith(
+      { _id: 'old-payment' },
+      { $set: expect.objectContaining({ status: 'ineligible', reason: 'abandoned-clarification' }) },
+    );
+    // Only ineligible, the deposit would be open to any competing claimant.
+    expect(db.depositsDb.db.updateOne).toHaveBeenCalledWith(
+      { _id: DEPOSIT_KEY },
+      { $set: expect.objectContaining({ manualReview: true, manualReason: 'abandoned-clarification' }) },
+    );
+  });
+});
+
+describe('depositClaims.reportWait', () => {
+  test('logs a waiting reason once per payment, and again when the reason changes', () => {
+    const log = require('../../helpers/log');
+    const pay = { _id: 'waiting-payment' };
+
+    depositClaims.reportWait(pay, 'dispute-window', 'payout');
+    depositClaims.reportWait(pay, 'dispute-window', 'payout');
+    depositClaims.reportWait(pay, 'unresolved-claim', 'payout');
+    depositClaims.clearWait(pay);
+    depositClaims.reportWait(pay, 'unresolved-claim', 'payout');
+
+    const lines = log.log.mock.calls.filter(([line]) => line.includes('waiting-payment'));
+
+    expect(lines).toHaveLength(3);
   });
 });

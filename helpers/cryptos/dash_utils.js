@@ -132,7 +132,8 @@ module.exports = class DashCoin extends BtcBaseCoin {
    * @returns {Promise<object[]|undefined>}
    */
   async getPendingIncomingTransactions() {
-    const entries = await this.client.rpc('getaddressmempool', [{ addresses: [this.address] }]);
+    // The deposit watcher reports failures itself, at a bounded rate.
+    const entries = await this.client.rpc('getaddressmempool', [{ addresses: [this.address] }], { quiet: true });
 
     if (!Array.isArray(entries)) {
       return undefined;

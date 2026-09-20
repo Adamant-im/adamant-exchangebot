@@ -250,7 +250,8 @@ describe('DashCoin', () => {
     await expect(coin.getPendingIncomingTransactions()).resolves.toEqual([
       expect.objectContaining({ hash: 'tx-1', recipientId: coin.address }),
     ]);
-    expect(client.rpc).toHaveBeenCalledWith('getaddressmempool', [{ addresses: [coin.address] }]);
+    // Quiet: the deposit watcher reports failures itself, at a bounded rate.
+    expect(client.rpc).toHaveBeenCalledWith('getaddressmempool', [{ addresses: [coin.address] }], { quiet: true });
   });
 
   test('maps unspent outputs to the common shape and fetches their raw hex', async () => {

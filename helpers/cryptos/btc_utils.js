@@ -198,6 +198,8 @@ module.exports = class BtcCoin extends BtcBaseCoin {
     const transactions = await this.client.request({
       endpoint: `/address/${this.address}/txs/mempool`,
       description: 'pending incoming transactions',
+      // The deposit watcher reports failures itself, at a bounded rate.
+      quiet: true,
     });
 
     return Array.isArray(transactions) ? transactions.map((tx) => this.mapEsploraTransaction(tx)) : undefined;

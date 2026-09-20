@@ -10,6 +10,8 @@ jest.mock('../../modules/depositClaims', () => ({
     CLAIMED: 'claimed',
   },
   authorizePayout: jest.fn().mockResolvedValue({ status: 'authorized' }),
+  reportWait: jest.fn(),
+  clearWait: jest.fn(),
 }));
 jest.mock('../../helpers/cryptos/exchanger', () => ({
   isERC20: jest.fn().mockReturnValue(false),
@@ -280,5 +282,38 @@ describe('sendBack.reconcileInterrupted', () => {
     expect(pay.sendBackStartedAt).toBeNull();
     expect(exchangerUtils.ADM.send).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('interrupted while sending back'), 'error');
+  });
+});
+
+describe('sendBack — paused and deferred sends', () => {
+  const depositClaims = require('../../modules/depositClaims');
+
+  afterEach(() => {
+    delete exchangerUtils.ADM.getSendBlocker;
+  });
+
+  test('skips a refund while the coin’s sends are paused, without spending an attempt', async () => {
+    exchangerUtils.ADM.getSendBlocker = jest.fn().mockResolvedValue('paused');
+
+    const pay = refundablePayment({ counterSendBack: 2 });
+
+    await sendBack.refund(pay);
+
+    expect(exchangerUtils.ADM.send).not.toHaveBeenCalled();
+    expect(pay.counterSendBack).toBe(2);
+    expect(pay.sendBackStartedAt).toBeUndefined();
+  });
+
+  test('keeps a deferred refund queued: the attempt is not counted and the marker is cleared', async () => {
+    exchangerUtils.ADM.send.mockResolvedValue({ success: false, isDeferred: true, error: 'paused' });
+
+    const pay = refundablePayment({ counterSendBack: constants.SENDBACK_RETRIES - 1 });
+
+    await sendBack.refund(pay);
+
+    expect(pay.counterSendBack).toBe(constants.SENDBACK_RETRIES - 1);
+    expect(pay.sendBackStartedAt).toBeNull();
+    expect(pay.needHumanCheck).toBe(false);
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'paused', 'refund');
   });
 });

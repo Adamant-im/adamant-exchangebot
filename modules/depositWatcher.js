@@ -7,6 +7,62 @@ const { startInterval } = require('../helpers/scheduler');
 const depositClaims = require('./depositClaims');
 
 const state = new Map();
+
+/** While a coin keeps failing, a summary is logged at most this often. */
+const FAILURE_LOG_INTERVAL = 10 * 60 * 1000;
+
+/**
+ * Failure streak of each coin: when it started, how many polls failed, and when it was
+ * last reported. A node outage would otherwise log a warning on every 5-second poll.
+ *
+ * @type {Map<string, {since: number, count: number, lastLoggedAt: number}>}
+ */
+const failures = new Map();
+
+/**
+ * Reports a failed poll: the first failure of a streak at once, then a summary at
+ * most every {@link FAILURE_LOG_INTERVAL}.
+ *
+ * @param {string} coin Ticker
+ * @param {unknown} error What went wrong
+ */
+function reportFailure(coin, error) {
+  const now = utils.unix();
+  const streak = failures.get(coin);
+
+  if (!streak) {
+    failures.set(coin, { since: now, count: 1, lastLoggedAt: now });
+    log.warn(
+      `Unable to observe pending ${coin} deposits. Deposits first seen after this will need manual review until observation recovers. ${error}`,
+    );
+
+    return;
+  }
+
+  streak.count += 1;
+
+  if (now - streak.lastLoggedAt >= FAILURE_LOG_INTERVAL) {
+    streak.lastLoggedAt = now;
+    log.warn(
+      `Pending ${coin} deposits are still not observed: ${streak.count} failed polls since ${utils.formatDate(streak.since).YYYY_MM_DD_hh_mm}. Last error: ${error}`,
+    );
+  }
+}
+
+/**
+ * Reports the end of a failure streak, if there was one.
+ *
+ * @param {string} coin Ticker
+ */
+function reportRecovery(coin) {
+  const streak = failures.get(coin);
+
+  if (streak) {
+    failures.delete(coin);
+    log.info(`Pending ${coin} deposit observation recovered after ${streak.count} failed poll(s).`);
+  }
+}
+
 const inFlight = new Map();
 const timedOut = new Set();
 let admHeightInFlight;
@@ -79,10 +135,11 @@ function runCoinPoll(coin) {
   const operation = pollCoin(coin)
     .then(() => {
       succeeded = true;
+      reportRecovery(coin);
     })
     .catch((error) => {
       state.delete(coin);
-      log.warn(`Unable to observe pending ${coin} deposits. The next snapshot will require manual review. ${error}`);
+      reportFailure(coin, error);
     })
     .finally(() => {
       inFlight.delete(coin);

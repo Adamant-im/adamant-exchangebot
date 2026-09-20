@@ -1,5 +1,5 @@
 jest.mock('axios');
-jest.mock('../../modules/api', () => ({ getKVS: jest.fn(), getKvsRecord: jest.fn() }));
+jest.mock('../../modules/api', () => ({ getKVS: jest.fn(), getKvsRecords: jest.fn() }));
 jest.mock('../../modules/DB', () => ({
   paymentsDb: { find: jest.fn().mockResolvedValue([]) },
   incomingTxsDb: { find: jest.fn().mockResolvedValue([]) },
@@ -297,7 +297,7 @@ describe('exchanger.userDailyValue', () => {
     await expect(exchangerUtils.userDailyValue('U1')).resolves.toBe(0);
   });
 
-  test('looks only at the last 24 hours of that user’s valid exchanges', async () => {
+  test('counts validated exchanges and accepted ones still waiting for validation, over the last 24 hours', async () => {
     db.paymentsDb.find.mockResolvedValue([]);
 
     await exchangerUtils.userDailyValue('U1');
@@ -305,55 +305,121 @@ describe('exchanger.userDailyValue', () => {
     const query = db.paymentsDb.find.mock.calls[0][0];
 
     expect(query.senderId).toBe('U1');
-    expect(query.transactionIsValid).toBe(true);
     expect(query.needToSendBack).toBe(false);
+    expect(query.transactionIsValid).toEqual({ $ne: false });
+    expect(query.isIgnored).toEqual({ $ne: true });
+    // Pending requests count as well: only counting validated ones let a user submit
+    // several transfers before the validator ran, each checked against a stale total.
+    expect(query.$or).toEqual([{ transactionIsValid: true }, { isBasicChecksPassed: true, isFinished: false }]);
     expect(query.date.$gt).toBeGreaterThan(Date.now() - constants.DAY - 1000);
+    expect(query._id).toBeUndefined();
+  });
+
+  test('leaves out the payment being checked', async () => {
+    db.paymentsDb.find.mockResolvedValue([]);
+
+    await exchangerUtils.userDailyValue('U1', 'payment-1');
+
+    expect(db.paymentsDb.find.mock.calls[0][0]._id).toEqual({ $ne: 'payment-1' });
   });
 });
 
+/**
+ * Builds a KVS record the way the node returns it.
+ *
+ * @param {object} fields Record fields
+ * @returns {object}
+ */
+function kvsRecord({ senderId = 'U1', key = 'eth:address', value = '0xabc', height = 100, id = `kvs-${height}` } = {}) {
+  return { id, senderId, height, timestamp: height * 5, asset: { state: { key, value } } };
+}
+
 describe('exchanger.getKvsCryptoAddress', () => {
-  test('returns the address the user published', async () => {
-    api.getKvsRecord.mockResolvedValue({
-      success: true,
-      transactions: [{ senderId: 'U1', asset: { state: { key: 'eth:address', value: '0xabc' } } }],
-    });
+  test('returns the address the user published, queried with plain parameters', async () => {
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [kvsRecord()] });
 
     await expect(exchangerUtils.getKvsCryptoAddress('ETH', 'U1')).resolves.toBe('0xabc');
-    expect(api.getKvsRecord).toHaveBeenCalledWith({
+    // Plain names: released nodes drop `and:`-prefixed filters on /api/states/get
+    // and return every KVS record in the network (Adamant-im/adamant#277).
+    expect(api.getKvsRecords).toHaveBeenCalledWith({
       senderId: 'U1',
       key: 'eth:address',
       orderBy: 'timestamp:desc',
-      limit: 1,
+      limit: constants.KVS_HISTORY_LIMIT,
     });
   });
 
   test('looks up an ERC-20 token under the user’s Ethereum address', async () => {
-    api.getKvsRecord.mockResolvedValue({ success: true, transactions: [] });
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [] });
 
     await exchangerUtils.getKvsCryptoAddress('USDT', 'U1');
 
-    expect(api.getKvsRecord).toHaveBeenCalledWith(expect.objectContaining({ key: 'eth:address' }));
+    expect(api.getKvsRecords).toHaveBeenCalledWith(expect.objectContaining({ key: 'eth:address' }));
   });
 
-  test('ignores a record written by another account under another key', async () => {
-    api.getKvsRecord.mockResolvedValue({
+  test('distrusts the whole response when any record belongs to another account', async () => {
+    api.getKvsRecords.mockResolvedValue({
       success: true,
-      transactions: [{ senderId: 'U999', asset: { state: { key: 'eth:address', value: '0xstranger' } } }],
+      transactions: [kvsRecord({ senderId: 'U999', value: '0xstranger' }), kvsRecord()],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddress('ETH', 'U1')).resolves.toBeUndefined();
+  });
+
+  test('distrusts the whole response when any record is under another key', async () => {
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [kvsRecord({ key: 'doge:address', value: 'DKyRokgWn1jkxFjBm7nNh5ALZXywSGWJYh' })],
     });
 
     await expect(exchangerUtils.getKvsCryptoAddress('ETH', 'U1')).resolves.toBeUndefined();
   });
 
   test('returns "none" when the user has published no address', async () => {
-    api.getKvsRecord.mockResolvedValue({ success: true, transactions: [] });
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [] });
 
     await expect(exchangerUtils.getKvsCryptoAddress('BTC', 'U1')).resolves.toBe('none');
   });
 
   test('returns undefined when the KVS cannot be read, so the bot retries later', async () => {
-    api.getKvsRecord.mockResolvedValue({ success: false, errorMessage: 'node down' });
+    api.getKvsRecords.mockResolvedValue({ success: false, errorMessage: 'node down' });
 
     await expect(exchangerUtils.getKvsCryptoAddress('BTC', 'U1')).resolves.toBeUndefined();
+  });
+});
+
+describe('exchanger.getKvsCryptoAddressRecord', () => {
+  test('dates the binding from the earliest record of the current, uninterrupted address', async () => {
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      // Newest first. The address was re-published at 300 and 200; it was bound at 200,
+      // after an older, different address.
+      transactions: [
+        kvsRecord({ value: '0xabc', height: 300 }),
+        kvsRecord({ value: '0xABC', height: 200 }),
+        kvsRecord({ value: '0xold', height: 100 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toEqual(
+      expect.objectContaining({ address: '0xabc', height: 200, latestHeight: 300, transactionId: 'kvs-200' }),
+    );
+  });
+
+  test('compares base58 addresses case-sensitively', async () => {
+    const address = '1ETWHRzkiNTEbQB6GGFCG75eVTPCV2AFR3';
+
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [
+        kvsRecord({ key: 'btc:address', value: address, height: 300 }),
+        kvsRecord({ key: 'btc:address', value: address.toLowerCase(), height: 200 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('BTC', 'U1')).resolves.toEqual(
+      expect.objectContaining({ address, height: 300 }),
+    );
   });
 });
 

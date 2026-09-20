@@ -63,6 +63,13 @@ function getExpectedAssetMismatch(pay, incomeTx) {
 async function validate(pay, tx) {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${tx?.id} from ${tx?.senderId}`;
 
+  // A claim that is never resolved blocks every other claim on the same deposit, so
+  // every terminal path must settle it. `isOutcomePersisted` is raised only after the
+  // payment's final state has been written, so the claim never runs ahead of the
+  // payment: settling on an unsaved state could briefly mark a valid claim ineligible
+  // and hand the deposit to a competing claimant.
+  let isOutcomePersisted = false;
+
   try {
     log.log(`Validating the ${pay.inCurrency} Tx ${pay.inTxid}… ${admTxDescription}.`);
 
@@ -73,6 +80,8 @@ async function validate(pay, tx) {
         admTxDescription,
       }))
     ) {
+      isOutcomePersisted = true;
+
       return;
     }
 
@@ -84,6 +93,8 @@ async function validate(pay, tx) {
         admTxDescription,
       }))
     ) {
+      isOutcomePersisted = true;
+
       return;
     }
 
@@ -92,34 +103,6 @@ async function validate(pay, tx) {
     let msgSendBack = false;
     let msgNotify = false;
     let notifyType = 'log';
-
-    // A claim that is never resolved blocks every other claim on the same deposit, so
-    // every terminal path must settle it. The status is written after the payment is
-    // saved, in one place, so an early return cannot leak a pending claim.
-    let claimSettled = false;
-
-    async function settleClaim() {
-      if (claimSettled) {
-        return;
-      }
-
-      claimSettled = true;
-
-      if (pay.transactionIsValid === true && !pay.needHumanCheck) {
-        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.ELIGIBLE, {
-          kvsHeight: pay.senderKvsInAddressHeight,
-          firstSeenAdmHeight: pay.depositFirstSeenAdmHeight,
-        });
-      } else if (pay.needHumanCheck && pay.error === constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER) {
-        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.MANUAL, {
-          reason: pay.depositOwnershipStatus,
-        });
-      } else if (pay.transactionIsValid === false || pay.isFinished) {
-        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
-          reason: `validation-error-${pay.error}`,
-        });
-      }
-    }
 
     // The bot knows the user's ADM address directly; addresses in other blockchains
     // are published by the user in the ADAMANT KVS.
@@ -167,6 +150,7 @@ async function validate(pay, tx) {
         },
         true,
       );
+      isOutcomePersisted = true;
 
       notify(
         `${config.notifyName} cannot fetch the _${pay.inCurrency}_ address of the sender from the KVS. Attention needed. ${admTxDescription}.`,
@@ -281,9 +265,13 @@ async function validate(pay, tx) {
         msgNotify = `${config.notifyName} considers the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ to be wrong. Expected recipient: _${exchangerUtils[pay.inCurrency].account.address}_, actual recipient: _${pay.inTxRecipientId}_.`;
         msgSendBack = `I can’t validate the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_. If you think it’s a mistake, contact my master.`;
       } else if (assetMismatch) {
+        // The sender check above proved that the claimant owns the sending address, so
+        // this is the owner's own transfer of another asset. It stays in the hot wallet
+        // until the operator returns it, and must be visible as such.
         await pay.update({
           transactionIsValid: false,
           isFinished: true,
+          needHumanCheck: true,
           error: constants.ERRORS.WRONG_ASSET,
         });
 
@@ -361,9 +349,13 @@ async function validate(pay, tx) {
           msgNotify = `${config.notifyName} validated the blockchain transfer, but has no trustworthy first-seen evidence for its ownership claim. The estimated first-seen time is _${observation?.firstSeenAt}_. **Manual settlement required**.`;
           msgSendBack = `I found your _${pay.inCurrency}_ transfer, but I can’t safely prove when it first appeared relative to the address in your ADAMANT KVS. I’ve asked my master to settle it manually.`;
         } else if (!Number.isFinite(kvsHeight) || kvsHeight > latestEligibleKvsHeight) {
+          // Either a competing claimant bound the address after seeing the transfer, or
+          // a new user published it moments before sending. The claim cannot pay out
+          // automatically, but the second case is a real user's money, so it is flagged.
           await pay.update({
             transactionIsValid: false,
             isFinished: true,
+            needHumanCheck: true,
             error: constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER,
             depositOwnershipStatus: 'late-kvs-binding',
           });
@@ -383,8 +375,7 @@ async function validate(pay, tx) {
     }
 
     await pay.save();
-
-    await settleClaim();
+    isOutcomePersisted = true;
 
     if (msgSendBack) {
       notify(`${msgNotify} Tx hash: _${pay.inTxid}_. ${admTxDescription}.`, notifyType);
@@ -392,6 +383,42 @@ async function validate(pay, tx) {
     }
   } catch (error) {
     log.error(`Failed to validate the Tx ${pay?.inTxid}: ${error}. Will try again next time. ${admTxDescription}.`);
+  } finally {
+    if (isOutcomePersisted) {
+      await settleClaim(pay);
+    }
+  }
+}
+
+/**
+ * Records the claim status that matches a validated payment's persisted outcome.
+ *
+ * A payment that is still undecided leaves its claim pending; the next validation
+ * pass settles it.
+ *
+ * @param {object} pay Payment document
+ * @returns {Promise<void>}
+ */
+async function settleClaim(pay) {
+  try {
+    if (pay.transactionIsValid === true && !pay.needHumanCheck) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.ELIGIBLE, {
+        kvsHeight: pay.senderKvsInAddressHeight,
+        firstSeenAdmHeight: pay.depositFirstSeenAdmHeight,
+      });
+    } else if (pay.needHumanCheck && pay.error === constants.ERRORS.UNVERIFIED_DEPOSIT_OWNER) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.MANUAL, {
+        reason: pay.depositOwnershipStatus,
+      });
+    } else if (pay.transactionIsValid === false || pay.isFinished) {
+      await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, {
+        reason: `validation-error-${pay.error}`,
+      });
+    }
+  } catch (error) {
+    // The claim stays pending; authorizePayout() escalates a claim that stays
+    // unresolved for too long, so this cannot block the deposit forever.
+    log.error(`Unable to settle the deposit claim of payment ${pay._id}. ${error}`);
   }
 }
 

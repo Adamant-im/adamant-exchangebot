@@ -189,10 +189,52 @@ pm2 restart exchangebot
 - The bot needs no inbound port. Run it behind a firewall.
 - If the bot is interrupted while broadcasting a payout, it will not re-send that payout automatically on the next start — it flags the payment and notifies you, because a blind retry could pay a user twice. Check the coin's blockchain before acting.
 - On upgrade, existing external payments without reliable mempool first-seen evidence and duplicate canonical deposit keys are quarantined for operator reconciliation before automatic settlement resumes
-- `reserved_deposit_senders` applies to BTC, DASH, DOGE, ETH and every supported ERC-20 token. The bot compares it with the actual on-chain sender without case sensitivity; ADM is excluded because its transaction already authenticates the sender
-- The watcher polls each external hot wallet every five seconds. BTC, DASH and DOGE use address-scoped node calls. Ethereum's pending filter is global and is filtered to the bot's ETH/ERC-20 address locally; current Geth nodes return full transactions in one bounded response, while hash-only nodes use capped concurrent lookups
-- The pending-transaction APIs of every enabled external node must be available. Watcher calls are time-bounded and isolated per coin, so a stalled watcher cannot stop the exchange workers or observation of other coins. Affected deposits fail closed to manual review instead of being paid from block timestamps alone
+- `reserved_deposit_senders` applies to BTC, DASH, DOGE, ETH and every supported ERC-20 token. The bot compares it with the actual on-chain sender without case sensitivity; ADM is excluded because its transaction already authenticates the sender.
+- The watcher polls each external hot wallet every five seconds. BTC, DASH and DOGE use address-scoped node calls. Ethereum's pending filter is global and is filtered to the bot's ETH/ERC-20 address locally; current Geth nodes return full transactions in one bounded response, while hash-only nodes use capped batched lookups.
+- The pending-transaction APIs of every enabled external node must be available. Watcher calls are time-bounded and isolated per coin, so a stalled watcher cannot stop the exchange workers or observation of other coins. Affected deposits fail closed to manual review instead of being paid from block timestamps alone.
+- A transfer that never reaches a public mempool — one sent through a private RPC such as a protected transaction service — is first seen only in its block, so it needs manual settlement. Expect this for a share of Ethereum deposits, and measure that share on a staging run before enabling ETH and ERC-20 exchanges.
+- Ownership of an external address is proven by the address the sender published in the ADAMANT KVS before the transfer first appeared. KVS values are public, so anyone can publish someone else's address in advance. That cannot take funds — two eligible claimants send the deposit to manual settlement — but it can push a targeted user's deposits into manual review.
 - Report a vulnerability privately to <devs@adamant.im> rather than in a public issue.
+
+## Operating the bot
+
+### Payments that wait for you
+
+The bot never guesses when funds are involved. It stops and asks instead, and every
+case below is announced through `adamant_notify` and the log.
+
+| Field on the payment                               | What happened                                                                      |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `needHumanCheck: true` with `error: 38`            | Competing or unresolved claims on one deposit, or a deposit quarantined at startup |
+| `needHumanCheck: true` with `error: 39`            | The sender's ownership of the external address could not be proven                 |
+| `needHumanCheck: true` with `error: 37`            | The payment references a coin this bot no longer supports                          |
+| `depositAuditStatus`                               | Why the startup audit quarantined the payment                                      |
+| `depositAuthorizationReason`                       | Why the last authorization attempt refused to settle                               |
+| `payoutStartedAt` or `sendBackStartedAt` still set | A broadcast whose outcome was never recorded                                       |
+| `processingFailed: true` on an incoming record     | An incoming transfer that could not be processed after several attempts            |
+
+To list them:
+
+```sh
+mongosh exchangerdb --eval 'db.payments.find({ needHumanCheck: true, isFinished: false }).pretty()'
+```
+
+Before settling one by hand, check the coin's blockchain for the deposit and for any
+outgoing transfer the bot may already have made, and only then pay or refund from your
+own wallet. Record what you did in the payment document so the next audit leaves it alone.
+
+### When Ethereum sends pause
+
+If an ETH or ERC-20 send ends with an uncertain outcome — a timeout, a lost reply — the
+bot pauses every ETH and ERC-20 send, because the nonce of that transfer may or may not
+have been used. It tells you, and then resolves it on its own:
+
+- the nonce turns up mined: sends resume, and the payment behind the uncertain send is left for you to check
+- no node has a transaction with that nonce for ten minutes, across three checks: the nonce was never used, and sends resume
+
+A restart also clears the pause, but check the wallet in an explorer first: if a
+transaction of the bot is still pending, wait for it to be mined or dropped, otherwise
+the next transfers queue behind a nonce that is never filled.
 
 ## Development
 

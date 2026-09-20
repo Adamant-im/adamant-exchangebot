@@ -278,3 +278,18 @@ describe('the shipped config.default.jsonc', () => {
     expect(raw.adamant_notify).toBe('');
   });
 });
+
+describe('config schema — per-coin price overrides', () => {
+  test.each([
+    ['max_buy_price_usd_BTC', -1],
+    ['min_sell_price_usd_BTC', -0.5],
+    ['fixed_buy_price_usd_BTC', -100],
+    ['fixed_sell_price_usd_BTC', -100],
+  ])('rejects a negative %s, which would invert the rate maths', (field, value) => {
+    expect(() => buildConfig(rawConfig({ [field]: value }))).toThrow(/must be not less than 0/);
+  });
+
+  test('accepts zero, which turns the override off', () => {
+    expect(() => buildConfig(rawConfig({ max_buy_price_usd_BTC: 0, fixed_buy_price_usd_BTC: 0 }))).not.toThrow();
+  });
+});

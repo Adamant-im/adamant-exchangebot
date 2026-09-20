@@ -6,7 +6,11 @@ jest.mock('../../modules/Store', () => ({ updateLastProcessedBlockHeight: jest.f
 jest.mock('../../helpers/notify', () => jest.fn());
 jest.mock('../../helpers/messenger', () => ({ sendMessage: jest.fn().mockResolvedValue(true) }));
 jest.mock('../../modules/exchangeTxs', () => jest.fn().mockResolvedValue(undefined));
-jest.mock('../../modules/depositClaims', () => ({ markOperatorTopUp: jest.fn().mockResolvedValue(true) }));
+jest.mock('../../modules/depositClaims', () => ({
+  markOperatorTopUp: jest.fn().mockResolvedValue(true),
+  abandonClaim: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('../../modules/api', () => ({ getTransaction: jest.fn() }));
 jest.mock('../../modules/commandTxs', () => jest.fn().mockResolvedValue(undefined));
 jest.mock('../../modules/unknownTxs', () => jest.fn().mockResolvedValue(undefined));
 jest.mock('adamant-api', () => {
@@ -357,9 +361,146 @@ describe('incomingTxsParser — clarifications', () => {
     await txParser(chatTx({ amount: 100000000 }));
 
     expect(waiting.update).toHaveBeenCalledWith({ isIgnored: true, isProcessed: true, inUpdateState: undefined }, true);
+    // The abandoned request's claim is closed and its deposit handed to the operator;
+    // an open claim would block that deposit forever.
+    expect(depositClaims.abandonClaim).toHaveBeenCalledWith(waiting, 'abandoned-clarification');
     // Treated as a brand new exchange request, with no payment to update.
     expect(exchangeTxs).toHaveBeenCalledWith(expect.anything(), expect.anything());
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('in favour of the new one'), 'warn');
+  });
+});
+
+describe('incomingTxsParser.replayUnprocessed', () => {
+  let api;
+
+  /**
+   * Builds a stored incoming record that never finished.
+   *
+   * @param {object} [overrides] Fields to change
+   * @returns {object}
+   */
+  function storedRecord(overrides = {}) {
+    const record = {
+      txid: 'adm-tx-stuck',
+      senderId: USER,
+      messageDirective: 'exchange',
+      isProcessed: false,
+      date: Date.now() - 10 * 60 * 1000,
+      ...overrides,
+    };
+
+    record.update = jest.fn().mockImplementation(async (fields) => Object.assign(record, fields));
+
+    return record;
+  }
+
+  beforeEach(() => {
+    api = require('../../modules/api');
+    api.getTransaction.mockResolvedValue({
+      success: true,
+      transaction: chatTx({ id: 'adm-tx-stuck', amount: 100000000 }),
+    });
+  });
+
+  test('looks only for records that were stored a while ago and never finished', async () => {
+    await txParser.replayUnprocessed();
+
+    const query = db.incomingTxsDb.find.mock.calls[0][0];
+
+    expect(query).toEqual(
+      expect.objectContaining({ isProcessed: false, isSpam: { $ne: true }, isDeposit: { $ne: true } }),
+    );
+    expect(query.date.$lt).toBeLessThan(Date.now());
+  });
+
+  test('runs the exchange handler again when it never created the payment', async () => {
+    const record = storedRecord();
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+
+    await txParser.replayUnprocessed();
+
+    // The transaction is read from the blockchain again rather than trusted from storage.
+    expect(api.getTransaction).toHaveBeenCalledWith('adm-tx-stuck', { returnAsset: 1 });
+    expect(exchangeTxs).toHaveBeenCalledWith(record, expect.objectContaining({ id: 'adm-tx-stuck' }), undefined);
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('never creates a second payment when the handler had already created one', async () => {
+    const record = storedRecord();
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    db.paymentsDb.findOne.mockResolvedValue({ _id: 'adm-tx-stuck' });
+
+    await txParser.replayUnprocessed();
+
+    expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('does not replay small talk or commands, which carry no value', async () => {
+    const record = storedRecord({ messageDirective: 'command' });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+
+    await txParser.replayUnprocessed();
+
+    expect(commandTxs).not.toHaveBeenCalled();
+    expect(api.getTransaction).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('skips a clarification that was applied or dropped since', async () => {
+    const record = storedRecord({ messageDirective: 'update', payToUpdateId: 'old-payment' });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    db.paymentsDb.findOne.mockResolvedValue({ _id: 'old-payment', inUpdateState: undefined });
+
+    await txParser.replayUnprocessed();
+
+    expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('refuses a record whose transaction no longer matches it', async () => {
+    const record = storedRecord();
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    api.getTransaction.mockResolvedValue({
+      success: true,
+      transaction: chatTx({ id: 'adm-tx-stuck', recipientId: 'U00000000000000000000' }),
+    });
+
+    await txParser.replayUnprocessed();
+
+    expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.processingFailed).toBe(true);
+  });
+
+  test('tries again later when the transaction cannot be read', async () => {
+    const record = storedRecord();
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    api.getTransaction.mockResolvedValue({ success: false, errorMessage: 'node down' });
+
+    await txParser.replayUnprocessed();
+
+    expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(false);
+    expect(record.replayAttempts).toBe(1);
+  });
+
+  test('hands the record to the operator after too many attempts', async () => {
+    const record = storedRecord({ replayAttempts: 5 });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+
+    await txParser.replayUnprocessed();
+
+    expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.processingFailed).toBe(true);
+    expect(record.isProcessed).toBe(true);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('could not process the incoming Tx'), 'error');
   });
 });
 

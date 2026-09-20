@@ -11,12 +11,16 @@ const bitcoin = require('bitcoinjs-lib');
  * @param {number} amountInSat Output value, in the coin's smallest unit
  * @returns {{txid: string, vout: number, amount: number, hex: string}} A spendable unspent output
  */
-function createFundingUtxo(address, network, amountInSat) {
+function createFundingUtxo(address, network, amountInSat, seed = 0) {
   const tx = new bitcoin.Transaction();
+  const previousHash = new Uint8Array(32);
+
+  // `seed` varies the input, so a test can build two different funding outputs.
+  previousHash[0] = seed;
 
   tx.version = 1;
   // A coinbase-style input: its content does not matter, only that the output is real.
-  tx.addInput(new Uint8Array(32), 0xffffffff);
+  tx.addInput(previousHash, 0xffffffff);
   tx.addOutput(bitcoin.address.toOutputScript(address, network), BigInt(amountInSat));
 
   return { txid: tx.getId(), vout: 0, amount: amountInSat, hex: tx.toHex() };

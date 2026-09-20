@@ -22,7 +22,6 @@ jest.mock('../../helpers/cryptos/exchanger', () => ({
   getRate: jest.fn(),
   convertCryptos: jest.fn(),
   userDailyValue: jest.fn(),
-  reserveDailyLimit: jest.fn().mockResolvedValue(true),
   getExchangedCryptoList: jest.fn(),
   acceptedCryptoList: 'ADM, BTC, ETH',
   BTC: { FEE: 0.0001 },
@@ -250,6 +249,68 @@ describe('exchangeTxs — rejections', () => {
       await exchangeTxs(incomingTx('BTC'), admTx({ amount: 100 * SAT }));
 
       expect(created[0]).toMatchObject({ needToSendBack: true, error: 23 });
+    } finally {
+      config.daily_limit_usd_BTC = 0;
+    }
+  });
+
+  test('checks the daily limit without counting the payment being checked', async () => {
+    await exchangeTxs(incomingTx('BTC'), admTx({ amount: 100 * SAT }));
+
+    expect(exchangerUtils.userDailyValue).toHaveBeenCalledWith(USER, 'adm-tx-1');
+  });
+
+  test('serializes one user’s requests, so two concurrent transfers cannot both fit under the daily limit', async () => {
+    config.daily_limit_usd_BTC = 100;
+
+    const saved = [];
+
+    db.paymentsDb = jest.fn().mockImplementation(function (data) {
+      Object.assign(this, data);
+      this.save = jest.fn().mockImplementation(async () => {
+        saved.push(this);
+
+        return this._id;
+      });
+      this.update = jest.fn().mockImplementation(async (fields) => Object.assign(this, fields));
+      created.push(this);
+    });
+    db.paymentsDb.findOne = jest.fn().mockResolvedValue(null);
+
+    let readers = 0;
+    let bothReading;
+    const bothAreReading = new Promise((resolve) => {
+      bothReading = resolve;
+    });
+
+    // The volume comes from what is stored. Without serialization both requests reach
+    // this read before either has stored its payment, and both see the same old total.
+    exchangerUtils.userDailyValue.mockImplementation(async (senderId, excludeId) => {
+      readers += 1;
+
+      if (readers >= 2) {
+        bothReading();
+      }
+
+      await Promise.race([bothAreReading, new Promise((resolve) => setTimeout(resolve, 50))]);
+
+      return saved
+        .filter((payment) => payment.senderId === senderId && payment._id !== excludeId && !payment.needToSendBack)
+        .reduce((total, payment) => total + payment.inAmountMessageUsd, 0);
+    });
+
+    try {
+      // 60 USD each: either fits alone, both together exceed the 100 USD limit.
+      await Promise.all([
+        exchangeTxs(incomingTx('BTC'), admTx({ id: 'adm-tx-a', amount: 60 * SAT })),
+        exchangeTxs(incomingTx('BTC'), admTx({ id: 'adm-tx-b', amount: 60 * SAT })),
+      ]);
+
+      const [first, second] = created;
+
+      expect(first.error).toBeUndefined();
+      expect(first.isBasicChecksPassed).toBe(true);
+      expect(second).toMatchObject({ needToSendBack: true, error: 23 });
     } finally {
       config.daily_limit_usd_BTC = 0;
     }

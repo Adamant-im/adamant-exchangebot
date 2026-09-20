@@ -10,6 +10,8 @@ jest.mock('../../modules/depositClaims', () => ({
     CLAIMED: 'claimed',
   },
   authorizePayout: jest.fn().mockResolvedValue({ status: 'authorized' }),
+  reportWait: jest.fn(),
+  clearWait: jest.fn(),
 }));
 jest.mock('../../helpers/cryptos/exchanger', () => ({
   isERC20: jest.fn().mockReturnValue(false),
@@ -311,5 +313,53 @@ describe('exchangePayer.reconcileInterrupted', () => {
       outTxid: null,
       isFinished: false,
     });
+  });
+});
+
+describe('exchangePayer — paused and deferred sends', () => {
+  const depositClaims = require('../../modules/depositClaims');
+
+  afterEach(() => {
+    delete exchangerUtils.BTC.getSendBlocker;
+  });
+
+  test('skips a payout while the coin’s sends are paused, without spending an attempt or marking it in flight', async () => {
+    exchangerUtils.BTC.getSendBlocker = jest.fn().mockResolvedValue('an earlier send has an uncertain outcome');
+
+    const pay = createPayment({ counterSendExchange: 3 });
+
+    await exchangePayer.payOut(pay);
+
+    expect(exchangerUtils.BTC.send).not.toHaveBeenCalled();
+    expect(pay.counterSendExchange).toBe(3);
+    expect(pay.payoutStartedAt).toBeUndefined();
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, expect.stringContaining('paused'), 'payout');
+  });
+
+  test('keeps a deferred payout queued: the attempt is not counted, the marker is cleared and nobody is told it failed', async () => {
+    exchangerUtils.BTC.send.mockResolvedValue({ success: false, isDeferred: true, error: 'paused' });
+
+    const pay = createPayment({ counterSendExchange: constants.EXCHANGER_RETRIES - 1 });
+
+    await exchangePayer.payOut(pay);
+
+    // Without the deferral branch this attempt would exhaust the retries and turn the
+    // exchange into a refund.
+    expect(pay.counterSendExchange).toBe(constants.EXCHANGER_RETRIES - 1);
+    expect(pay.payoutStartedAt).toBeNull();
+    expect(pay.needToSendBack).toBe(false);
+    expect(messenger.sendMessage).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+  });
+
+  test('reports why a payout waits for authorization', async () => {
+    depositClaims.authorizePayout.mockResolvedValueOnce({ status: 'wait', reason: 'dispute-window' });
+
+    const pay = createPayment();
+
+    await exchangePayer.payOut(pay);
+
+    expect(exchangerUtils.BTC.send).not.toHaveBeenCalled();
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'dispute-window', 'payout');
   });
 });

@@ -152,6 +152,8 @@ module.exports = class DogeCoin extends BtcBaseCoin {
     const response = await this.client.request({
       endpoint: `/api/txs/?address=${this.address}&pageNum=0`,
       description: 'pending incoming transactions',
+      // The deposit watcher reports failures itself, at a bounded rate.
+      quiet: true,
     });
     const entries = Array.isArray(response?.txs) ? response.txs : Array.isArray(response) ? response : undefined;
 

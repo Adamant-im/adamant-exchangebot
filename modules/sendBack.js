@@ -66,11 +66,25 @@ async function refund(pay) {
         },
         true,
       );
+    } else {
+      depositClaims.reportWait(pay, authorization.reason, 'refund');
     }
 
     return;
   }
+
+  depositClaims.clearWait(pay);
+
   const { inAmountReal, inCurrency, senderKvsInAddress } = pay;
+
+  // See exchangePayer: a paused signer would only refuse the send.
+  const sendBlocker = await exchangerUtils[inCurrency]?.getSendBlocker?.();
+
+  if (sendBlocker) {
+    depositClaims.reportWait(pay, `${inCurrency} sends are paused. ${sendBlocker}`, 'refund');
+
+    return;
+  }
 
   pay.counterSendBack = ++pay.counterSendBack || 1;
 
@@ -168,6 +182,13 @@ async function refund(pay) {
       if (exchangerUtils.isERC20(inCurrency)) {
         exchangerUtils.ETH.balance -= outFee;
       }
+    } else if (result.isDeferred) {
+      // Nothing was signed or sent. The attempt does not count, and the refund stays queued.
+      pay.counterSendBack -= 1;
+      await pay.update({ sendBackStartedAt: null }, true);
+      depositClaims.reportWait(pay, result.error, 'refund');
+
+      return;
     } else if (result.isAmbiguous) {
       if (result.hash) {
         await pay.update({ sentBackTx: result.hash, sendBackStartedAt: null }, true);

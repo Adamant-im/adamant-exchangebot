@@ -7,6 +7,8 @@ const constants = require('../const');
 const utils = require('../utils');
 const erc20models = require('./erc20_models');
 const BaseCoin = require('./baseCoin');
+const notify = require('../notify');
+const { createKeyedMutex } = require('../mutex');
 
 /** How often the gas price estimate is refreshed. */
 const UPDATE_GAS_PRICE_INTERVAL = 60 * 1000;
@@ -23,6 +25,17 @@ const BASE_GAS_LIMIT = 22000;
  */
 const RELIABILITY_COEF_ETH = 1.3;
 const RELIABILITY_COEF_ERC20 = 3.0;
+
+/** How often a paused signer re-checks whether its uncertain nonce was used. */
+const BARRIER_CHECK_INTERVAL = 60 * 1000;
+
+/**
+ * An uncertain nonce is treated as unused only after no node has known a transaction
+ * with it for this long, across {@link BARRIER_UNUSED_CHECKS} consecutive checks. A
+ * transaction that reached any node's mempool is reported there within seconds.
+ */
+const BARRIER_UNUSED_AGE = 10 * 60 * 1000;
+const BARRIER_UNUSED_CHECKS = 3;
 
 /** Bound pending-filter requests so a dead node cannot stall the watcher forever. */
 const PENDING_RPC_REQUEST_TIMEOUT = 15000;
@@ -84,45 +97,22 @@ function getSendCoordinator(coin) {
 /**
  * Serializes EVM sends across the shared wallet.
  *
- * `NonceManager` allocates sequential nonces but does not wait for one send to
- * finish before another starts, so two concurrent sends can both pass the barrier
- * check and the later one may be stuck behind an uncertain nonce. One mutex per
- * wallet covers the barrier check, the nonce allocation, the broadcast and the
- * result classification.
- *
- * @type {Map<object, Promise<void>>}
+ * `NonceManager` allocates sequential nonces but does not wait for one send to finish
+ * before another starts, so two concurrent sends could both pass the barrier check and
+ * the later one could end up behind an uncertain nonce. One lock per wallet covers the
+ * barrier check, the nonce allocation, the broadcast and the result classification.
  */
-const sendLocks = new Map();
+const withWalletLock = createKeyedMutex();
 
 /**
- * Runs `operation` while holding the wallet's send lock.
+ * Runs `operation` while holding the send lock of the wallet `coin` uses.
  *
- * @param {EthCoin} coin Coin adapter whose wallet the operation uses
+ * @param {EthCoin} coin Coin adapter
  * @param {() => Promise<object>} operation Send operation
  * @returns {Promise<object>} The operation's result
  */
-async function withSendLock(coin, operation) {
-  const coordinator = getSendCoordinator(coin);
-  const previous = sendLocks.get(coordinator) ?? Promise.resolve();
-  let release;
-
-  const lock = new Promise((resolve) => {
-    release = resolve;
-  });
-
-  sendLocks.set(coordinator, lock);
-
-  await previous;
-
-  try {
-    return await operation();
-  } finally {
-    release();
-
-    if (sendLocks.get(coordinator) === lock) {
-      sendLocks.delete(coordinator);
-    }
-  }
+function withSendLock(coin, operation) {
+  return withWalletLock(getSendCoordinator(coin), operation);
 }
 
 function getErrorMessage(error) {
@@ -184,7 +174,16 @@ module.exports = class EthCoin extends BaseCoin {
     // sends across the whole wallet rather than asking the provider for a fresh pending nonce
     // on every call.
     this.wallet = new ethers.NonceManager(new ethers.Wallet(keys.privateKey, this.provider));
-    this.sendBarrierReason = undefined;
+    /**
+     * Set when a send ends with an uncertain outcome; see {@link reconcileSendBarrier}.
+     *
+     * @type {{reason: string, nonce: number|undefined, since: number, lastCheckAt: number, unusedChecks: number}|undefined}
+     */
+    this.sendBarrier = undefined;
+    /** One provider per node: reconciliation must hear from every node, not the first to answer. */
+    this.nodeProviders = config.node_ETH.map(
+      (url) => new ethers.JsonRpcProvider(url, undefined, { staticNetwork: MAINNET }),
+    );
 
     this.decimals = 18;
     this.reliabilityCoef = RELIABILITY_COEF_ETH;
@@ -535,11 +534,11 @@ module.exports = class EthCoin extends BaseCoin {
         : constants.DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS;
 
       if (changes.length > workLimit) {
-        log.warn(
-          `Ethereum pending filter returned ${changes.length} changes, above the safe limit of ${workLimit}. Skipping this snapshot; matching deposits will require manual review.`,
+        // The changes are consumed now, so a deposit among them never gets a trustworthy
+        // first-seen record. Failing the poll makes the watcher treat the gap as such.
+        throw new Error(
+          `the pending filter returned ${changes.length} changes, above the limit of ${workLimit} for ${hasFullTransactions ? 'full transactions' : 'hash lookups'}`,
         );
-
-        return undefined;
       }
 
       let transactions;
@@ -567,12 +566,14 @@ module.exports = class EthCoin extends BaseCoin {
 
       return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.account.address));
     } catch (error) {
+      // Start over on the next node with a fresh filter. The watcher reports the failure.
       this.pendingFilterId = undefined;
       this.pendingNodeIndex = (this.pendingNodeIndex + 1) % config.node_ETH.length;
       this.pendingProvider = this.createPendingProvider();
-      log.warn(`Unable to read the Ethereum pending transaction filter. ${error}`);
 
-      return undefined;
+      throw new Error(`Unable to read the Ethereum pending transaction filter: ${error.message ?? error}`, {
+        cause: error,
+      });
     }
   }
 
@@ -720,26 +721,56 @@ module.exports = class EthCoin extends BaseCoin {
    * @param {number} [params.try] Attempt number; each retry raises the gas limit
    * @returns {Promise<{success: boolean, hash?: string, error?: string}>}
    */
+  /**
+   * Why EVM sends are paused, if they are.
+   *
+   * Workers check it before marking a payment as in flight, so a paused signer never
+   * turns into a stream of attempts and escalations. The check is also what drives
+   * reconciliation while payments are queued, since a skipped payment never reaches
+   * `send()`.
+   *
+   * @returns {Promise<string|undefined>}
+   */
+  async getSendBlocker() {
+    const coordinator = getSendCoordinator(this);
+
+    if (!coordinator.sendBarrier) {
+      return undefined;
+    }
+
+    return withSendLock(this, async () => {
+      await coordinator.reconcileSendBarrier();
+
+      return coordinator.sendBarrier?.reason;
+    });
+  }
+
+  /**
+   * Sends ETH, or the ERC-20 token this adapter represents.
+   *
+   * @param {object} params Transfer parameters
+   * @param {string} params.address Recipient address
+   * @param {number} params.value Amount, in the base unit
+   * @param {number} [params.try] Attempt number, which raises the gas limit on retries
+   * @returns {Promise<{success: boolean, hash?: string, error?: string, isAmbiguous?: boolean, isDeferred?: boolean}>}
+   */
   async send(params) {
     const { address, value } = params;
     const attempt = params.try || 1;
     const attemptInfo = ` (attempt ${attempt})`;
     const gasLimit = Math.round(this.gasLimit * this.reliabilityCoef * attempt);
+
     return withSendLock(this, async () => {
       const coordinator = getSendCoordinator(this);
 
-      if (coordinator.sendBarrierReason) {
-        log.warn(
-          `Refusing to send ${value} ${this.token}${attemptInfo}: the shared EVM signer is waiting for nonce reconciliation. ${coordinator.sendBarrierReason}.`,
-        );
+      if (coordinator.sendBarrier) {
+        await coordinator.reconcileSendBarrier();
+      }
 
-        // Nothing was broadcast and nothing was signed, so this is a deferral rather
-        // than an uncertain outcome: the caller may retry on a later tick.
-        return {
-          success: false,
-          isDeferred: true,
-          error: coordinator.sendBarrierReason,
-        };
+      if (coordinator.sendBarrier) {
+        // Nothing was signed or broadcast, so this is a deferral rather than an uncertain
+        // outcome: the payment stays queued and is tried again on a later tick.
+        return { success: false, isDeferred: true, error: coordinator.sendBarrier.reason };
       }
 
       if (!this.isValidAddress(address)) {
@@ -759,6 +790,14 @@ module.exports = class EthCoin extends BaseCoin {
 
         return { success: false, error };
       }
+
+      // The nonce this send is going to use. NonceManager hands out `pending + delta`,
+      // and nothing else can send while the lock is held, so this is exact. It is what
+      // lets a later reconciliation prove whether an uncertain send used it.
+      const nonce =
+        typeof coordinator.wallet.getNonce === 'function'
+          ? await coordinator.wallet.getNonce('pending').catch(() => undefined)
+          : undefined;
 
       try {
         const tx = this.contract
@@ -783,8 +822,6 @@ module.exports = class EthCoin extends BaseCoin {
           return { success: false, error: message };
         }
 
-        coordinator.sendBarrierReason = `A previous EVM send has an uncertain nonce state and needs reconciliation. Last error: ${message}`;
-
         // ethers throws both for a rejected transaction and for a transport failure after
         // the transaction was submitted, and the two are not reliably distinguishable. The
         // outcome is therefore unknown, and the caller must not retry on its own.
@@ -792,9 +829,106 @@ module.exports = class EthCoin extends BaseCoin {
           `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}. ${message}`,
         );
 
-        return { success: false, isAmbiguous: true, error: coordinator.sendBarrierReason };
+        coordinator.pauseSends(nonce, message);
+
+        return { success: false, isAmbiguous: true, error: coordinator.sendBarrier.reason };
       }
     });
+  }
+
+  /**
+   * Pauses every ETH and ERC-20 send after an uncertain outcome.
+   *
+   * If the uncertain transaction did not use its nonce, every later transaction would
+   * sit behind the gap and never be mined; if it did, sending again could pay twice.
+   * Sends stay paused until {@link reconcileSendBarrier} can tell which it was.
+   *
+   * @param {number|undefined} nonce Nonce of the uncertain send, when known
+   * @param {string} message Error that made the outcome uncertain
+   */
+  pauseSends(nonce, message) {
+    this.sendBarrier = {
+      reason: `A previous EVM send has an uncertain outcome${nonce === undefined ? '' : ` at nonce ${nonce}`}. Last error: ${message}`,
+      nonce,
+      since: utils.unix(),
+      lastCheckAt: 0,
+      unusedChecks: 0,
+    };
+
+    const resolution =
+      nonce === undefined
+        ? 'The nonce is unknown, so sends resume only after a restart. Before restarting, check the wallet in an explorer and wait until no transaction of it is pending.'
+        : 'Sends resume automatically once the network shows whether that nonce was used.';
+
+    notify(
+      `${config.notifyName} paused all ETH and ERC-20 sends: ${this.sendBarrier.reason}. Queued payouts and refunds stay queued. ${resolution} Wallet: _${this.account.address}_.`,
+      'warn',
+    );
+  }
+
+  /**
+   * Lifts the send pause once the network proves what happened to the uncertain nonce.
+   *
+   * - Mined: the confirmed nonce count moved past it. Whatever was sent with it is final.
+   * - Never used: for long enough, no node has reported a pending transaction with it.
+   *   The next send reuses the nonce, so even a late copy of the uncertain transaction
+   *   could not also be mined.
+   *
+   * While any node still reports a pending transaction with the nonce, sends stay paused.
+   * Checks are rate-limited, and any error keeps the pause in place.
+   *
+   * @returns {Promise<void>}
+   */
+  async reconcileSendBarrier() {
+    const barrier = this.sendBarrier;
+    const now = utils.unix();
+
+    if (!barrier || barrier.nonce === undefined || now - barrier.lastCheckAt < BARRIER_CHECK_INTERVAL) {
+      return;
+    }
+
+    barrier.lastCheckAt = now;
+
+    try {
+      const address = this.account.address;
+      const mined = await this.provider.getTransactionCount(address, 'latest');
+
+      if (mined > barrier.nonce) {
+        this.resumeSends(`nonce ${barrier.nonce} was mined`);
+
+        return;
+      }
+
+      const pendingCounts = await Promise.all(
+        this.nodeProviders.map((provider) => provider.getTransactionCount(address, 'pending')),
+      );
+
+      if (pendingCounts.some((count) => count > barrier.nonce)) {
+        barrier.unusedChecks = 0;
+
+        return;
+      }
+
+      barrier.unusedChecks += 1;
+
+      if (barrier.unusedChecks >= BARRIER_UNUSED_CHECKS && now - barrier.since >= BARRIER_UNUSED_AGE) {
+        this.resumeSends(`no node has a transaction with nonce ${barrier.nonce}, so it was never used`);
+      }
+    } catch (error) {
+      log.warn(`Unable to reconcile the paused EVM signer. Sends stay paused. ${error}`);
+    }
+  }
+
+  /**
+   * Lifts the send pause and re-reads the nonce from the network.
+   *
+   * @param {string} why What the reconciliation proved
+   */
+  resumeSends(why) {
+    this.sendBarrier = undefined;
+    this.wallet.reset?.();
+
+    notify(`${config.notifyName} resumed ETH and ERC-20 sends: ${why}.`, 'info');
   }
 
   /**

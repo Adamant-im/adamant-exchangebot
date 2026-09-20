@@ -17,10 +17,12 @@ const PER_COIN_FIELDS = [
   { name: 'min_confirmations', base: 'min_confirmations', fallback: 3, min: 0, isInteger: true },
   { name: 'exchange_fee', base: 'exchange_fee', fallback: 0, min: 0, max: 100 },
   { name: 'daily_limit_usd', base: 'daily_limit_usd', fallback: 0, min: 0 },
-  { name: 'max_buy_price_usd', base: undefined, fallback: 0 },
-  { name: 'min_sell_price_usd', base: undefined, fallback: 0 },
-  { name: 'fixed_buy_price_usd', base: undefined, fallback: 0 },
-  { name: 'fixed_sell_price_usd', base: undefined, fallback: 0 },
+  // Prices are bounds and fixed rates in USD. A negative one would invert the rate
+  // maths and could make a payout larger than the deposit.
+  { name: 'max_buy_price_usd', base: undefined, fallback: 0, min: 0 },
+  { name: 'min_sell_price_usd', base: undefined, fallback: 0, min: 0 },
+  { name: 'fixed_buy_price_usd', base: undefined, fallback: 0, min: 0 },
+  { name: 'fixed_sell_price_usd', base: undefined, fallback: 0, min: 0 },
 ];
 
 /**

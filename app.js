@@ -15,8 +15,12 @@ const sendBack = require('./modules/sendBack');
 const sentTxChecker = require('./modules/sentTxChecker');
 const depositClaims = require('./modules/depositClaims');
 const depositWatcher = require('./modules/depositWatcher');
+const { startInterval } = require('./helpers/scheduler');
 
 const doClearDB = process.argv.includes('clear_db');
+
+/** How often stored incoming transfers that never finished are retried. */
+const INCOMING_REPLAY_INTERVAL = 60 * 1000;
 
 /**
  * Drops every collection the bot owns.
@@ -106,6 +110,11 @@ async function start() {
     api.socket.on(TransactionType.SEND, txParser);
     api.socket.on(TransactionType.CHAT_MESSAGE, txParser);
   }
+
+  // Finish incoming transfers whose handler did not complete in a previous run,
+  // before the poller moves on to new ones.
+  await txParser.replayUnprocessed();
+  startInterval('incoming replay', () => txParser.replayUnprocessed(), INCOMING_REPLAY_INTERVAL);
 
   checker.start();
   depositWatcher.start();

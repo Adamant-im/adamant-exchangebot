@@ -277,116 +277,119 @@ module.exports = {
   },
 
   /**
-   * Reads the address together with the ADAMANT block that confirmed the KVS value.
+   * Reads the address a user published in the KVS, together with the ADAMANT block
+   * height since which that address has been bound to the account.
    *
-   * The block height is part of the ownership decision for an external deposit:
-   * an address published only after the transfer entered the mempool cannot claim it.
+   * The height is part of the ownership decision for an external deposit: an address
+   * bound only after the transfer first appeared cannot claim it. It is taken from the
+   * earliest record of the current, uninterrupted value, so a wallet that re-publishes
+   * the same address does not lose its earlier binding.
+   *
+   * Every record is checked against the requested account and key. A node that ignores
+   * the query filters returns other accounts' records, and trusting one of them would
+   * direct a payout to a stranger (Adamant-im/adamant#277).
    *
    * @param {string} coin Ticker
    * @param {string} admAddress User's ADAMANT address
-   * @returns {Promise<object|string|undefined>} KVS record, `'none'`, or `undefined` on failure
+   * @returns {Promise<object|string|undefined>} The binding, `'none'` when the user has
+   *   published no address, or `undefined` when the KVS could not be read reliably
    */
   async getKvsCryptoAddressRecord(coin, admAddress) {
     const kvsCoin = this.isERC20(coin) ? 'ETH' : coin;
     const expectedKey = `${kvsCoin.toLowerCase()}:address`;
 
-    const response = await api.getKvsRecord({
+    const response = await api.getKvsRecords({
       senderId: admAddress,
       key: expectedKey,
       orderBy: 'timestamp:desc',
-      limit: 1,
+      limit: constants.KVS_HISTORY_LIMIT,
     });
 
     if (!response.success) {
       log.warn(
-        `Failed to get the ${kvsCoin} address of ${admAddress} from the KVS in getKvsCryptoAddress() of ${utils.getModuleName(module.id)} module. ${response.errorMessage}.`,
+        `Failed to get the ${kvsCoin} address of ${admAddress} from the KVS in getKvsCryptoAddressRecord() of ${utils.getModuleName(module.id)} module. ${response.errorMessage}.`,
       );
 
       return undefined;
     }
 
-    const record = response.transactions?.[0];
+    const records = Array.isArray(response.transactions) ? response.transactions : [];
 
-    // The node may return a record written by another account under another key;
-    // trusting it would direct a payout to a stranger. Only a record that names the
-    // requesting account and the requested key proves the binding.
-    if (record && (record.senderId !== admAddress || record.asset?.state?.key !== expectedKey)) {
+    const foreign = records.find(
+      (record) => record?.senderId !== admAddress || record?.asset?.state?.key !== expectedKey,
+    );
+
+    if (foreign) {
+      // One foreign record means the node did not apply the filters, so none of the
+      // response can be trusted. Retrying later is safe; guessing is not.
       log.warn(
-        `The KVS returned a record that does not match the requested account and key in getKvsCryptoAddressRecord() of ${utils.getModuleName(module.id)} module. Ignoring it.`,
+        `The KVS returned a record of ${foreign?.senderId} under '${foreign?.asset?.state?.key}' for a query of ${admAddress} under '${expectedKey}' in getKvsCryptoAddressRecord() of ${utils.getModuleName(module.id)} module. Ignoring the response.`,
       );
 
       return undefined;
     }
 
-    return record
-      ? {
-          address: record.asset.state.value,
-          height: record.height,
-          timestamp: record.timestamp,
-          transactionId: record.id,
-        }
-      : 'none';
+    if (!records.length) {
+      return 'none';
+    }
+
+    const [latest] = records;
+    const address = latest.asset.state.value;
+    // Ethereum addresses may be stored with or without a checksum; base58 addresses
+    // of the other coins are case-sensitive.
+    const isSameAddress = (value) => (kvsCoin === 'ETH' ? utils.isStringEqualCI(value, address) : value === address);
+
+    let bindingRecord = latest;
+
+    for (const record of records.slice(1)) {
+      if (!isSameAddress(record.asset.state.value)) {
+        break;
+      }
+
+      bindingRecord = record;
+    }
+
+    return {
+      address,
+      height: bindingRecord.height,
+      timestamp: bindingRecord.timestamp,
+      transactionId: bindingRecord.id,
+      latestHeight: latest.height,
+      latestTransactionId: latest.id,
+    };
   },
 
   /**
-   * Returns how much a user has exchanged in the last 24 hours, in USD.
+   * Returns a user's exchange volume over the last 24 hours, in USD.
+   *
+   * It counts every request that still stands: validated ones, whether paid out yet or
+   * not, and accepted ones that are still waiting for validation. Counting only
+   * validated payments would let a user submit several transfers before the validator
+   * runs, each of them checked against the same stale total. Refunded, rejected and
+   * abandoned requests do not count.
    *
    * @param {string} senderId User's ADAMANT address
+   * @param {string} [excludePaymentId] A payment to leave out, typically the one being checked
    * @returns {Promise<number>}
    */
-  async userDailyValue(senderId) {
-    const payments = await db.paymentsDb.find({
-      transactionIsValid: true,
+  async userDailyValue(senderId, excludePaymentId) {
+    const query = {
       senderId,
-      needToSendBack: false,
-      inAmountMessageUsd: { $ne: null },
       date: { $gt: utils.unix() - constants.DAY },
-    });
+      needToSendBack: false,
+      isIgnored: { $ne: true },
+      transactionIsValid: { $ne: false },
+      inAmountMessageUsd: { $ne: null },
+      $or: [{ transactionIsValid: true }, { isBasicChecksPassed: true, isFinished: false }],
+    };
 
-    return payments.reduce((total, payment) => total + Number(payment.inAmountMessageUsd), 0);
-  },
-
-  /**
-   * Atomically reserves a share of a user's daily limit for an accepted request.
-   *
-   * The reservation is a conditional increment: it succeeds only while the running
-   * total stays within the limit, so concurrent requests cannot each read the same
-   * stale total and all pass. Rejected and refunded requests release their share.
-   *
-   * @param {string} senderId User's ADAMANT address
-   * @param {number} amountUsd Requested amount, in USD
-   * @param {string} paymentId Payment the reservation belongs to
-   * @returns {Promise<boolean>} `true` when the amount fits within the daily limit
-   */
-  async reserveDailyLimit(senderId, amountUsd, paymentId, limit) {
-    if (!limit) {
-      return true;
+    if (excludePaymentId !== undefined) {
+      query._id = { $ne: excludePaymentId };
     }
 
-    const result = await db.paymentsDb.db
-      .aggregate([
-        {
-          $match: {
-            senderId,
-            needToSendBack: false,
-            isFinished: false,
-            inAmountMessageUsd: { $ne: null },
-            date: { $gt: utils.unix() - constants.DAY },
-          },
-        },
-        { $group: { _id: null, total: { $sum: '$inAmountMessageUsd' } } },
-      ])
-      .toArray();
+    const payments = await db.paymentsDb.find(query);
 
-    const used = result[0]?.total ?? 0;
-
-    if (used + amountUsd > limit) {
-      return false;
-    }
-
-    await db.paymentsDb.db.updateOne({ _id: paymentId }, { $set: { dailyLimitReservedUsd: amountUsd } });
-
-    return true;
+    return payments.reduce((total, payment) => total + (Number(payment.inAmountMessageUsd) || 0), 0);
   },
 
   /**

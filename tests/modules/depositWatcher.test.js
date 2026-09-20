@@ -4,7 +4,7 @@ jest.mock('../../helpers/cryptos/exchanger', () => ({
   ETH: { getPendingIncomingTransactions: jest.fn() },
 }));
 jest.mock('../../modules/depositClaims', () => ({ recordObservation: jest.fn().mockResolvedValue(undefined) }));
-jest.mock('../../helpers/log', () => ({ log: jest.fn(), warn: jest.fn(), error: jest.fn() }));
+jest.mock('../../helpers/log', () => ({ log: jest.fn(), warn: jest.fn(), info: jest.fn(), error: jest.fn() }));
 
 const exchangerUtils = require('../../helpers/cryptos/exchanger');
 const constants = require('../../helpers/const');
@@ -20,6 +20,7 @@ beforeEach(() => {
   depositClaims.recordObservation.mockClear();
   log.warn.mockClear();
   log.log.mockClear();
+  log.info.mockClear();
 });
 
 test('does not trust transactions already present in the startup mempool snapshot', async () => {
@@ -126,4 +127,61 @@ test('returns after a stalled coin watcher without starting an overlapping reque
   expect(exchangerUtils.BTC.getPendingIncomingTransactions).toHaveBeenCalledTimes(1);
   release([]);
   await nextPoll;
+});
+
+describe('reporting a failing watcher', () => {
+  /** A fresh module each time: the failure streaks are module state. */
+  let isolated;
+  let isolatedExchanger;
+  let isolatedLog;
+
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(1_000_000_000_000);
+    jest.resetModules();
+    isolated = require('../../modules/depositWatcher');
+    isolatedExchanger = require('../../helpers/cryptos/exchanger');
+    isolatedLog = require('../../helpers/log');
+    isolatedExchanger.ADM.getLastBlockHeight.mockResolvedValue(500);
+    isolatedExchanger.ETH.getPendingIncomingTransactions.mockReset().mockResolvedValue([]);
+    isolatedExchanger.BTC.getPendingIncomingTransactions.mockReset();
+    isolatedLog.warn.mockClear();
+    isolatedLog.info.mockClear();
+  });
+
+  afterEach(() => {
+    Date.now.mockRestore();
+  });
+
+  test('reports the first failure, then stays quiet until the streak is old enough', async () => {
+    isolatedExchanger.BTC.getPendingIncomingTransactions.mockRejectedValue(new Error('node down'));
+
+    await isolated.poll();
+    await isolated.poll();
+    await isolated.poll();
+
+    // Once per streak, not once per 5-second poll: that would be about 35,000 lines a day.
+    expect(isolatedLog.warn).toHaveBeenCalledTimes(1);
+    expect(isolatedLog.warn).toHaveBeenCalledWith(expect.stringContaining('Unable to observe pending BTC deposits'));
+  });
+
+  test('summarizes a long streak at most every ten minutes', async () => {
+    isolatedExchanger.BTC.getPendingIncomingTransactions.mockRejectedValue(new Error('node down'));
+
+    await isolated.poll();
+    Date.now.mockReturnValue(1_000_000_000_000 + 11 * 60 * 1000);
+    await isolated.poll();
+
+    expect(isolatedLog.warn).toHaveBeenCalledTimes(2);
+    expect(isolatedLog.warn).toHaveBeenLastCalledWith(expect.stringContaining('still not observed: 2 failed polls'));
+  });
+
+  test('says when observation recovers', async () => {
+    isolatedExchanger.BTC.getPendingIncomingTransactions.mockRejectedValueOnce(new Error('node down'));
+    await isolated.poll();
+
+    isolatedExchanger.BTC.getPendingIncomingTransactions.mockResolvedValue([]);
+    await isolated.poll();
+
+    expect(isolatedLog.info).toHaveBeenCalledWith(expect.stringContaining('recovered after 1 failed poll'));
+  });
 });

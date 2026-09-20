@@ -54,18 +54,35 @@ module.exports = {
    */
   VALIDATOR_TIMESTAMP_DEVIATION: 3 * 24 * 60 * 60 * 1000, // 3 days
 
+  /**
+   * KVS records read per address lookup, the maximum a node returns in one page.
+   * The history is what shows since when the current address has been bound.
+   */
+  KVS_HISTORY_LIMIT: 100,
+
   /** How often coin mempools are checked for new transfers to the bot. */
   DEPOSIT_WATCH_INTERVAL: 5 * 1000,
   /** Maximum time startup or a scheduler tick waits for one coin watcher. */
   DEPOSIT_WATCH_POLL_TIMEOUT: 20 * 1000,
-  /** Maximum number of full Ethereum mempool changes parsed in one poll. */
-  DEPOSIT_WATCH_MAX_EVM_CHANGES: 1000,
-  /** Lower cap for older nodes that require one follow-up RPC call per hash. */
-  DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS: 250,
-  /** Concurrent transaction lookups for Ethereum nodes that return hashes only. */
-  DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY: 10,
+  /**
+   * Maximum number of full Ethereum mempool changes parsed in one poll. Parsing is
+   * local and cheap; measured bursts reach about 600 changes per 5-second poll.
+   */
+  DEPOSIT_WATCH_MAX_EVM_CHANGES: 20000,
+  /**
+   * Lower cap for nodes that return hashes only and need one lookup per hash. Lookups
+   * are sent in JSON-RPC batches of {@link DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY}.
+   */
+  DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS: 1000,
+  /** Transaction lookups sent together; ethers groups them into one batched request. */
+  DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY: 100,
   /** Claims remain open briefly so a competing ADAMANT message can be evaluated. */
   DEPOSIT_DISPUTE_WINDOW: 5 * 60 * 1000,
+  /**
+   * How long a deposit may wait for a competing claim to be resolved before it goes to
+   * manual review. A claim is normally validated within minutes.
+   */
+  DEPOSIT_UNRESOLVED_CLAIM_TIMEOUT: 60 * 60 * 1000,
   /** KVS ownership must predate first-seen by this many confirmed ADAMANT blocks. */
   DEPOSIT_KVS_SAFETY_BLOCKS: 2,
 
