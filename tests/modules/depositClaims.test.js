@@ -495,4 +495,73 @@ describe('depositClaims.reportWait', () => {
 
     expect(lines).toHaveLength(3);
   });
+
+  describe('reminders', () => {
+    const notify = require('../../helpers/notify');
+    const utils = require('../../helpers/utils');
+    const constants = require('../../helpers/const');
+
+    const START = 1_700_000_000_000;
+    const REMIND_EVERY = constants.WAIT_REMINDER_INTERVAL;
+
+    /**
+     * Reports the same wait for one payment at a given moment.
+     *
+     * @param {object} pay Payment document
+     * @param {number} at Milliseconds since START
+     * @param {object} [options] reportWait() options
+     */
+    function waitAt(pay, at, options = { remindEvery: REMIND_EVERY }) {
+      jest.spyOn(utils, 'unix').mockReturnValue(START + at);
+      depositClaims.reportWait(pay, 'there is no ETH/USDT rate to convert the fee into USDT', 'refund', options);
+    }
+
+    test('remind the operator while the wait goes on, at most once per interval', () => {
+      const pay = { _id: 'reminded-payment', senderId: 'U16655734187932477074' };
+
+      waitAt(pay, 0);
+      waitAt(pay, 5 * constants.HOUR);
+      expect(notify).not.toHaveBeenCalled();
+
+      waitAt(pay, 6 * constants.HOUR);
+      waitAt(pay, 7 * constants.HOUR);
+      waitAt(pay, 12 * constants.HOUR);
+
+      expect(notify).toHaveBeenCalledTimes(2);
+      expect(notify).toHaveBeenNthCalledWith(
+        1,
+        expect.stringMatching(
+          /the refund of payment _reminded-payment_ has been waiting for 6 hours: there is no ETH\/USDT rate/,
+        ),
+        'warn',
+      );
+      expect(notify).toHaveBeenNthCalledWith(2, expect.stringContaining('waiting for 12 hours'), 'warn');
+      // Like every operator notification, it links the ADAMANT transaction and its sender.
+      expect(notify).toHaveBeenCalledWith(
+        expect.stringContaining(`${constants.ADM_EXPLORER_URL}/tx/reminded-payment from U16655734187932477074`),
+        'warn',
+      );
+    });
+
+    test('are never sent for a wait that did not ask for them', () => {
+      const pay = { _id: 'quiet-payment' };
+
+      waitAt(pay, 0, {});
+      waitAt(pay, 24 * constants.HOUR, {});
+
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    test('count from the start of a new wait once the old one was cleared', () => {
+      const pay = { _id: 'restarted-payment' };
+
+      waitAt(pay, 0);
+      depositClaims.clearWait(pay);
+      waitAt(pay, 4 * constants.HOUR);
+      waitAt(pay, 8 * constants.HOUR);
+
+      // Only four hours into the new wait: no reminder yet.
+      expect(notify).not.toHaveBeenCalled();
+    });
+  });
 });

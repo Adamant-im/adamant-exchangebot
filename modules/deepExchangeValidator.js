@@ -210,6 +210,23 @@ async function validate(pay, tx) {
       notifyType = 'warn';
       msgNotify = `${config.notifyName} can’t fetch the transaction of _${pay.inAmountMessage} ${pay.inCurrency}_. It may have failed or been cancelled.`;
       msgSendBack = `I can’t find the transaction of _${pay.inAmountMessage} ${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ in the _${pay.inCurrency}_ blockchain. It may have failed or been cancelled. If you think it’s a mistake, contact my master.`;
+    } else if (incomeTx.status === false) {
+      // A reverted EVM transfer moved nothing, yet its calldata still decodes into a
+      // plausible sender, recipient and amount, so it would pass every check below.
+      // Rejecting it here also records the claim as ineligible (see settleClaim()).
+      await pay.update({
+        inTxSenderId: incomeTx.senderId,
+        inTxRecipientId: incomeTx.recipientId,
+        inTxStatus: false,
+        inTxHeight: incomeTx.height,
+        transactionIsValid: false,
+        isFinished: true,
+        error: constants.ERRORS.TX_FAILED,
+      });
+
+      notifyType = 'error';
+      msgNotify = `${config.notifyName} reports that the transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ has failed in its blockchain, so it moved no funds.`;
+      msgSendBack = `The transaction of _${pay.inAmountMessage}_ _${pay.inCurrency}_ with Tx ID _${pay.inTxid}_ has failed in the _${pay.inCurrency}_ blockchain and will not be processed. Check the blockchain explorer and try again. If you think it’s a mistake, contact my master.`;
     } else {
       await pay.update({
         inTxSenderId: incomeTx.senderId,

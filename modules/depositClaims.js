@@ -254,33 +254,56 @@ async function markManual(depositKey, reason) {
 }
 
 /**
- * Last reason logged for each payment that is waiting, so a payout that waits for a
- * long time is visible in the log without a line on every worker tick.
+ * Payments that are waiting: why, since when, and when that was last reported. A
+ * payout that waits for a long time stays visible without a line on every worker tick.
  *
- * @type {Map<string, string>}
+ * @type {Map<string, {reason: string, since: number, reportedAt: number}>}
  */
 const reportedWaits = new Map();
 
 /**
- * Logs why a payout or refund is waiting — once per payment and reason.
+ * Reports why a payout or refund is waiting.
+ *
+ * A wait is logged once, when it starts or its reason changes. A wait that can go on
+ * indefinitely — for an exchange rate the InfoService stops quoting, say — can ask for
+ * reminders: while the payment keeps waiting for the same reason, the operator is
+ * notified again every `remindEvery` milliseconds.
+ *
+ * The record lasts until {@link clearWait}, which the workers call on every tick that
+ * did not wait.
  *
  * @param {object} pay Payment document
  * @param {string} reason Why it waits
  * @param {string} action What waits, for example `payout` or `refund`
+ * @param {object} [options]
+ * @param {number} [options.remindEvery] Interval between operator reminders, in milliseconds
  */
-function reportWait(pay, reason, action) {
+function reportWait(pay, reason, action, { remindEvery } = {}) {
   const key = String(pay._id);
+  const now = utils.unix();
+  const reported = reportedWaits.get(key);
 
-  if (reportedWaits.get(key) === reason) {
+  if (reported?.reason !== reason) {
+    reportedWaits.set(key, { reason, since: now, reportedAt: now });
+    log.log(`The ${action} of payment ${pay._id} is waiting: ${reason}.`);
+
     return;
   }
 
-  reportedWaits.set(key, reason);
-  log.log(`The ${action} of payment ${pay._id} is waiting: ${reason}.`);
+  if (remindEvery && now - reported.reportedAt >= remindEvery) {
+    reported.reportedAt = now;
+
+    const hours = Math.floor((now - reported.since) / constants.HOUR);
+
+    notify(
+      `${config.notifyName}: the ${action} of payment _${pay._id}_ has been waiting for ${hours} hours: ${reason}. It goes ahead on its own once that is resolved. Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.admTxId ?? pay._id} from ${pay.senderId}.`,
+      'warn',
+    );
+  }
 }
 
 /**
- * Forgets the logged waiting reason of a payment that is no longer waiting.
+ * Forgets the waiting record of a payment that is no longer waiting.
  *
  * @param {object} pay Payment document
  */

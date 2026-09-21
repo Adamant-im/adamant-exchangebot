@@ -11,6 +11,10 @@ jest.mock('../../helpers/log', () => ({
   info: jest.fn(),
   log: jest.fn(),
 }));
+jest.mock('../../modules/depositClaims', () => ({
+  CLAIM_STATUS: { ELIGIBLE: 'eligible', INELIGIBLE: 'ineligible', MANUAL: 'manual' },
+  setClaimStatus: jest.fn().mockResolvedValue(undefined),
+}));
 
 const db = require('../../modules/DB');
 const notify = require('../../helpers/notify');
@@ -20,6 +24,7 @@ const log = require('../../helpers/log');
 const config = require('../../modules/configReader');
 const constants = require('../../helpers/const');
 const counter = require('../../modules/confirmationsCounter');
+const depositClaims = require('../../modules/depositClaims');
 const { createPayment } = require('../fixtures/payment');
 
 describe('confirmationsCounter.count', () => {
@@ -84,6 +89,36 @@ describe('confirmationsCounter.count', () => {
     expect(pay.isFinished).toBe(true);
     expect(pay.inTxConfirmed).toBe(false);
     expect(pay.error).toBe(constants.ERRORS.TX_FAILED);
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('has failed'), 'error');
+    expect(messenger.sendMessage).toHaveBeenCalledWith(pay.senderId, expect.stringContaining('has failed'));
+  });
+
+  test('closes the deposit claim of a transfer that failed after it was validated', async () => {
+    // The validator settled the claim as eligible while the transfer still looked good;
+    // left that way, it would outlive the payment it belonged to.
+    exchangerUtils.ADM.getTransaction.mockResolvedValue({ status: false });
+
+    const pay = createPayment({ inTxConfirmed: false });
+
+    await counter.count(pay);
+
+    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(pay._id, 'ineligible', { reason: 'tx-failed' });
+    // The claim follows the payment's stored state, never the other way round.
+    expect(pay.update.mock.invocationCallOrder[0]).toBeLessThan(
+      depositClaims.setClaimStatus.mock.invocationCallOrder[0],
+    );
+  });
+
+  test('still reports a failed transfer when its claim cannot be closed', async () => {
+    exchangerUtils.ADM.getTransaction.mockResolvedValue({ status: false });
+    depositClaims.setClaimStatus.mockRejectedValueOnce(new Error('db down'));
+
+    const pay = createPayment({ inTxConfirmed: false });
+
+    await counter.count(pay);
+
+    expect(pay.isFinished).toBe(true);
+    expect(log.error).toHaveBeenCalledWith(expect.stringContaining('Unable to close the deposit claim'));
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('has failed'), 'error');
     expect(messenger.sendMessage).toHaveBeenCalledWith(pay.senderId, expect.stringContaining('has failed'));
   });

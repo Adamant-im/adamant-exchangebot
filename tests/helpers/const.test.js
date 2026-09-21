@@ -16,6 +16,11 @@ describe('constants', () => {
     expect(constants.minBalances.LSK).toBeUndefined();
   });
 
+  test('refuses Dogecoin transfers the network would reject as dust', () => {
+    // Dogecoin nodes reject outputs below 0.01 DOGE; the adapter uses the same limit.
+    expect(constants.minBalances.DOGE).toBe(0.01);
+  });
+
   test('the ADAMANT epoch matches the value the node uses', () => {
     expect(constants.ADM_EPOCH).toBe(Date.UTC(2017, 8, 2, 17, 0, 0, 0));
   });

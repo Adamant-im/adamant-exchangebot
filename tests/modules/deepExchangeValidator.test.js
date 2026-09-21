@@ -307,6 +307,74 @@ describe('deepExchangeValidator.validate', () => {
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('wrong asset'), 'error');
   });
 
+  test('rejects a reverted token transfer, although its calldata decodes into a matching one', async () => {
+    // A reverted transfer() still carries its calldata, so the sender, the recipient and
+    // the amount all check out. Only the receipt status shows that nothing moved.
+    exchangerUtils.USDT.getTransaction.mockResolvedValue(
+      incomingTx({
+        senderId: '0x1111111111111111111111111111111111111111',
+        recipientId: '0x1417282226491840087900000000000000000000',
+        amount: 100,
+        contract: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        status: false,
+      }),
+    );
+    exchangerUtils.getKvsCryptoAddressRecord.mockResolvedValue({
+      address: '0x1111111111111111111111111111111111111111',
+      height: 90,
+      transactionId: 'kvs-tx-2',
+    });
+
+    const pay = createPayment({
+      transactionIsValid: null,
+      inCurrency: 'USDT',
+      outCurrency: 'BTC',
+      inAmountMessage: 100,
+      senderKvsInAddress: undefined,
+    });
+
+    await validator.validate(pay, admTx());
+
+    expect(pay.transactionIsValid).toBe(false);
+    expect(pay.isFinished).toBe(true);
+    expect(pay.inTxStatus).toBe(false);
+    expect(pay.error).toBe(constants.ERRORS.TX_FAILED);
+    expect(depositClaims.setClaimStatus).toHaveBeenCalledWith(
+      pay._id,
+      'ineligible',
+      expect.objectContaining({ reason: `validation-error-${constants.ERRORS.TX_FAILED}` }),
+    );
+    expect(depositClaims.setClaimStatus).not.toHaveBeenCalledWith(pay._id, 'eligible', expect.anything());
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('has failed'), 'error');
+    expect(messenger.sendMessage).toHaveBeenCalledWith(USER, expect.stringContaining('has failed'));
+  });
+
+  test('rejects a reverted transfer before asking for details a reverted one never has', async () => {
+    // Without a Transfer event a reverted call may carry no amount at all. Checked any
+    // later, it would wait for "full details" on every tick, forever.
+    exchangerUtils.ETH.getTransaction.mockResolvedValue(
+      incomingTx({ senderId: '0x1111111111111111111111111111111111111111', amount: undefined, status: false }),
+    );
+    exchangerUtils.getKvsCryptoAddressRecord.mockResolvedValue({
+      address: '0x1111111111111111111111111111111111111111',
+      height: 90,
+      transactionId: 'kvs-tx-2',
+    });
+
+    const pay = createPayment({
+      transactionIsValid: null,
+      inCurrency: 'ETH',
+      outCurrency: 'BTC',
+      inAmountReal: undefined,
+    });
+
+    await validator.validate(pay, admTx());
+
+    expect(pay.isFinished).toBe(true);
+    expect(pay.error).toBe(constants.ERRORS.TX_FAILED);
+    expect(log.warn).not.toHaveBeenCalledWith(expect.stringContaining('full details'));
+  });
+
   test('rejects a copied address that was written to KVS after the deposit first appeared', async () => {
     const hash = `0x${'ab'.repeat(32)}`;
     const sender = '0x1111111111111111111111111111111111111111';

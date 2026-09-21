@@ -24,8 +24,11 @@ const REPLAY_DELAY = 2 * 60 * 1000;
 const MAX_REPLAY_ATTEMPTS = 5;
 
 /**
- * Transactions whose handler is running in this process right now. The replay sweep
- * skips them, so a slow handler is never run twice at the same time.
+ * Transactions whose handler is running in this process right now.
+ *
+ * The same transaction can arrive over the socket and from the REST poller at the same
+ * moment, and the replay sweep can pick up a record whose handler is still working.
+ * Whoever registers a transaction here first handles it; the others skip it.
  *
  * @type {Set<string>}
  */
@@ -77,7 +80,8 @@ async function updateProcessedTx(tx, itx, updateDb) {
   pruneProcessedTxs();
 
   if (updateDb) {
-    const document = itx ?? (await db.incomingTxsDb.findOne({ txid: tx.id }));
+    // Stored records use the transaction ID as their `_id`, which is always indexed.
+    const document = itx ?? (await db.incomingTxsDb.findOne({ _id: tx.id }));
 
     if (document) {
       await document.update(
@@ -132,6 +136,30 @@ module.exports = async (tx) => {
     return;
   }
 
+  // The check and the registration must happen before the first `await`: nothing can
+  // interleave with them, so a second arrival of the same transaction always sees the
+  // first one. The de-duplication below reads the database, which only catches a
+  // transaction whose record is already stored.
+  if (inFlightTxs.has(tx.id)) {
+    return;
+  }
+
+  inFlightTxs.add(tx.id);
+
+  try {
+    await handleIncomingTx(tx);
+  } finally {
+    inFlightTxs.delete(tx.id);
+  }
+};
+
+/**
+ * Handles one incoming transaction that no other handler in this process is working on.
+ *
+ * @param {object} tx ADAMANT transaction
+ * @returns {Promise<void>}
+ */
+async function handleIncomingTx(tx) {
   const cached = processedTxs.get(tx.id);
 
   if (cached) {
@@ -143,7 +171,7 @@ module.exports = async (tx) => {
   }
 
   const { incomingTxsDb, paymentsDb } = db;
-  const knownTx = await incomingTxsDb.findOne({ txid: tx.id });
+  const knownTx = await incomingTxsDb.findOne({ _id: tx.id });
 
   if (knownTx !== null) {
     if (!knownTx.height) {
@@ -328,29 +356,23 @@ module.exports = async (tx) => {
     return;
   }
 
-  inFlightTxs.add(tx.id);
-
-  try {
-    switch (messageDirective) {
-      case 'exchange':
-        await exchangeTxs(itx, tx);
-        break;
-      case 'update':
-        await exchangeTxs(itx, tx, payToUpdate);
-        break;
-      case 'command':
-        await commandTxs(decryptedMessage, tx, itx);
-        break;
-      default:
-        await unknownTxs(tx, itx);
-        break;
-    }
-
-    await itx.update({ isProcessed: true }, true);
-  } finally {
-    inFlightTxs.delete(tx.id);
+  switch (messageDirective) {
+    case 'exchange':
+      await exchangeTxs(itx, tx);
+      break;
+    case 'update':
+      await exchangeTxs(itx, tx, payToUpdate);
+      break;
+    case 'command':
+      await commandTxs(decryptedMessage, tx, itx);
+      break;
+    default:
+      await unknownTxs(tx, itx);
+      break;
   }
-};
+
+  await itx.update({ isProcessed: true }, true);
+}
 
 /**
  * Finishes stored incoming records whose handler never completed.

@@ -39,6 +39,7 @@ const db = require('../../modules/DB');
 const notify = require('../../helpers/notify');
 const messenger = require('../../helpers/messenger');
 const exchangerUtils = require('../../helpers/cryptos/exchanger');
+const log = require('../../helpers/log');
 const config = require('../../modules/configReader');
 const { SAT } = require('../../helpers/const');
 const exchangeTxs = require('../../modules/exchangeTxs');
@@ -160,6 +161,22 @@ describe('exchangeTxs — rejections', () => {
 
     expect(created[0]).toMatchObject({ isFinished: true, error: 1 });
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('duplicate'), 'error');
+  });
+
+  test('never re-creates a payment that already exists for the same ADAMANT transaction', async () => {
+    // Saving a fresh document over the stored one would reset its validation and
+    // payout state, and message the user a second time.
+    db.paymentsDb.findOne.mockImplementation(async (query) =>
+      query._id === 'adm-tx-1' ? { _id: 'adm-tx-1', transactionIsValid: true } : null,
+    );
+
+    await exchangeTxs(incomingTx('BTC'), admTx({ amount: 100 * SAT }));
+
+    expect(created).toHaveLength(0);
+    expect(depositClaims.registerClaim).not.toHaveBeenCalled();
+    expect(notify).not.toHaveBeenCalled();
+    expect(messenger.sendMessage).not.toHaveBeenCalled();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('already exists'));
   });
 
   test('refuses an amount that is not a positive number', async () => {

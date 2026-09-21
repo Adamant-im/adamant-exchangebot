@@ -18,6 +18,7 @@ const api = require('../../modules/api');
 const db = require('../../modules/DB');
 const config = require('../../modules/configReader');
 const constants = require('../../helpers/const');
+const log = require('../../helpers/log');
 const exchangerUtils = require('../../helpers/cryptos/exchanger');
 
 /** A realistic slice of an ADAMANT InfoService response. */
@@ -330,8 +331,15 @@ describe('exchanger.userDailyValue', () => {
  * @param {object} fields Record fields
  * @returns {object}
  */
-function kvsRecord({ senderId = 'U1', key = 'eth:address', value = '0xabc', height = 100, id = `kvs-${height}` } = {}) {
-  return { id, senderId, height, timestamp: height * 5, asset: { state: { key, value } } };
+function kvsRecord({
+  senderId = 'U1',
+  key = 'eth:address',
+  value = '0xabc',
+  height = 100,
+  id = `kvs-${height}`,
+  timestamp = height * 5,
+} = {}) {
+  return { id, senderId, height, timestamp, asset: { state: { key, value } } };
 }
 
 describe('exchanger.getKvsCryptoAddress', () => {
@@ -403,6 +411,75 @@ describe('exchanger.getKvsCryptoAddressRecord', () => {
 
     await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toEqual(
       expect.objectContaining({ address: '0xabc', height: 200, latestHeight: 300, transactionId: 'kvs-200' }),
+    );
+  });
+
+  test('distrusts a response that is not newest-first', async () => {
+    // A node that ignores the order returns the oldest records first. With a long
+    // history the newest record may not be on the page at all, so sorting cannot help.
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [kvsRecord({ value: '0xold', height: 100 }), kvsRecord({ value: '0xnew', height: 300 })],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('out of order'));
+  });
+
+  test('distrusts a response whose records carry no timestamp to check the order by', async () => {
+    const undated = kvsRecord({ value: '0xold', height: 200 });
+
+    delete undated.timestamp;
+
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [kvsRecord({ height: 300 }), undated] });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toBeUndefined();
+  });
+
+  test('waits when two different addresses were published within the same second', async () => {
+    // The node's order between the two is arbitrary, so either could be the current one.
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [
+        kvsRecord({ value: '0xaaa', height: 300, timestamp: 1500 }),
+        kvsRecord({ value: '0xbbb', height: 299, timestamp: 1500 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('ambiguous'));
+  });
+
+  test('accepts the same address published twice within one second', async () => {
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [
+        kvsRecord({ value: '0xabc', height: 300, timestamp: 1500 }),
+        kvsRecord({ value: '0xABC', height: 299, timestamp: 1500 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toEqual(
+      expect.objectContaining({ address: '0xabc', height: 299 }),
+    );
+  });
+
+  test('does not stretch the binding back across a same-second change of address', async () => {
+    // At timestamp 1000 the user published both 0xabc and 0xbbb, and the order between
+    // them is arbitrary. The run of 0xabc may have started only at 1500, which is the
+    // later binding and the one that asks for more manual review, never less.
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [
+        kvsRecord({ value: '0xabc', height: 300, timestamp: 1500 }),
+        kvsRecord({ value: '0xabc', height: 200, timestamp: 1000 }),
+        kvsRecord({ value: '0xbbb', height: 199, timestamp: 1000 }),
+        kvsRecord({ value: '0xabc', height: 100, timestamp: 500 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toEqual(
+      expect.objectContaining({ address: '0xabc', height: 300 }),
     );
   });
 

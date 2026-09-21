@@ -38,6 +38,11 @@ module.exports = {
   TX_CHECKER_INTERVAL: 4 * 1000,
   /** How often exchange rates are refreshed from ADAMANT InfoService. */
   UPDATE_CRYPTO_RATES_INTERVAL: 60 * 1000,
+  /**
+   * How often the operator is reminded of a refund that keeps waiting for data it
+   * cannot proceed without, such as an exchange rate or the network fee.
+   */
+  WAIT_REMINDER_INTERVAL: 6 * 60 * 60 * 1000,
 
   /** How often deepExchangeValidator re-checks payments that are not validated yet. */
   VALIDATOR_TX_INTERVAL: 20 * 1000,
@@ -143,5 +148,7 @@ module.exports = {
   minBalances: {
     [Cryptos.BTC]: 0.00001,
     [Cryptos.DASH]: 0.0001,
+    // Dogecoin nodes reject outputs below 0.01 DOGE as dust; see DUST_THRESHOLD in doge_utils.js.
+    [Cryptos.DOGE]: 0.01,
   },
 };

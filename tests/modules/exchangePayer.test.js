@@ -323,6 +323,24 @@ describe('exchangePayer — paused and deferred sends', () => {
     delete exchangerUtils.BTC.getSendBlocker;
   });
 
+  test('keeps a paused-send wait open across ticks, so it is logged once rather than on every tick', async () => {
+    exchangerUtils.BTC.getSendBlocker = jest.fn().mockResolvedValue('an earlier send has an uncertain outcome');
+
+    const pay = createPayment();
+
+    await exchangePayer.payOut(pay);
+    await exchangePayer.payOut(pay);
+
+    expect(depositClaims.clearWait).not.toHaveBeenCalled();
+
+    exchangerUtils.BTC.getSendBlocker.mockResolvedValue(undefined);
+
+    await exchangePayer.payOut(pay);
+
+    expect(exchangerUtils.BTC.send).toHaveBeenCalled();
+    expect(depositClaims.clearWait).toHaveBeenCalledTimes(1);
+  });
+
   test('skips a payout while the coin’s sends are paused, without spending an attempt or marking it in flight', async () => {
     exchangerUtils.BTC.getSendBlocker = jest.fn().mockResolvedValue('an earlier send has an uncertain outcome');
 
@@ -333,7 +351,7 @@ describe('exchangePayer — paused and deferred sends', () => {
     expect(exchangerUtils.BTC.send).not.toHaveBeenCalled();
     expect(pay.counterSendExchange).toBe(3);
     expect(pay.payoutStartedAt).toBeUndefined();
-    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, expect.stringContaining('paused'), 'payout');
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, expect.stringContaining('paused'), 'payout', {});
   });
 
   test('keeps a deferred payout queued: the attempt is not counted, the marker is cleared and nobody is told it failed', async () => {
@@ -360,6 +378,6 @@ describe('exchangePayer — paused and deferred sends', () => {
     await exchangePayer.payOut(pay);
 
     expect(exchangerUtils.BTC.send).not.toHaveBeenCalled();
-    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'dispute-window', 'payout');
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'dispute-window', 'payout', {});
   });
 });

@@ -8,6 +8,7 @@ const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
 const { startInterval } = require('../helpers/scheduler');
 const { ensureSupportedCoin } = require('./unsupportedCoinGuard');
+const depositClaims = require('./depositClaims');
 
 /**
  * Tracks how many confirmations a validated incoming transfer has.
@@ -49,6 +50,17 @@ async function count(pay) {
         },
         true,
       );
+
+      // The validator settled this claim as eligible when the transfer still looked
+      // good — a reorganization can revert it afterwards. Close the claim once the
+      // payment's failed state is stored, never before.
+      try {
+        await depositClaims.setClaimStatus(pay._id, depositClaims.CLAIM_STATUS.INELIGIBLE, { reason: 'tx-failed' });
+      } catch (error) {
+        // The payment is already finished and will not be picked up again, so this is
+        // the only attempt. Log it for the operator, and still report the failed transfer.
+        log.error(`Unable to close the deposit claim of the failed payment ${pay._id}. ${error}`);
+      }
 
       notify(
         `${config.notifyName} reports that the transaction _${pay.inTxid}_ of _${pay.inAmountMessage}_ _${pay.inCurrency}_ has failed. ${admTxDescription}.`,

@@ -15,6 +15,7 @@ const Store = require('../../modules/Store');
 const txParser = require('../../modules/incomingTxsParser');
 const log = require('../../helpers/log');
 const config = require('../../modules/configReader');
+const constants = require('../../helpers/const');
 const checker = require('../../modules/checkerTransactions');
 
 describe('checkerTransactions.check', () => {
@@ -33,6 +34,7 @@ describe('checkerTransactions.check', () => {
       // Oldest first, so the checkpoint never moves past a transaction with no stored record.
       orderBy: 'height:asc',
       limit: 100,
+      offset: 0,
     });
   });
 
@@ -86,7 +88,123 @@ describe('checkerTransactions.check', () => {
   });
 });
 
+describe('checkerTransactions.check — paging', () => {
+  /**
+   * Builds transactions to the bot, in the order the node returns them.
+   *
+   * @param {number} count How many
+   * @param {(index: number) => number} [heightOf] Block height of the n-th transaction
+   * @returns {object[]}
+   */
+  function transfers(count, heightOf = (index) => 1000 + Math.floor(index / 10)) {
+    return Array.from({ length: count }, (_, index) => ({ id: `tx-${index}`, height: heightOf(index) }));
+  }
+
+  /**
+   * Serves a list of transactions the way the node pages them.
+   *
+   * @param {object[]} all Every transaction above the checkpoint, oldest first
+   */
+  function serve(all) {
+    api.getTransactions.mockImplementation(async ({ offset, limit }) => ({
+      success: true,
+      transactions: all.slice(offset, offset + limit),
+    }));
+  }
+
+  beforeEach(() => {
+    Store.getLastProcessedBlockHeight.mockResolvedValue(1000);
+    // An earlier test leaves the parser failing; these tests need it to succeed.
+    txParser.mockResolvedValue(undefined);
+  });
+
+  test('reads every page of a backlog in one poll, all from the same checkpoint', async () => {
+    serve(transfers(130));
+
+    await checker.check();
+
+    expect(txParser).toHaveBeenCalledTimes(130);
+    expect(api.getTransactions).toHaveBeenCalledTimes(2);
+    expect(api.getTransactions.mock.calls.map(([query]) => [query.fromHeight, query.offset])).toEqual([
+      [1000, 0],
+      [1000, 100],
+    ]);
+  });
+
+  test('reads a block that holds more transactions for the bot than one page', async () => {
+    // Blocks are limited to 25 transactions today; the poller must not rely on that.
+    serve(transfers(250, () => 1000));
+
+    await checker.check();
+
+    expect(txParser).toHaveBeenCalledTimes(250);
+    expect(txParser).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'tx-249' }));
+    expect(api.getTransactions).toHaveBeenCalledTimes(3);
+  });
+
+  test('asks for one more page after a full one, and stops at an empty one', async () => {
+    serve(transfers(100));
+
+    await checker.check();
+
+    expect(txParser).toHaveBeenCalledTimes(100);
+    expect(api.getTransactions).toHaveBeenCalledTimes(2);
+  });
+
+  test('stops when the node repeats a page, as one that ignores the offset would', async () => {
+    const page = transfers(100);
+
+    api.getTransactions.mockResolvedValue({ success: true, transactions: page });
+
+    await checker.check();
+
+    expect(txParser).toHaveBeenCalledTimes(100);
+    expect(api.getTransactions).toHaveBeenCalledTimes(2);
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('as if it ignored the offset'));
+  });
+
+  test('stops the poll when a later page cannot be fetched', async () => {
+    api.getTransactions
+      .mockResolvedValueOnce({ success: true, transactions: transfers(100) })
+      .mockResolvedValueOnce({ success: false, errorMessage: 'node down' });
+
+    await checker.check();
+
+    // The first page is handled; the rest is read again from the checkpoint next time.
+    expect(txParser).toHaveBeenCalledTimes(100);
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('node down'));
+  });
+});
+
 describe('checkerTransactions.start', () => {
+  test('skips a tick while the previous poll is still running', async () => {
+    jest.useFakeTimers();
+
+    let finishPoll;
+
+    Store.getLastProcessedBlockHeight.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishPoll = resolve;
+        }),
+    );
+
+    try {
+      const handle = checker.start();
+
+      await jest.advanceTimersByTimeAsync(constants.TX_CHECKER_INTERVAL * 3);
+
+      // The first poll is still waiting for its node, so the next two ticks were skipped
+      // rather than reading the same page and parsing the same transactions again.
+      expect(Store.getLastProcessedBlockHeight).toHaveBeenCalledTimes(1);
+
+      clearInterval(handle);
+      finishPoll(undefined);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('returns an interval handle the caller can clear', () => {
     jest.useFakeTimers();
 

@@ -333,16 +333,55 @@ module.exports = {
       return 'none';
     }
 
+    // The order is trusted no more than the filters are. A node that ignores
+    // `timestamp:desc` would make an old address look current, and with a history longer
+    // than one page the newest record may not be in the response at all — sorting it
+    // here could not bring that record back. Only a visibly newest-first answer is used.
+    const isNewestFirst = records.every(
+      (record, index) =>
+        Number.isFinite(record.timestamp) && (index === 0 || record.timestamp <= records[index - 1].timestamp),
+    );
+
+    if (!isNewestFirst) {
+      log.warn(
+        `The KVS returned the '${expectedKey}' records of ${admAddress} out of order in getKvsCryptoAddressRecord() of ${utils.getModuleName(module.id)} module. Ignoring the response.`,
+      );
+
+      return undefined;
+    }
+
     const [latest] = records;
     const address = latest.asset.state.value;
     // Ethereum addresses may be stored with or without a checksum; base58 addresses
     // of the other coins are case-sensitive.
     const isSameAddress = (value) => (kvsCoin === 'ETH' ? utils.isStringEqualCI(value, address) : value === address);
 
+    // Two different addresses published within the same second leave the current one
+    // undecided, and the node's tie order is arbitrary. The lookup waits instead of
+    // guessing: publishing the address again settles it.
+    if (
+      records.length > 1 &&
+      records[1].timestamp === latest.timestamp &&
+      !isSameAddress(records[1].asset.state.value)
+    ) {
+      log.warn(
+        `The KVS holds two different '${expectedKey}' records of ${admAddress} with the same timestamp, so the current address is ambiguous. Waiting for a newer record.`,
+      );
+
+      return undefined;
+    }
+
     let bindingRecord = latest;
 
     for (const record of records.slice(1)) {
-      if (!isSameAddress(record.asset.state.value)) {
+      // A different address published within the same second makes the order of the
+      // two arbitrary, so the run of the current address may already have ended there.
+      // Stopping keeps the later binding, which only ever asks for more manual review.
+      const tiesWithAnotherAddress = records.some(
+        (other) => other.timestamp === record.timestamp && !isSameAddress(other.asset.state.value),
+      );
+
+      if (!isSameAddress(record.asset.state.value) || tiesWithAnotherAddress) {
         break;
       }
 

@@ -32,10 +32,38 @@ const REFUND_ERRORS = {
  * user pays the cost of the transfer they asked for, and the bot does not subsidize
  * it out of another user's funds.
  *
+ * A refund that cannot go ahead yet waits for a later tick. A tick that did not wait
+ * ends any earlier wait, so a wait that goes on is reported once, then only as the
+ * reminders it asks for; see depositClaims.reportWait().
+ *
  * @param {object} pay Payment document
  * @returns {Promise<void>}
  */
 async function refund(pay) {
+  let isWaiting = false;
+
+  const wait = (reason, options = {}) => {
+    isWaiting = true;
+    depositClaims.reportWait(pay, reason, 'refund', options);
+  };
+
+  try {
+    await attemptRefund(pay, wait);
+  } finally {
+    if (!isWaiting) {
+      depositClaims.clearWait(pay);
+    }
+  }
+}
+
+/**
+ * Runs one refund attempt; see refund().
+ *
+ * @param {object} pay Payment document
+ * @param {(reason: string, options?: object) => void} wait Reports that the refund waits for a later tick
+ * @returns {Promise<void>}
+ */
+async function attemptRefund(pay, wait) {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 
   const authorization = await depositClaims.authorizePayout(pay);
@@ -67,13 +95,11 @@ async function refund(pay) {
         true,
       );
     } else {
-      depositClaims.reportWait(pay, authorization.reason, 'refund');
+      wait(authorization.reason);
     }
 
     return;
   }
-
-  depositClaims.clearWait(pay);
 
   const { inAmountReal, inCurrency, senderKvsInAddress } = pay;
 
@@ -81,7 +107,7 @@ async function refund(pay) {
   const sendBlocker = await exchangerUtils[inCurrency]?.getSendBlocker?.();
 
   if (sendBlocker) {
-    depositClaims.reportWait(pay, `${inCurrency} sends are paused. ${sendBlocker}`, 'refund');
+    wait(`${inCurrency} sends are paused. ${sendBlocker}`);
 
     return;
   }
@@ -102,6 +128,16 @@ async function refund(pay) {
   }
 
   const outFee = exchangerUtils[inCurrency].FEE;
+
+  // Every network charges a fee, so a zero or missing one means it is not known yet —
+  // for Ethereum, the gas price has not been read. Wait rather than price the refund on
+  // it, and keep reminding the operator: a node that stays down stalls the refund.
+  if (!utils.isPositiveNumber(outFee)) {
+    wait(`the ${inCurrency} network fee is not known yet`, { remindEvery: constants.WAIT_REMINDER_INTERVAL });
+
+    return;
+  }
+
   const inCurrencyBalance = await exchangerUtils[inCurrency].getBalance();
 
   if (!utils.isPositiveOrZeroNumber(inCurrencyBalance)) {
@@ -131,6 +167,19 @@ async function refund(pay) {
 
     // The fee is paid in ETH, but it is deducted from the token the user gets back.
     const feeInToken = exchangerUtils.convertCryptos('ETH', inCurrency, outFee).outAmount;
+
+    // Without an ETH rate for the token the fee cannot be converted, and the refund
+    // amount would come out as NaN — which the check below would read as "does not
+    // cover the fee", finishing the payment and keeping the user's deposit. Rates
+    // come back after an InfoService outage, so the refund waits for them. If the
+    // InfoService stops quoting the token, the reminders are how the operator finds out.
+    if (!utils.isPositiveNumber(feeInToken)) {
+      wait(`there is no ETH/${inCurrency} rate to convert the fee into ${inCurrency}`, {
+        remindEvery: constants.WAIT_REMINDER_INTERVAL,
+      });
+
+      return;
+    }
 
     sentBackAmount = Number((inAmountReal - feeInToken).toFixed(constants.PRECISION_DECIMALS));
     isNotEnoughBalance = sentBackAmount > inCurrencyBalance || outFee > ethBalance;
@@ -177,16 +226,20 @@ async function refund(pay) {
       // window in which a crash would leave the refund unrecorded.
       await pay.update({ sentBackTx: result.hash, sendBackStartedAt: null }, true);
 
-      exchangerUtils[inCurrency].balance -= sentBackAmount;
-
+      // Update the cached balances so the next transfer in this batch sees the funds
+      // already spent. The fee leaves the bot's wallet too: in ETH for a token, in the
+      // coin itself otherwise.
       if (exchangerUtils.isERC20(inCurrency)) {
+        exchangerUtils[inCurrency].balance -= sentBackAmount;
         exchangerUtils.ETH.balance -= outFee;
+      } else {
+        exchangerUtils[inCurrency].balance -= sentBackAmount + outFee;
       }
     } else if (result.isDeferred) {
       // Nothing was signed or sent. The attempt does not count, and the refund stays queued.
       pay.counterSendBack -= 1;
       await pay.update({ sendBackStartedAt: null }, true);
-      depositClaims.reportWait(pay, result.error, 'refund');
+      wait(result.error);
 
       return;
     } else if (result.isAmbiguous) {

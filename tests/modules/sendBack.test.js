@@ -34,6 +34,7 @@ const exchangerUtils = require('../../helpers/cryptos/exchanger');
 const log = require('../../helpers/log');
 const constants = require('../../helpers/const');
 const sendBack = require('../../modules/sendBack');
+const depositClaims = require('../../modules/depositClaims');
 const { createPayment } = require('../fixtures/payment');
 
 /**
@@ -88,12 +89,13 @@ describe('sendBack.refund', () => {
     expect(pay.sendBackStartedAt).toBeNull();
   });
 
-  test('deducts the refund from the cached balance', async () => {
+  test('deducts the refund and its network fee from the cached balance', async () => {
     const pay = refundablePayment();
 
     await sendBack.refund(pay);
 
-    expect(exchangerUtils.ADM.balance).toBe(1000 - 99.5);
+    // 99.5 ADM refunded plus the 0.5 ADM fee the bot's wallet pays for sending it.
+    expect(exchangerUtils.ADM.balance).toBe(1000 - 99.5 - 0.5);
   });
 
   test('deducts an ERC-20 refund’s fee from Ether, and converts it into the token', async () => {
@@ -108,6 +110,86 @@ describe('sendBack.refund', () => {
     expect(pay.sentBackAmount).toBe(88);
     expect(exchangerUtils.USDT.balance).toBe(1000 - 88);
     expect(exchangerUtils.ETH.balance).toBeCloseTo(1 - 0.005, 8);
+  });
+
+  test('keeps a token refund queued while there is no ETH rate to price its fee', async () => {
+    // Without the rate the refund amount is NaN, which must not read as "does not
+    // cover the fee": that would finish the payment and keep the user's deposit.
+    exchangerUtils.isERC20.mockReturnValue(true);
+    exchangerUtils.convertCryptos.mockReturnValue({ outAmount: NaN, exchangePrice: NaN });
+
+    const pay = refundablePayment({ inCurrency: 'USDT', inAmountReal: 100 });
+
+    await sendBack.refund(pay);
+
+    expect(exchangerUtils.USDT.send).not.toHaveBeenCalled();
+    expect(pay.isFinished).toBe(false);
+    expect(pay.errorSendBack).toBeUndefined();
+    expect(pay.save).not.toHaveBeenCalled();
+    expect(messenger.sendMessage).not.toHaveBeenCalled();
+    // It can go on indefinitely if the InfoService stops quoting the token, so the
+    // operator is reminded while it lasts.
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, expect.stringContaining('no ETH/USDT rate'), 'refund', {
+      remindEvery: constants.WAIT_REMINDER_INTERVAL,
+    });
+  });
+
+  test('keeps a refund queued while the network fee is not known yet', async () => {
+    // For Ethereum, a zero fee means the gas price has not been read yet.
+    exchangerUtils.ADM.FEE = 0;
+
+    try {
+      const pay = refundablePayment();
+
+      await sendBack.refund(pay);
+
+      expect(exchangerUtils.ADM.send).not.toHaveBeenCalled();
+      expect(pay.isFinished).toBe(false);
+      expect(pay.save).not.toHaveBeenCalled();
+      expect(depositClaims.reportWait).toHaveBeenCalledWith(
+        pay,
+        expect.stringContaining('fee is not known'),
+        'refund',
+        {
+          remindEvery: constants.WAIT_REMINDER_INTERVAL,
+        },
+      );
+    } finally {
+      exchangerUtils.ADM.FEE = 0.5;
+    }
+  });
+
+  test('keeps a wait open across ticks, and ends it on the first tick that goes ahead', async () => {
+    // The record is what keeps a long wait from being logged on every tick, and what
+    // the reminders are counted from, so only a tick that did not wait may clear it.
+    exchangerUtils.isERC20.mockReturnValue(true);
+    exchangerUtils.convertCryptos.mockReturnValue({ outAmount: NaN, exchangePrice: NaN });
+
+    const pay = refundablePayment({ inCurrency: 'USDT', inAmountReal: 100 });
+
+    await sendBack.refund(pay);
+    await sendBack.refund(pay);
+
+    expect(depositClaims.reportWait).toHaveBeenCalledTimes(2);
+    expect(depositClaims.clearWait).not.toHaveBeenCalled();
+
+    // The rate is back.
+    exchangerUtils.convertCryptos.mockReturnValue({ outAmount: 12, exchangePrice: 2400 });
+
+    await sendBack.refund(pay);
+
+    expect(exchangerUtils.USDT.send).toHaveBeenCalled();
+    expect(depositClaims.clearWait).toHaveBeenCalledTimes(1);
+    expect(depositClaims.clearWait).toHaveBeenCalledWith(pay);
+  });
+
+  test('ends any wait when a tick fails with an error', async () => {
+    exchangerUtils.ADM.getBalance.mockRejectedValue(new Error('node down'));
+
+    const pay = refundablePayment();
+
+    await expect(sendBack.refund(pay)).rejects.toThrow('node down');
+    expect(depositClaims.clearWait).toHaveBeenCalledWith(pay);
   });
 
   test('refuses to refund an amount that does not cover the fee', async () => {
@@ -286,8 +368,6 @@ describe('sendBack.reconcileInterrupted', () => {
 });
 
 describe('sendBack — paused and deferred sends', () => {
-  const depositClaims = require('../../modules/depositClaims');
-
   afterEach(() => {
     delete exchangerUtils.ADM.getSendBlocker;
   });
@@ -314,6 +394,6 @@ describe('sendBack — paused and deferred sends', () => {
     expect(pay.counterSendBack).toBe(constants.SENDBACK_RETRIES - 1);
     expect(pay.sendBackStartedAt).toBeNull();
     expect(pay.needHumanCheck).toBe(false);
-    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'paused', 'refund');
+    expect(depositClaims.reportWait).toHaveBeenCalledWith(pay, 'paused', 'refund', {});
   });
 });

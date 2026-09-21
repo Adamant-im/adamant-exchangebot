@@ -190,6 +190,18 @@ async function handleExchangeRequest(itx, tx, payToUpdate) {
 
       pay.inUpdateState = undefined;
     } else {
+      // A payment is keyed by its ADAMANT transaction, and saving a fresh one over an
+      // existing one would reset its progress and message the user again. Requests from
+      // one user are serialized, so this check is exact within the process; the parser
+      // already keeps one transaction from being handled twice at the same time.
+      if (await paymentsDb.findOne({ _id: tx.id })) {
+        log.warn(
+          `The payment for the ADM Tx ${tx.id} already exists, so it is not created again. ${admTxDescription}.`,
+        );
+
+        return;
+      }
+
       log.log(
         `Checking an exchange of ${inAmountMessage} ${inCurrency} for ${outCurrency || '{ not set yet }'}… ${admTxDescription}.`,
       );

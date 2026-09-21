@@ -27,10 +27,38 @@ const PAYOUT_ERRORS = {
 /**
  * Sends the exchange payout for one payment.
  *
+ * A payout that cannot go ahead yet waits for a later tick. A tick that did not wait
+ * ends any earlier wait, so a wait that goes on is reported once rather than on every
+ * tick; see depositClaims.reportWait().
+ *
  * @param {object} pay Payment document
  * @returns {Promise<void>}
  */
 async function payOut(pay) {
+  let isWaiting = false;
+
+  const wait = (reason, options = {}) => {
+    isWaiting = true;
+    depositClaims.reportWait(pay, reason, 'payout', options);
+  };
+
+  try {
+    await attemptPayout(pay, wait);
+  } finally {
+    if (!isWaiting) {
+      depositClaims.clearWait(pay);
+    }
+  }
+}
+
+/**
+ * Runs one payout attempt; see payOut().
+ *
+ * @param {object} pay Payment document
+ * @param {(reason: string, options?: object) => void} wait Reports that the payout waits for a later tick
+ * @returns {Promise<void>}
+ */
+async function attemptPayout(pay, wait) {
   const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${pay.itxId} from ${pay.senderId}`;
 
   const authorization = await depositClaims.authorizePayout(pay);
@@ -62,13 +90,11 @@ async function payOut(pay) {
         true,
       );
     } else {
-      depositClaims.reportWait(pay, authorization.reason, 'payout');
+      wait(authorization.reason);
     }
 
     return;
   }
-
-  depositClaims.clearWait(pay);
 
   const { outAmount, inCurrency, outCurrency, senderKvsOutAddress, inAmountMessage } = pay;
 
@@ -77,7 +103,7 @@ async function payOut(pay) {
   const sendBlocker = await exchangerUtils[outCurrency]?.getSendBlocker?.();
 
   if (sendBlocker) {
-    depositClaims.reportWait(pay, `${outCurrency} sends are paused. ${sendBlocker}`, 'payout');
+    wait(`${outCurrency} sends are paused. ${sendBlocker}`);
 
     return;
   }
@@ -169,7 +195,7 @@ async function payOut(pay) {
     // Nothing was signed or sent. The attempt does not count, and the payment stays queued.
     pay.counterSendExchange -= 1;
     await pay.update({ payoutStartedAt: null }, true);
-    depositClaims.reportWait(pay, result.error, 'payout');
+    wait(result.error);
 
     return;
   }

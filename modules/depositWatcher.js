@@ -63,6 +63,11 @@ function reportRecovery(coin) {
   }
 }
 
+/**
+ * Coin polls in progress, each with its own state.
+ *
+ * @type {Map<string, {operation: Promise<void>, run: {timedOut: boolean}}>}
+ */
 const inFlight = new Map();
 const timedOut = new Set();
 let admHeightInFlight;
@@ -91,7 +96,20 @@ function getAdmHeight() {
   return admHeightInFlight;
 }
 
-async function pollCoin(coin) {
+/**
+ * Takes one mempool snapshot of a coin and records the transfers that are new since the last one.
+ *
+ * A transfer is recorded as reliably first-seen only when the previous snapshot is recent
+ * enough to prove it was not there before, and only while this poll is still inside its
+ * deadline. The first observation of a deposit is final, so a poll that
+ * {@link waitForCoinPoll} has given up on may still record what it saw, but never as
+ * reliable, and never becomes the baseline for the next poll.
+ *
+ * @param {string} coin Ticker
+ * @param {{timedOut: boolean}} run This poll's state; `timedOut` is raised by waitForCoinPoll()
+ * @returns {Promise<void>}
+ */
+async function pollCoin(coin, run) {
   const adapter = exchangerUtils[coin];
   const [transactions, admHeight] = await Promise.all([adapter.getPendingIncomingTransactions(), getAdmHeight()]);
 
@@ -111,19 +129,30 @@ async function pollCoin(coin) {
       continue;
     }
 
+    // Checked for every transfer: the deadline can pass while earlier ones are written.
     await depositClaims.recordObservation({
       inCurrency: coin,
       inTxid: txid,
       admHeight,
-      reliable: Boolean(continuous && admHeight),
+      reliable: Boolean(continuous && admHeight && !run.timedOut),
       source: continuous ? `${coin.toLowerCase()}-mempool` : `${coin.toLowerCase()}-startup-snapshot`,
       observedAt: now,
     });
   }
 
-  state.set(coin, { hashes: current, polledAt: now });
+  // A timed-out poll has already dropped the baseline. Restoring it here would make the
+  // next poll look continuous across the gap, so the next snapshot starts a fresh one.
+  if (!run.timedOut) {
+    state.set(coin, { hashes: current, polledAt: now });
+  }
 }
 
+/**
+ * Starts a poll of a coin, or joins the one already running.
+ *
+ * @param {string} coin Ticker
+ * @returns {{operation: Promise<void>, run: {timedOut: boolean}}}
+ */
 function runCoinPoll(coin) {
   const running = inFlight.get(coin);
 
@@ -132,7 +161,8 @@ function runCoinPoll(coin) {
   }
 
   let succeeded = false;
-  const operation = pollCoin(coin)
+  const run = { timedOut: false };
+  const operation = pollCoin(coin, run)
     .then(() => {
       succeeded = true;
       reportRecovery(coin);
@@ -149,13 +179,25 @@ function runCoinPoll(coin) {
       }
     });
 
-  inFlight.set(coin, operation);
+  const entry = { operation, run };
 
-  return operation;
+  inFlight.set(coin, entry);
+
+  return entry;
 }
 
+/**
+ * Waits for a coin poll, but no longer than the deadline.
+ *
+ * Giving up does not cancel the poll, so the poll is told instead: from then on it can
+ * only lower confidence in what it observes, never restore it.
+ *
+ * @param {string} coin Ticker
+ * @param {number} timeoutMs Deadline, in milliseconds
+ * @returns {Promise<void>}
+ */
 async function waitForCoinPoll(coin, timeoutMs) {
-  const operation = runCoinPoll(coin);
+  const { operation, run } = runCoinPoll(coin);
   let timeout;
 
   const deadline = new Promise((resolve) => {
@@ -165,8 +207,12 @@ async function waitForCoinPoll(coin, timeoutMs) {
 
   clearTimeout(timeout);
 
-  if (result === 'timeout' && !timedOut.has(coin)) {
+  if (result === 'timeout') {
+    run.timedOut = true;
     state.delete(coin);
+  }
+
+  if (result === 'timeout' && !timedOut.has(coin)) {
     timedOut.add(coin);
     log.warn(
       `Pending ${coin} deposit observation exceeded ${timeoutMs} ms. The exchange bot will continue; deposits without trustworthy first-seen evidence require manual review.`,

@@ -195,6 +195,48 @@ describe('incomingTxsParser — de-duplication', () => {
     expect(commandTxs).toHaveBeenCalledTimes(1);
   });
 
+  test('handles a transaction once when the socket and the poller deliver it at the same moment', async () => {
+    // Both arrivals pass the database check before either record is stored; only the
+    // in-flight registration, made before the first await, tells them apart.
+    decodeMessage.mockReturnValue('BTC');
+
+    const tx = chatTx({ amount: 100000000 });
+
+    await Promise.all([txParser({ ...tx, height: undefined }), txParser(tx)]);
+
+    expect(exchangeTxs).toHaveBeenCalledTimes(1);
+    expect(created).toHaveLength(1);
+  });
+
+  test('handles a later delivery of the same transaction once the first one is done', async () => {
+    decodeMessage.mockReturnValue('/help');
+
+    const tx = chatTx({ height: undefined });
+
+    await txParser(tx);
+
+    const stored = created[0];
+
+    db.incomingTxsDb.findOne.mockResolvedValue(stored);
+
+    // The in-flight registration is released, so the poller's copy fills in the height.
+    await txParser({ ...tx, height: 54632450 });
+
+    expect(Store.updateLastProcessedBlockHeight).toHaveBeenCalledWith(54632450);
+  });
+
+  test('looks a transaction up by its primary key', async () => {
+    decodeMessage.mockReturnValue('/help');
+
+    const tx = chatTx();
+
+    await txParser(tx);
+
+    // Stored records use the transaction ID as `_id`, which is always indexed.
+    expect(db.incomingTxsDb.findOne).toHaveBeenCalledWith({ _id: tx.id });
+    expect(db.incomingTxsDb.findOne).not.toHaveBeenCalledWith({ txid: tx.id });
+  });
+
   test('ignores a transaction that is already stored', async () => {
     db.incomingTxsDb.findOne.mockResolvedValue({ txid: 'adm-tx-1', height: 1, update: jest.fn() });
     decodeMessage.mockReturnValue('/help');

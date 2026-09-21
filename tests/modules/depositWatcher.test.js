@@ -129,6 +129,67 @@ test('returns after a stalled coin watcher without starting an overlapping reque
   await nextPoll;
 });
 
+describe('a poll that outlives its deadline', () => {
+  test('never restores the baseline it was given up on, so the next snapshot stays untrusted', async () => {
+    const oldHash = 'aa'.repeat(32);
+    let release;
+
+    exchangerUtils.BTC.getPendingIncomingTransactions.mockResolvedValueOnce([{ hash: oldHash }]).mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    await watcher.initialize();
+    await watcher.poll(5);
+
+    expect(watcher.state.has('BTC')).toBe(false);
+
+    // The node answers after the deadline. Its snapshot must not become the baseline,
+    // or the next poll would look continuous across the gap.
+    release([{ hash: oldHash }]);
+    await watcher.poll(50);
+
+    expect(watcher.state.has('BTC')).toBe(false);
+  });
+
+  test('records what it sees after the deadline, but never as reliable', async () => {
+    const firstHash = 'aa'.repeat(32);
+    const secondHash = 'bb'.repeat(32);
+    let releaseWrite;
+
+    exchangerUtils.BTC.getPendingIncomingTransactions
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ hash: firstHash }, { hash: secondHash }]);
+
+    await watcher.initialize();
+    depositClaims.recordObservation.mockClear();
+
+    // The snapshot arrives in time, but the first write is slow and the deadline passes.
+    depositClaims.recordObservation.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          releaseWrite = resolve;
+        }),
+    );
+
+    await watcher.poll(5);
+    releaseWrite();
+    await watcher.poll(50);
+
+    // Written before the deadline: the evidence was sound when it was taken.
+    expect(depositClaims.recordObservation).toHaveBeenCalledWith(
+      expect.objectContaining({ inTxid: firstHash, reliable: true }),
+    );
+    // Written after it: the first observation of a deposit is final, so it must not
+    // claim a confidence the poll no longer has.
+    expect(depositClaims.recordObservation).toHaveBeenCalledWith(
+      expect.objectContaining({ inTxid: secondHash, reliable: false }),
+    );
+    expect(watcher.state.has('BTC')).toBe(false);
+  });
+});
+
 describe('reporting a failing watcher', () => {
   /** A fresh module each time: the failure streaks are module state. */
   let isolated;
