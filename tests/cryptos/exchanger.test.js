@@ -450,6 +450,44 @@ describe('exchanger.getKvsCryptoAddressRecord', () => {
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('ambiguous'));
   });
 
+  test('waits when a different address ties with the newest record anywhere in the tie, not just second', async () => {
+    // A@t, A@t, B@t: the order inside the second is arbitrary, so B may be the newest write.
+    api.getKvsRecords.mockResolvedValue({
+      success: true,
+      transactions: [
+        kvsRecord({ value: '0xaaa', height: 300, timestamp: 1500 }),
+        kvsRecord({ value: '0xAAA', height: 299, timestamp: 1500 }),
+        kvsRecord({ value: '0xbbb', height: 298, timestamp: 1500 }),
+      ],
+    });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('ambiguous'));
+  });
+
+  test('orders records of the same second by milliseconds, as the node does', async () => {
+    // The node sorts by COALESCE(timestampMs, timestamp * 1000): within one second the
+    // later millisecond is the newest write, and there is no tie to resolve.
+    const newer = { ...kvsRecord({ value: '0xaaa', height: 300, timestamp: 1500 }), timestampMs: 1500900 };
+    const older = { ...kvsRecord({ value: '0xbbb', height: 299, timestamp: 1500 }), timestampMs: 1500200 };
+
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [newer, older] });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toEqual(
+      expect.objectContaining({ address: '0xaaa', height: 300 }),
+    );
+  });
+
+  test('distrusts records of the same second returned in ascending millisecond order', async () => {
+    const earlier = { ...kvsRecord({ value: '0xaaa', height: 299, timestamp: 1500 }), timestampMs: 1500200 };
+    const later = { ...kvsRecord({ value: '0xbbb', height: 300, timestamp: 1500 }), timestampMs: 1500900 };
+
+    api.getKvsRecords.mockResolvedValue({ success: true, transactions: [earlier, later] });
+
+    await expect(exchangerUtils.getKvsCryptoAddressRecord('ETH', 'U1')).resolves.toBeUndefined();
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('out of order'));
+  });
+
   test('accepts the same address published twice within one second', async () => {
     api.getKvsRecords.mockResolvedValue({
       success: true,

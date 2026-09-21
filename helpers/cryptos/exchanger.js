@@ -30,6 +30,20 @@ const COIN_ADAPTERS = {
 
 const infoServiceClient = new NodeClient('InfoService', config.infoservice);
 
+/**
+ * The key the node sorts KVS records by when asked for `timestamp` order: the record's
+ * millisecond timestamp when it has one, otherwise its timestamp in seconds.
+ *
+ * Order and tie checks use the same key, so two records of the same second that differ
+ * in milliseconds are ordered, not tied.
+ *
+ * @param {object} record KVS transaction
+ * @returns {number} Milliseconds, or `NaN` when the record has no usable timestamp
+ */
+function kvsOrderKey(record) {
+  return Number(record.timestampMs ?? record.timestamp * 1000);
+}
+
 module.exports = {
   /**
    * Latest exchange rates from ADAMANT InfoService, keyed by pair, for example `BTC/USD`.
@@ -339,7 +353,7 @@ module.exports = {
     // here could not bring that record back. Only a visibly newest-first answer is used.
     const isNewestFirst = records.every(
       (record, index) =>
-        Number.isFinite(record.timestamp) && (index === 0 || record.timestamp <= records[index - 1].timestamp),
+        Number.isFinite(kvsOrderKey(record)) && (index === 0 || kvsOrderKey(record) <= kvsOrderKey(records[index - 1])),
     );
 
     if (!isNewestFirst) {
@@ -356,16 +370,17 @@ module.exports = {
     // of the other coins are case-sensitive.
     const isSameAddress = (value) => (kvsCoin === 'ETH' ? utils.isStringEqualCI(value, address) : value === address);
 
-    // Two different addresses published within the same second leave the current one
-    // undecided, and the node's tie order is arbitrary. The lookup waits instead of
+    // The node's order inside a tie is arbitrary, so any record that ties with the newest
+    // one may be the newest write — not only the second in the list. If any of them holds
+    // another address, the current address is undecided, and the lookup waits instead of
     // guessing: publishing the address again settles it.
-    if (
-      records.length > 1 &&
-      records[1].timestamp === latest.timestamp &&
-      !isSameAddress(records[1].asset.state.value)
-    ) {
+    const isAmbiguous = records.some(
+      (record) => kvsOrderKey(record) === kvsOrderKey(latest) && !isSameAddress(record.asset.state.value),
+    );
+
+    if (isAmbiguous) {
       log.warn(
-        `The KVS holds two different '${expectedKey}' records of ${admAddress} with the same timestamp, so the current address is ambiguous. Waiting for a newer record.`,
+        `The KVS holds different '${expectedKey}' records of ${admAddress} with the same timestamp, so the current address is ambiguous. Waiting for a newer record.`,
       );
 
       return undefined;
@@ -378,7 +393,7 @@ module.exports = {
       // two arbitrary, so the run of the current address may already have ended there.
       // Stopping keeps the later binding, which only ever asks for more manual review.
       const tiesWithAnotherAddress = records.some(
-        (other) => other.timestamp === record.timestamp && !isSameAddress(other.asset.state.value),
+        (other) => kvsOrderKey(other) === kvsOrderKey(record) && !isSameAddress(other.asset.state.value),
       );
 
       if (!isSameAddress(record.asset.state.value) || tiesWithAnotherAddress) {
