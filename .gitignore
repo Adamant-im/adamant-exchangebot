@@ -4,6 +4,10 @@
 .DS_Store
 Thumbs.db
 
+# Local env files
+.env.local
+.env.*.local
+
 # Dependencies and build output
 node_modules
 coverage
