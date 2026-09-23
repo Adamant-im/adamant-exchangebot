@@ -1,9 +1,12 @@
 const constants = require('../helpers/const');
 const config = require('./configReader');
 const log = require('../helpers/log');
+const notify = require('../helpers/notify');
 const utils = require('../helpers/utils');
 const messenger = require('../helpers/messenger');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
+const db = require('./DB');
+const { withSenderLock } = require('../helpers/mutex');
 
 /**
  * Builds the `/help` reply: what the bot is, what it charges, what it limits, and
@@ -89,11 +92,12 @@ function help(_params, _tx, commandFix) {
   result += '\n\n**/balances** — show my balances. Don’t request an exchange if I don’t have enough coins.';
   result +=
     '\n\n**/test** — dry-run an exchange request and see the estimated return. Do this before every exchange. For example, */test 0.35 ETH to ADM*.';
+  result += '\n\n**/cancel** — cancel a pending exchange awaiting clarification and request a refund.';
   result += '\n\n**/version** — show which version of the software I run on.';
   result += '\n\n**To make an exchange**, send me the coin you want to exchange here in chat.';
 
-  if (commandFix === 'help') {
-    result += '\n\nNote: every command starts with a slash **/**. For example, **/help**.';
+  if (commandFix === 'help' || commandFix === 'cancel') {
+    result += `\n\nNote: every command starts with a slash **/**. For example, **/${commandFix}**.`;
   }
 
   return result;
@@ -307,6 +311,56 @@ function version() {
   return `I run on _adamant-exchangebot_ software version _${config.version}_. Review the code on ADAMANT’s GitHub.`;
 }
 
+/**
+ * Cancels an exchange awaiting clarification and queues it for refund.
+ *
+ * @param {string[]} _params Command arguments; `/cancel` takes none
+ * @param {object} tx ADAMANT transaction
+ * @returns {Promise<string>}
+ */
+async function cancel(_params, tx) {
+  return withSenderLock(tx.senderId, async () => {
+    const pendingPayments = (
+      await db.paymentsDb.find({
+        senderId: tx.senderId,
+        inUpdateState: { $nin: [null, undefined] },
+        needToSendBack: { $ne: true },
+      })
+    ).filter((payment) => utils.isAwaitingClarification(payment));
+
+    if (!pendingPayments.length) {
+      return 'You don’t have any pending exchange awaiting clarification to cancel.';
+    }
+
+    for (const payment of pendingPayments) {
+      await payment.update(
+        {
+          needToSendBack: true,
+          isBasicChecksPassed: true,
+          inUpdateState: undefined,
+        },
+        true,
+      );
+
+      const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${payment.admTxId ?? payment._id} from ${payment.senderId}`;
+
+      notify(
+        `${config.notifyName} cancelled the pending exchange of _${payment.inAmountMessage}_ _${payment.inCurrency}_ by user request. Will try to send the payment back. ${admTxDescription}.`,
+        'info',
+      );
+    }
+
+    const first = pendingPayments[0];
+    const minConfirmations = config[`min_confirmations_${first.inCurrency}`] ?? config.min_confirmations;
+
+    return (
+      `I’ve cancelled your exchange of _${first.inAmountMessage}_ _${first.inCurrency}_. ` +
+      `I’ll validate the transfer and send it back to you once it gets _${minConfirmations}_ block confirmations. ` +
+      'Note that some of it will cover blockchain fees.'
+    );
+  });
+}
+
 /** Commands the bot answers, keyed by name without the leading slash. */
 const commands = {
   help,
@@ -315,6 +369,7 @@ const commands = {
   balances,
   test,
   version,
+  cancel,
 };
 
 /**

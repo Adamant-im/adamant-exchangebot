@@ -1,5 +1,54 @@
 const { SAT, ADM_EPOCH } = require('./const');
 
+/**
+ * Converts a number or numeric string to a plain decimal string, expanding scientific notation.
+ *
+ * @param {number|string} num
+ * @returns {string} Plain decimal representation without 'e' or 'E'
+ */
+function toPlainNumberString(num) {
+  const numVal = Number(num);
+
+  if (!Number.isFinite(numVal)) {
+    return String(num);
+  }
+
+  const str = String(numVal);
+  const match = str.match(/^([+-]?\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/);
+
+  if (!match) {
+    return str;
+  }
+
+  const sign = match[1].startsWith('-') ? '-' : '';
+  const intPart = match[1].replace(/^[+-]/, '');
+  const fracPart = match[2] || '';
+  const exp = parseInt(match[3], 10);
+
+  if (exp === 0) {
+    return sign + intPart + (fracPart ? '.' + fracPart : '');
+  }
+
+  if (exp > 0) {
+    if (exp >= fracPart.length) {
+      return sign + intPart + fracPart + '0'.repeat(exp - fracPart.length);
+    }
+
+    return sign + intPart + fracPart.slice(0, exp) + '.' + fracPart.slice(exp);
+  }
+
+  const absExp = Math.abs(exp);
+  const combined = intPart + fracPart;
+
+  if (absExp < intPart.length) {
+    const splitIdx = intPart.length - absExp;
+
+    return sign + intPart.slice(0, splitIdx) + '.' + intPart.slice(splitIdx) + fracPart;
+  }
+
+  return sign + '0.' + '0'.repeat(absExp - intPart.length) + combined;
+}
+
 module.exports = {
   /**
    * Converts an ADAMANT epoch timestamp to a Unix timestamp in milliseconds.
@@ -157,13 +206,17 @@ module.exports = {
 
   /**
    * Formats a number with thin groups of three digits, as in `3 134 234.778`.
+   * Expands scientific exponential notation (e.g. `1e25`) into full decimal representation.
    *
    * @param {number|string} num Number to format
    * @param {boolean} [doBold] Wrap the integer part in Markdown bold
    * @returns {string}
    */
   formatNumber(num, doBold) {
-    const [integerPart, fractionPart] = String(Number(num)).split('.');
+    const plain = toPlainNumberString(num);
+    const isNegative = plain.startsWith('-');
+    const unsigned = isNegative ? plain.slice(1) : plain;
+    const [integerPart, fractionPart] = unsigned.split('.');
 
     let output = '';
     let position = integerPart.length - 1;
@@ -178,11 +231,13 @@ module.exports = {
       position -= 1;
     }
 
+    const sign = isNegative ? '-' : '';
+
     if (fractionPart === undefined) {
-      return output;
+      return sign + output;
     }
 
-    return doBold ? `**${output}**.${fractionPart}` : `${output}.${fractionPart}`;
+    return doBold ? `${sign}**${output}**.${fractionPart}` : `${sign}${output}.${fractionPart}`;
   },
 
   /**
@@ -303,5 +358,18 @@ module.exports = {
     }
 
     return str.slice(0, position) + str.slice(position).replace(searchValue, newValue);
+  },
+
+  /**
+   * Checks whether a payment is currently awaiting user clarification.
+   *
+   * Persisted records in MongoDB store cleared fields as `null`, while in-memory
+   * documents use `undefined`. Both represent "no clarification pending".
+   *
+   * @param {object|null|undefined} payment Stored payment document
+   * @returns {boolean}
+   */
+  isAwaitingClarification(payment) {
+    return Boolean(payment && payment.inUpdateState !== undefined && payment.inUpdateState !== null);
   },
 };

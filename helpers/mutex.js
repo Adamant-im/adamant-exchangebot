@@ -40,4 +40,9 @@ function createKeyedMutex() {
   };
 }
 
-module.exports = { createKeyedMutex };
+/**
+ * Keyed mutex that serializes exchange requests, clarifications, and cancellations per sender.
+ */
+const withSenderLock = createKeyedMutex();
+
+module.exports = { createKeyedMutex, withSenderLock };

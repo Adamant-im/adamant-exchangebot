@@ -170,6 +170,15 @@ describe('utils.formatNumber', () => {
   test('does not bold a number without a fraction part', () => {
     expect(utils.formatNumber(1234, true)).toBe('1 234');
   });
+
+  test('expands scientific exponential notation to full human-readable digits', () => {
+    expect(utils.formatNumber(1e25)).toBe('10 000 000 000 000 000 000 000 000');
+    expect(utils.formatNumber('1e25')).toBe('10 000 000 000 000 000 000 000 000');
+    expect(utils.formatNumber('8.627494963699815e+29', true)).toBe('862 749 496 369 981 500 000 000 000 000');
+    expect(utils.formatNumber(1e-8)).toBe('0.00000001');
+    expect(utils.formatNumber(1e-8, true)).toBe('**0**.00000001');
+    expect(utils.formatNumber(-1234567.89)).toBe('-1 234 567.89');
+  });
 });
 
 describe('utils.getModuleName', () => {
@@ -260,5 +269,22 @@ describe('utils.replaceLastOccurrence', () => {
 
   test('returns an empty string for a non-string input', () => {
     expect(utils.replaceLastOccurrence(undefined, ', ', ' or ')).toBe('');
+  });
+});
+
+describe('utils.isAwaitingClarification', () => {
+  test('returns true when inUpdateState is set to a clarification state', () => {
+    expect(utils.isAwaitingClarification({ inUpdateState: 'outCurrency' })).toBe(true);
+  });
+
+  test('returns false when inUpdateState is undefined or null', () => {
+    expect(utils.isAwaitingClarification({ inUpdateState: undefined })).toBe(false);
+    expect(utils.isAwaitingClarification({ inUpdateState: null })).toBe(false);
+    expect(utils.isAwaitingClarification({})).toBe(false);
+  });
+
+  test('returns false for null or undefined payment', () => {
+    expect(utils.isAwaitingClarification(null)).toBe(false);
+    expect(utils.isAwaitingClarification(undefined)).toBe(false);
   });
 });
