@@ -6,6 +6,7 @@ const utils = require('../helpers/utils');
 const messenger = require('../helpers/messenger');
 const exchangerUtils = require('../helpers/cryptos/exchanger');
 const db = require('./DB');
+const { withSenderLock } = require('../helpers/mutex');
 
 /**
  * Builds the `/help` reply: what the bot is, what it charges, what it limits, and
@@ -318,41 +319,44 @@ function version() {
  * @returns {Promise<string>}
  */
 async function cancel(_params, tx) {
-  const pendingPayments = await db.paymentsDb.find({
-    senderId: tx.senderId,
-    inUpdateState: { $ne: undefined },
+  return withSenderLock(tx.senderId, async () => {
+    const pendingPayments = await db.paymentsDb.find({
+      senderId: tx.senderId,
+      inUpdateState: { $ne: undefined },
+      needToSendBack: { $ne: true },
+    });
+
+    if (!pendingPayments.length) {
+      return 'You don’t have any pending exchange awaiting clarification to cancel.';
+    }
+
+    for (const payment of pendingPayments) {
+      await payment.update(
+        {
+          needToSendBack: true,
+          isBasicChecksPassed: true,
+          inUpdateState: undefined,
+        },
+        true,
+      );
+
+      const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${payment.admTxId ?? payment._id} from ${payment.senderId}`;
+
+      notify(
+        `${config.notifyName} cancelled the pending exchange of _${payment.inAmountMessage}_ _${payment.inCurrency}_ by user request. Will try to send the payment back. ${admTxDescription}.`,
+        'info',
+      );
+    }
+
+    const first = pendingPayments[0];
+    const minConfirmations = config[`min_confirmations_${first.inCurrency}`] ?? config.min_confirmations;
+
+    return (
+      `I’ve cancelled your exchange of _${first.inAmountMessage}_ _${first.inCurrency}_. ` +
+      `I’ll validate the transfer and send it back to you once it gets _${minConfirmations}_ block confirmations. ` +
+      'Note that some of it will cover blockchain fees.'
+    );
   });
-
-  if (!pendingPayments.length) {
-    return 'You don’t have any pending exchange awaiting clarification to cancel.';
-  }
-
-  for (const payment of pendingPayments) {
-    await payment.update(
-      {
-        needToSendBack: true,
-        isBasicChecksPassed: true,
-        inUpdateState: undefined,
-      },
-      true,
-    );
-
-    const admTxDescription = `Income ADAMANT Tx: ${constants.ADM_EXPLORER_URL}/tx/${payment.admTxId ?? payment._id} from ${payment.senderId}`;
-
-    notify(
-      `${config.notifyName} cancelled the pending exchange of _${payment.inAmountMessage}_ _${payment.inCurrency}_ by user request. Will try to send the payment back. ${admTxDescription}.`,
-      'info',
-    );
-  }
-
-  const first = pendingPayments[0];
-  const minConfirmations = config[`min_confirmations_${first.inCurrency}`] ?? config.min_confirmations;
-
-  return (
-    `I’ve cancelled your exchange of _${first.inAmountMessage}_ _${first.inCurrency}_. ` +
-    `I’ll validate the transfer and send it back to you once it gets _${minConfirmations}_ block confirmations. ` +
-    'Note that some of it will cover blockchain fees.'
-  );
 }
 
 /** Commands the bot answers, keyed by name without the leading slash. */

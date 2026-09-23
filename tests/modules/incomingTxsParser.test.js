@@ -363,6 +363,21 @@ describe('incomingTxsParser — spam control', () => {
     expect(commandTxs).not.toHaveBeenCalled();
   });
 
+  test('still processes /cancel from a flagged user when an exchange is awaiting clarification', async () => {
+    db.incomingTxsDb.countDocuments.mockResolvedValue(100);
+    db.incomingTxsDb.findOne.mockImplementation(async (query) => (query.isSpam ? { senderId: USER } : null));
+    db.paymentsDb.findOne.mockResolvedValue({
+      _id: 'pending-payment-1',
+      senderId: USER,
+      inUpdateState: 'outCurrency',
+    });
+    decodeMessage.mockReturnValue('/cancel');
+
+    await txParser(chatTx());
+
+    expect(commandTxs).toHaveBeenCalledWith('/cancel', expect.any(Object), expect.any(Object));
+  });
+
   test('does not repeat the ban message to a user who is already flagged', async () => {
     db.incomingTxsDb.countDocuments.mockResolvedValue(100);
     db.incomingTxsDb.findOne.mockImplementation(async (query) => (query.isSpam ? { senderId: USER } : null));
@@ -536,6 +551,52 @@ describe('incomingTxsParser.replayUnprocessed', () => {
     await txParser.replayUnprocessed();
 
     expect(exchangeTxs).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('replays a stored /cancel command for a payment awaiting clarification', async () => {
+    const record = storedRecord({
+      messageDirective: 'command',
+      decryptedMessage: '/cancel',
+      payToUpdateId: 'old-payment',
+    });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    db.paymentsDb.findOne.mockResolvedValue({
+      _id: 'old-payment',
+      inUpdateState: 'outCurrency',
+      senderId: USER,
+    });
+    api.getTransaction.mockResolvedValue({
+      success: true,
+      transaction: chatTx({ id: 'adm-tx-stuck' }),
+    });
+
+    await txParser.replayUnprocessed();
+
+    expect(api.getTransaction).toHaveBeenCalledWith('adm-tx-stuck', { returnAsset: 1 });
+    expect(commandTxs).toHaveBeenCalledWith('/cancel', expect.objectContaining({ id: 'adm-tx-stuck' }), record);
+    expect(record.isProcessed).toBe(true);
+  });
+
+  test('skips replaying a /cancel command if the payment is no longer awaiting clarification', async () => {
+    const record = storedRecord({
+      messageDirective: 'command',
+      decryptedMessage: '/cancel',
+      payToUpdateId: 'old-payment',
+    });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    db.paymentsDb.findOne.mockResolvedValue({
+      _id: 'old-payment',
+      inUpdateState: undefined,
+      needToSendBack: true,
+    });
+
+    await txParser.replayUnprocessed();
+
+    expect(commandTxs).not.toHaveBeenCalled();
+    expect(api.getTransaction).not.toHaveBeenCalled();
     expect(record.isProcessed).toBe(true);
   });
 

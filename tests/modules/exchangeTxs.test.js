@@ -144,6 +144,29 @@ describe('exchangeTxs — reading the request', () => {
     expect(payToUpdate.outCurrency).toBe('BTC');
     expect(payToUpdate.inUpdateState).toBeUndefined();
   });
+
+  test('aborts clarification update if the payment was concurrently cancelled or refunded', async () => {
+    const payToUpdate = {
+      _id: 'old-tx',
+      inUpdateState: 'outCurrency',
+      inAmountMessage: 50,
+      inCurrency: 'ADM',
+      save: jest.fn(),
+      update: jest.fn(),
+    };
+    db.paymentsDb.findOne = jest.fn().mockResolvedValue({
+      _id: 'old-tx',
+      needToSendBack: true,
+      inUpdateState: undefined,
+    });
+
+    const itx = incomingTx('BTC');
+    await exchangeTxs(itx, admTx(), payToUpdate);
+
+    expect(payToUpdate.save).not.toHaveBeenCalled();
+    expect(itx.update).toHaveBeenCalledWith({ isProcessed: true }, true);
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('concurrently cancelled or refunded'));
+  });
 });
 
 describe('exchangeTxs — rejections', () => {

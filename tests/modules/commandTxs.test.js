@@ -323,6 +323,11 @@ describe('/cancel', () => {
 
     const result = await commands.cancel([], { senderId: USER });
 
+    expect(db.paymentsDb.find).toHaveBeenCalledWith({
+      senderId: USER,
+      inUpdateState: { $ne: undefined },
+      needToSendBack: { $ne: true },
+    });
     expect(payment.update).toHaveBeenCalledWith(
       { needToSendBack: true, isBasicChecksPassed: true, inUpdateState: undefined },
       true,

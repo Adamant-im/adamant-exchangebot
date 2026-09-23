@@ -13,6 +13,7 @@ const unknownTxs = require('./unknownTxs');
 const depositClaims = require('./depositClaims');
 const Store = require('./Store');
 const api = require('./api');
+const { withSenderLock } = require('../helpers/mutex');
 
 /** Messages from one user per 24 hours above which the user is treated as a spammer. */
 const SPAM_THRESHOLD_PER_DAY = 65;
@@ -223,31 +224,36 @@ async function handleIncomingTx(tx) {
     if (isTransfer) {
       // A new transfer arrived while the bot was waiting for an answer about the previous
       // one. Queue the previous payment for refund and work with the new payment.
-      const pendingPayments = await paymentsDb.find({
-        senderId: tx.senderId,
-        inUpdateState: { $ne: undefined },
+      await withSenderLock(tx.senderId, async () => {
+        const pendingPayments = await paymentsDb.find({
+          senderId: tx.senderId,
+          inUpdateState: { $ne: undefined },
+          needToSendBack: { $ne: true },
+        });
+
+        if (pendingPayments.length) {
+          for (const payment of pendingPayments) {
+            await payment.update(
+              {
+                needToSendBack: true,
+                isBasicChecksPassed: true,
+                inUpdateState: undefined,
+              },
+              true,
+            );
+          }
+
+          notify(
+            `${config.notifyName} got a payment while it was waiting for the user to clarify ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_. The bot will try to send the previous transfer back and proceed with the new one. ${admTxDescription}.`,
+            'warn',
+          );
+
+          await messenger.sendMessage(
+            tx.senderId,
+            `I was waiting for you to clarify ${payToUpdate.inUpdateState}, but got a new payment instead. I’ll proceed with the new transfer and try to send your previous transfer of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ back to you (if it covers the network fee).`,
+          );
+        }
       });
-
-      for (const payment of pendingPayments) {
-        await payment.update(
-          {
-            needToSendBack: true,
-            isBasicChecksPassed: true,
-            inUpdateState: undefined,
-          },
-          true,
-        );
-      }
-
-      notify(
-        `${config.notifyName} got a payment while it was waiting for the user to clarify ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_. The bot will try to send the previous transfer back and proceed with the new one. ${admTxDescription}.`,
-        'warn',
-      );
-
-      await messenger.sendMessage(
-        tx.senderId,
-        `I was waiting for you to clarify ${payToUpdate.inUpdateState}, but got a new payment instead. I’ll proceed with the new transfer and try to send your previous transfer of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ back to you (if it covers the network fee).`,
-      );
 
       messageDirective = 'exchange';
       payToUpdate = undefined;
@@ -361,7 +367,9 @@ async function handleIncomingTx(tx) {
   // goes through the pipeline so that a payment record exists for it — without one,
   // nothing validates, pays out or refunds the transfer, and the funds sit in the bot's
   // wallet with only a log line to find them by.
-  const carriesValue = messageDirective === 'exchange' || messageDirective === 'update';
+  const isCancelRequest = decryptedMessage.toLowerCase().trim() === '/cancel';
+  const carriesValue =
+    messageDirective === 'exchange' || messageDirective === 'update' || Boolean(payToUpdate && isCancelRequest);
 
   if (isSpammer && !carriesValue) {
     return;
@@ -389,10 +397,10 @@ async function handleIncomingTx(tx) {
  * Finishes stored incoming records whose handler never completed.
  *
  * A record is stored before its handler runs, so a crash, a failed database write or
- * an exception in the handler leaves it with `isProcessed: false`. Only transfers are
- * replayed — a missed reply to small talk or a command is not worth a duplicate — and
- * each replay first checks whether the handler had in fact already done its work, so
- * a replay never creates a second payment.
+ * an exception in the handler leaves it with `isProcessed: false`. Only transfers
+ * and pending cancellation requests are replayed — a missed reply to small talk or a
+ * read-only command is not worth a duplicate — and each replay first checks whether the
+ * handler had in fact already done its work, so a replay never creates a second payment.
  *
  * @returns {Promise<void>}
  */
@@ -444,8 +452,12 @@ async function replayRecord(itx) {
   await itx.update({ replayAttempts: attempts }, true);
 
   const isTransfer = itx.messageDirective === 'exchange' || itx.messageDirective === 'update';
+  const isCancel =
+    itx.messageDirective === 'command' &&
+    itx.decryptedMessage?.toLowerCase().trim() === '/cancel' &&
+    Boolean(itx.payToUpdateId);
 
-  if (!isTransfer) {
+  if (!isTransfer && !isCancel) {
     await itx.update({ isProcessed: true }, true);
 
     return;
@@ -465,6 +477,17 @@ async function replayRecord(itx) {
 
     // The clarification was applied, or the request was dropped since.
     if (!payToUpdate || payToUpdate.inUpdateState === undefined || payToUpdate.inUpdateState === null) {
+      await itx.update({ isProcessed: true }, true);
+
+      return;
+    }
+  }
+
+  if (isCancel) {
+    const payToCancel = await db.paymentsDb.findOne({ _id: itx.payToUpdateId });
+
+    // The cancellation was applied, or the request was finished/refunded since.
+    if (!payToCancel || payToCancel.inUpdateState === undefined || payToCancel.needToSendBack) {
       await itx.update({ isProcessed: true }, true);
 
       return;
@@ -494,7 +517,12 @@ async function replayRecord(itx) {
 
   log.log(`Finishing the stored incoming Tx ${itx.txid} (attempt ${attempts})…`);
 
-  await exchangeTxs(itx, tx, payToUpdate);
+  if (isCancel) {
+    await commandTxs(itx.decryptedMessage, tx, itx);
+  } else {
+    await exchangeTxs(itx, tx, payToUpdate);
+  }
+
   await itx.update({ isProcessed: true }, true);
 }
 

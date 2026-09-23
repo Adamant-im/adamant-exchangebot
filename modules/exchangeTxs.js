@@ -7,17 +7,7 @@ const notify = require('../helpers/notify');
 const log = require('../helpers/log');
 const messenger = require('../helpers/messenger');
 const depositClaims = require('./depositClaims');
-const { createKeyedMutex } = require('../helpers/mutex');
-
-/**
- * Serializes exchange requests per user.
- *
- * The daily limit is a read-check-write: sum today's volume, compare, then store the
- * new payment. Two requests from one user handled at once — a socket delivery and a
- * REST poll, or two transfers in one block — would both read the same total and both
- * pass. Holding one lock per user until the payment is stored makes the check exact.
- */
-const withSenderLock = createKeyedMutex();
+const { withSenderLock } = require('../helpers/mutex');
 
 /**
  * Error codes the basic checks store with a payment.
@@ -170,6 +160,28 @@ async function handleExchangeRequest(itx, tx, payToUpdate) {
     let claimIsLate = false;
 
     if (payToUpdate) {
+      const fresh = await paymentsDb.findOne({ _id: payToUpdate._id });
+
+      if (fresh) {
+        if (fresh.needToSendBack || fresh.isFinished || fresh.inUpdateState === undefined) {
+          log.warn(
+            `Skipping clarification update for payment ${payToUpdate._id}: it was concurrently cancelled or refunded. ${admTxDescription}.`,
+          );
+          await itx.update({ isProcessed: true }, true);
+
+          return;
+        }
+
+        Object.assign(payToUpdate, fresh);
+      } else if (payToUpdate.needToSendBack || payToUpdate.isFinished || payToUpdate.inUpdateState === undefined) {
+        log.warn(
+          `Skipping clarification update for payment ${payToUpdate._id}: it was concurrently cancelled or refunded. ${admTxDescription}.`,
+        );
+        await itx.update({ isProcessed: true }, true);
+
+        return;
+      }
+
       pay = payToUpdate;
       pay.outCurrency = outCurrency;
 
