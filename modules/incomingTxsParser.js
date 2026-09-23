@@ -190,7 +190,7 @@ async function handleIncomingTx(tx) {
   let decryptedMessage = decryptMessage(tx);
   let commandFix = '';
 
-  // Users often type a command without the leading slash; accept the two most common ones.
+  // Users often type a command without the leading slash; accept the most common ones.
   if (decryptedMessage.toLowerCase() === 'help') {
     decryptedMessage = '/help';
     commandFix = 'help';
@@ -199,6 +199,11 @@ async function handleIncomingTx(tx) {
   if (decryptedMessage.toLowerCase() === '/balance') {
     decryptedMessage = '/balances';
     commandFix = 'balance';
+  }
+
+  if (decryptedMessage.toLowerCase() === 'cancel') {
+    decryptedMessage = '/cancel';
+    commandFix = 'cancel';
   }
 
   // A transfer of a coin other than ADM arrives as a rich message describing it.
@@ -217,31 +222,37 @@ async function handleIncomingTx(tx) {
   if (payToUpdate) {
     if (isTransfer) {
       // A new transfer arrived while the bot was waiting for an answer about the previous
-      // one. Drop the old request — it may have failed — and work with the new payment.
+      // one. Queue the previous payment for refund and work with the new payment.
       const pendingPayments = await paymentsDb.find({
         senderId: tx.senderId,
         inUpdateState: { $ne: undefined },
       });
 
       for (const payment of pendingPayments) {
-        await payment.update({ isIgnored: true, isProcessed: true, inUpdateState: undefined }, true);
-        // The abandoned request still holds a claim on its deposit. Leaving it open would
-        // block the deposit forever; see depositClaims.abandonClaim().
-        await depositClaims.abandonClaim(payment, 'abandoned-clarification');
+        await payment.update(
+          {
+            needToSendBack: true,
+            isBasicChecksPassed: true,
+            inUpdateState: undefined,
+          },
+          true,
+        );
       }
 
       notify(
-        `${config.notifyName} got a payment while it was waiting for the user to clarify ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_. The bot will forget the previous payment in favour of the new one. The user may contact you. ${admTxDescription}.`,
+        `${config.notifyName} got a payment while it was waiting for the user to clarify ${payToUpdate.inUpdateState} for the exchange of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_. The bot will try to send the previous transfer back and proceed with the new one. ${admTxDescription}.`,
         'warn',
       );
 
       await messenger.sendMessage(
         tx.senderId,
-        `I was waiting for you to clarify ${payToUpdate.inUpdateState}, but got a payment instead. I’ll forget the previous transfer of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ in favour of the new one. If that’s not what you meant, contact my master.`,
+        `I was waiting for you to clarify ${payToUpdate.inUpdateState}, but got a new payment instead. I’ll proceed with the new transfer and try to send your previous transfer of _${payToUpdate.inAmountMessage}_ _${payToUpdate.inCurrency}_ back to you (if it covers the network fee).`,
       );
 
       messageDirective = 'exchange';
       payToUpdate = undefined;
+    } else if (decryptedMessage.toLowerCase().trim() === '/cancel') {
+      messageDirective = 'command';
     } else {
       messageDirective = 'update';
     }

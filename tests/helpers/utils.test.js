@@ -170,6 +170,15 @@ describe('utils.formatNumber', () => {
   test('does not bold a number without a fraction part', () => {
     expect(utils.formatNumber(1234, true)).toBe('1 234');
   });
+
+  test('expands scientific exponential notation to full human-readable digits', () => {
+    expect(utils.formatNumber(1e25)).toBe('10 000 000 000 000 000 000 000 000');
+    expect(utils.formatNumber('1e25')).toBe('10 000 000 000 000 000 000 000 000');
+    expect(utils.formatNumber('8.627494963699815e+29', true)).toBe('862 749 496 369 981 500 000 000 000 000');
+    expect(utils.formatNumber(1e-8)).toBe('0.00000001');
+    expect(utils.formatNumber(1e-8, true)).toBe('**0**.00000001');
+    expect(utils.formatNumber(-1234567.89)).toBe('-1 234 567.89');
+  });
 });
 
 describe('utils.getModuleName', () => {

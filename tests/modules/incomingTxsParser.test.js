@@ -387,7 +387,7 @@ describe('incomingTxsParser — clarifications', () => {
     expect(created[0].messageDirective).toBe('update');
   });
 
-  test('forgets the waiting payment when a new transfer arrives instead of an answer', async () => {
+  test('queues the waiting payment for refund when a new transfer arrives instead of an answer', async () => {
     const waiting = {
       _id: 'old-tx',
       inUpdateState: 'outCurrency',
@@ -402,13 +402,48 @@ describe('incomingTxsParser — clarifications', () => {
 
     await txParser(chatTx({ amount: 100000000 }));
 
-    expect(waiting.update).toHaveBeenCalledWith({ isIgnored: true, isProcessed: true, inUpdateState: undefined }, true);
-    // The abandoned request's claim is closed and its deposit handed to the operator;
-    // an open claim would block that deposit forever.
-    expect(depositClaims.abandonClaim).toHaveBeenCalledWith(waiting, 'abandoned-clarification');
+    expect(waiting.update).toHaveBeenCalledWith(
+      { needToSendBack: true, isBasicChecksPassed: true, inUpdateState: undefined },
+      true,
+    );
     // Treated as a brand new exchange request, with no payment to update.
     expect(exchangeTxs).toHaveBeenCalledWith(expect.anything(), expect.anything());
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining('in favour of the new one'), 'warn');
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('try to send the previous transfer back'), 'warn');
+  });
+
+  test('routes /cancel to the command handler when a payment is awaiting clarification', async () => {
+    const waiting = {
+      _id: 'old-tx',
+      inUpdateState: 'outCurrency',
+      inAmountMessage: 1,
+      inCurrency: 'ADM',
+    };
+
+    db.paymentsDb.findOne.mockResolvedValue(waiting);
+    decodeMessage.mockReturnValue('/cancel');
+
+    await txParser(chatTx());
+
+    expect(commandTxs).toHaveBeenCalledWith('/cancel', expect.anything(), expect.anything());
+    expect(created[0].messageDirective).toBe('command');
+  });
+
+  test('auto-corrects cancel without slash to /cancel and routes to command handler', async () => {
+    const waiting = {
+      _id: 'old-tx',
+      inUpdateState: 'outCurrency',
+      inAmountMessage: 1,
+      inCurrency: 'ADM',
+    };
+
+    db.paymentsDb.findOne.mockResolvedValue(waiting);
+    decodeMessage.mockReturnValue('cancel');
+
+    await txParser(chatTx());
+
+    expect(commandTxs).toHaveBeenCalledWith('/cancel', expect.anything(), expect.anything());
+    expect(created[0].messageDirective).toBe('command');
+    expect(created[0].commandFix).toBe('cancel');
   });
 });
 

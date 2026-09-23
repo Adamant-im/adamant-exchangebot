@@ -24,10 +24,19 @@ jest.mock('../../helpers/log', () => ({
   info: jest.fn(),
   log: jest.fn(),
 }));
+jest.mock('../../helpers/notify', () => jest.fn());
+jest.mock('../../modules/DB', () => ({
+  paymentsDb: {
+    find: jest.fn(),
+    findOne: jest.fn(),
+  },
+}));
 
 const messenger = require('../../helpers/messenger');
 const exchangerUtils = require('../../helpers/cryptos/exchanger');
 const log = require('../../helpers/log');
+const notify = require('../../helpers/notify');
+const db = require('../../modules/DB');
 const config = require('../../modules/configReader');
 const commandTxs = require('../../modules/commandTxs');
 
@@ -61,7 +70,7 @@ describe('/help', () => {
   test('lists every command the bot answers', () => {
     const result = commands.help([], {}, undefined);
 
-    for (const command of ['/rates', '/calc', '/balances', '/test', '/version']) {
+    for (const command of ['/rates', '/calc', '/balances', '/test', '/cancel', '/version']) {
       expect(result).toContain(command);
     }
   });
@@ -295,6 +304,39 @@ describe('/balances', () => {
 describe('/version', () => {
   test('reports the running version', () => {
     expect(commands.version()).toContain(config.version);
+  });
+});
+
+describe('/cancel', () => {
+  test('cancels a pending exchange awaiting clarification and queues it for refund', async () => {
+    const payment = {
+      _id: 'pay-1',
+      admTxId: 'tx-1',
+      senderId: USER,
+      inCurrency: 'ADM',
+      inAmountMessage: 5,
+      inUpdateState: 'outCurrency',
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    db.paymentsDb.find.mockResolvedValue([payment]);
+
+    const result = await commands.cancel([], { senderId: USER });
+
+    expect(payment.update).toHaveBeenCalledWith(
+      { needToSendBack: true, isBasicChecksPassed: true, inUpdateState: undefined },
+      true,
+    );
+    expect(notify).toHaveBeenCalledWith(expect.stringContaining('cancelled the pending exchange'), 'info');
+    expect(result).toContain('I’ve cancelled your exchange of _5_ _ADM_');
+  });
+
+  test('reports when there is no pending exchange to cancel', async () => {
+    db.paymentsDb.find.mockResolvedValue([]);
+
+    const result = await commands.cancel([], { senderId: USER });
+
+    expect(result).toBe('You don’t have any pending exchange awaiting clarification to cancel.');
   });
 });
 
