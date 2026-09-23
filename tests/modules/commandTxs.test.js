@@ -325,7 +325,7 @@ describe('/cancel', () => {
 
     expect(db.paymentsDb.find).toHaveBeenCalledWith({
       senderId: USER,
-      inUpdateState: { $ne: undefined },
+      inUpdateState: { $nin: [null, undefined] },
       needToSendBack: { $ne: true },
     });
     expect(payment.update).toHaveBeenCalledWith(
@@ -334,6 +334,24 @@ describe('/cancel', () => {
     );
     expect(notify).toHaveBeenCalledWith(expect.stringContaining('cancelled the pending exchange'), 'info');
     expect(result).toContain('I’ve cancelled your exchange of _5_ _ADM_');
+  });
+
+  test('ignores payments where inUpdateState has already transitioned to null', async () => {
+    const payment = {
+      _id: 'pay-clarified',
+      senderId: USER,
+      inCurrency: 'ADM',
+      inAmountMessage: 5,
+      inUpdateState: null,
+      update: jest.fn(),
+    };
+
+    db.paymentsDb.find.mockResolvedValue([payment]);
+
+    const result = await commands.cancel([], { senderId: USER });
+
+    expect(payment.update).not.toHaveBeenCalled();
+    expect(result).toBe('You don’t have any pending exchange awaiting clarification to cancel.');
   });
 
   test('reports when there is no pending exchange to cancel', async () => {

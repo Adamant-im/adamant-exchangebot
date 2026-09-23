@@ -215,8 +215,12 @@ async function handleIncomingTx(tx) {
   let payToUpdate = await paymentsDb.findOne({
     senderId: tx.senderId,
     // Only one payment per user can be awaiting clarification.
-    inUpdateState: { $ne: undefined },
+    inUpdateState: { $nin: [null, undefined] },
   });
+
+  if (payToUpdate && !utils.isAwaitingClarification(payToUpdate)) {
+    payToUpdate = undefined;
+  }
 
   let messageDirective = 'unknown';
 
@@ -225,11 +229,13 @@ async function handleIncomingTx(tx) {
       // A new transfer arrived while the bot was waiting for an answer about the previous
       // one. Queue the previous payment for refund and work with the new payment.
       await withSenderLock(tx.senderId, async () => {
-        const pendingPayments = await paymentsDb.find({
-          senderId: tx.senderId,
-          inUpdateState: { $ne: undefined },
-          needToSendBack: { $ne: true },
-        });
+        const pendingPayments = (
+          await paymentsDb.find({
+            senderId: tx.senderId,
+            inUpdateState: { $nin: [null, undefined] },
+            needToSendBack: { $ne: true },
+          })
+        ).filter((payment) => utils.isAwaitingClarification(payment));
 
         if (pendingPayments.length) {
           for (const payment of pendingPayments) {
@@ -476,7 +482,7 @@ async function replayRecord(itx) {
     payToUpdate = await db.paymentsDb.findOne({ _id: itx.payToUpdateId });
 
     // The clarification was applied, or the request was dropped since.
-    if (!payToUpdate || payToUpdate.inUpdateState === undefined || payToUpdate.inUpdateState === null) {
+    if (!payToUpdate || !utils.isAwaitingClarification(payToUpdate)) {
       await itx.update({ isProcessed: true }, true);
 
       return;
@@ -487,7 +493,7 @@ async function replayRecord(itx) {
     const payToCancel = await db.paymentsDb.findOne({ _id: itx.payToUpdateId });
 
     // The cancellation was applied, or the request was finished/refunded since.
-    if (!payToCancel || payToCancel.inUpdateState === undefined || payToCancel.needToSendBack) {
+    if (!payToCancel || !utils.isAwaitingClarification(payToCancel) || payToCancel.needToSendBack) {
       await itx.update({ isProcessed: true }, true);
 
       return;

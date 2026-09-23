@@ -320,11 +320,13 @@ function version() {
  */
 async function cancel(_params, tx) {
   return withSenderLock(tx.senderId, async () => {
-    const pendingPayments = await db.paymentsDb.find({
-      senderId: tx.senderId,
-      inUpdateState: { $ne: undefined },
-      needToSendBack: { $ne: true },
-    });
+    const pendingPayments = (
+      await db.paymentsDb.find({
+        senderId: tx.senderId,
+        inUpdateState: { $nin: [null, undefined] },
+        needToSendBack: { $ne: true },
+      })
+    ).filter((payment) => utils.isAwaitingClarification(payment));
 
     if (!pendingPayments.length) {
       return 'You don’t have any pending exchange awaiting clarification to cancel.';

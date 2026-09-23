@@ -271,3 +271,20 @@ describe('utils.replaceLastOccurrence', () => {
     expect(utils.replaceLastOccurrence(undefined, ', ', ' or ')).toBe('');
   });
 });
+
+describe('utils.isAwaitingClarification', () => {
+  test('returns true when inUpdateState is set to a clarification state', () => {
+    expect(utils.isAwaitingClarification({ inUpdateState: 'outCurrency' })).toBe(true);
+  });
+
+  test('returns false when inUpdateState is undefined or null', () => {
+    expect(utils.isAwaitingClarification({ inUpdateState: undefined })).toBe(false);
+    expect(utils.isAwaitingClarification({ inUpdateState: null })).toBe(false);
+    expect(utils.isAwaitingClarification({})).toBe(false);
+  });
+
+  test('returns false for null or undefined payment', () => {
+    expect(utils.isAwaitingClarification(null)).toBe(false);
+    expect(utils.isAwaitingClarification(undefined)).toBe(false);
+  });
+});

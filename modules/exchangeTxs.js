@@ -163,7 +163,7 @@ async function handleExchangeRequest(itx, tx, payToUpdate) {
       const fresh = await paymentsDb.findOne({ _id: payToUpdate._id });
 
       if (fresh) {
-        if (fresh.needToSendBack || fresh.isFinished || fresh.inUpdateState === undefined) {
+        if (fresh.needToSendBack || fresh.isFinished || !utils.isAwaitingClarification(fresh)) {
           log.warn(
             `Skipping clarification update for payment ${payToUpdate._id}: it was concurrently cancelled or refunded. ${admTxDescription}.`,
           );
@@ -173,7 +173,7 @@ async function handleExchangeRequest(itx, tx, payToUpdate) {
         }
 
         Object.assign(payToUpdate, fresh);
-      } else if (payToUpdate.needToSendBack || payToUpdate.isFinished || payToUpdate.inUpdateState === undefined) {
+      } else if (payToUpdate.needToSendBack || payToUpdate.isFinished || !utils.isAwaitingClarification(payToUpdate)) {
         log.warn(
           `Skipping clarification update for payment ${payToUpdate._id}: it was concurrently cancelled or refunded. ${admTxDescription}.`,
         );

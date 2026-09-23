@@ -600,6 +600,27 @@ describe('incomingTxsParser.replayUnprocessed', () => {
     expect(record.isProcessed).toBe(true);
   });
 
+  test('skips replaying a /cancel command if inUpdateState has transitioned to null', async () => {
+    const record = storedRecord({
+      messageDirective: 'command',
+      decryptedMessage: '/cancel',
+      payToUpdateId: 'old-payment',
+    });
+
+    db.incomingTxsDb.find.mockResolvedValue([record]);
+    db.paymentsDb.findOne.mockResolvedValue({
+      _id: 'old-payment',
+      inUpdateState: null,
+      outCurrency: 'BTC',
+    });
+
+    await txParser.replayUnprocessed();
+
+    expect(commandTxs).not.toHaveBeenCalled();
+    expect(api.getTransaction).not.toHaveBeenCalled();
+    expect(record.isProcessed).toBe(true);
+  });
+
   test('refuses a record whose transaction no longer matches it', async () => {
     const record = storedRecord();
 

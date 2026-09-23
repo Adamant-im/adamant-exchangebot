@@ -167,6 +167,29 @@ describe('exchangeTxs — reading the request', () => {
     expect(itx.update).toHaveBeenCalledWith({ isProcessed: true }, true);
     expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('concurrently cancelled or refunded'));
   });
+
+  test('aborts clarification update if the payment already completed clarification and inUpdateState is null', async () => {
+    const payToUpdate = {
+      _id: 'old-tx',
+      inUpdateState: 'outCurrency',
+      inAmountMessage: 50,
+      inCurrency: 'ADM',
+      save: jest.fn(),
+      update: jest.fn(),
+    };
+    db.paymentsDb.findOne = jest.fn().mockResolvedValue({
+      _id: 'old-tx',
+      outCurrency: 'BTC',
+      inUpdateState: null,
+    });
+
+    const itx = incomingTx('DOGE');
+    await exchangeTxs(itx, admTx(), payToUpdate);
+
+    expect(payToUpdate.save).not.toHaveBeenCalled();
+    expect(itx.update).toHaveBeenCalledWith({ isProcessed: true }, true);
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('concurrently cancelled or refunded'));
+  });
 });
 
 describe('exchangeTxs — rejections', () => {

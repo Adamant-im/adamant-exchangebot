@@ -359,4 +359,17 @@ module.exports = {
 
     return str.slice(0, position) + str.slice(position).replace(searchValue, newValue);
   },
+
+  /**
+   * Checks whether a payment is currently awaiting user clarification.
+   *
+   * Persisted records in MongoDB store cleared fields as `null`, while in-memory
+   * documents use `undefined`. Both represent "no clarification pending".
+   *
+   * @param {object|null|undefined} payment Stored payment document
+   * @returns {boolean}
+   */
+  isAwaitingClarification(payment) {
+    return Boolean(payment && payment.inUpdateState !== undefined && payment.inUpdateState !== null);
+  },
 };
