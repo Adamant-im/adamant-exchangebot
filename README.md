@@ -4,9 +4,12 @@ ADAMANT Exchange Bot is self-hosted software that runs an anonymous, instant cry
 
 You run it on your own server, and it custodies your own hot wallets. No third party holds the funds, there is no web interface to attack, and there is no account to register.
 
+> Built and maintained by the ADAMANT developer community and cryptofoundry.
+> Want custom crypto software, bots, payments or blockchain infrastructure built by engineers with production blockchain experience? [Tell us what to build](https://adamant.business#contact).
+
 ![Exchanging Dash for Ethereum](./assets/Exchanger-Dash-480-2x.gif)
 
-Read more: [Multiple anonymous crypto exchanges on the ADAMANT platform](https://medium.com/adamant-im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
+Read more: [Multiple anonymous crypto exchanges on the ADAMANT platform](https://news.adamant.im/multiple-anonymous-crypto-exchanges-on-adamant-platform-11a607be0a9b).
 
 ## Features
 
@@ -182,6 +185,8 @@ pm2 restart exchangebot
 ```
 
 ## Security notes
+
+> Security review and ongoing maintenance by [cryptofoundry](https://adamant.business#contact).
 
 - The bot holds hot-wallet keys derived from a single ADAMANT passphrase. Treat the server as a hot wallet, not a vault, and keep balances in proportion to your daily volume.
 - Keep `config.jsonc` out of version control and off shared machines. The `logs/` directory contains addresses, amounts and transaction hashes.
