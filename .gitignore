@@ -1,6 +1,25 @@
-node_modules/
-logs/
-.vscode/
-tests.js
-config.test
+# Editors and operating systems
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Local env files
+.env.local
+.env.*.local
+
+# Dependencies and build output
+node_modules
+coverage
+
+# Runtime artifacts
+logs
+
+# Operator configuration — holds the passphrase that controls every hot wallet
+config.jsonc
 config.test.jsonc
+
+# AI working directories
+.ai-ignored/
+.ai-tasks/
+.claude/

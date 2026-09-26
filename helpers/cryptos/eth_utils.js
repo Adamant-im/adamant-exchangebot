@@ -1,723 +1,978 @@
+const ethers = require('ethers');
+const { eth } = require('adamant-api/coins/eth');
+
 const config = require('../../modules/configReader');
 const log = require('../log');
-const api = require('../../modules/api');
 const constants = require('../const');
 const utils = require('../utils');
 const erc20models = require('./erc20_models');
+const BaseCoin = require('./baseCoin');
+const notify = require('../notify');
+const { createKeyedMutex } = require('../mutex');
 
-const Eth = require('web3-eth');
-const ethUtils = require('web3-utils');
+/** How often the gas price estimate is refreshed. */
+const UPDATE_GAS_PRICE_INTERVAL = 60 * 1000;
 
-const eth = new Eth(config.node_ETH[0]); // TODO: health check
+/** Gas a plain transfer needs, before the reliability margin. */
+const BASE_GAS_LIMIT = 22000;
 
-const updateGasPriceInterval = 60 * 1000; // Update gas price every minute
-const reliabilityCoefEth = 1.3; // make sure exchanger's Tx will be accepted for ETH
-const reliabilityCoefErc20 = 3.0; // make sure exchanger's Tx will be accepted for ERC20; 2.4 is not enough for BZ
+/**
+ * Margin applied to the estimated fee so a transfer is still accepted when the
+ * gas price rises between quoting and sending.
+ *
+ * ERC-20 transfers need a larger margin than plain ETH transfers: a contract call
+ * costs several times more gas, and how much depends on the token.
+ */
+const RELIABILITY_COEF_ETH = 1.3;
+const RELIABILITY_COEF_ERC20 = 3.0;
 
-const baseCoin = require('./baseCoin');
+/** How often a paused signer re-checks whether its uncertain nonce was used. */
+const BARRIER_CHECK_INTERVAL = 60 * 1000;
 
-module.exports = class ethCoin extends baseCoin {
-  gasPrice = '0'; // in wei, string
-  gasLimit = 22000; // const base gas limit in wei
+/**
+ * An uncertain nonce is treated as unused only after no node has known a transaction
+ * with it for this long, across {@link BARRIER_UNUSED_CHECKS} consecutive checks. A
+ * transaction that reached any node's mempool is reported there within seconds.
+ */
+const BARRIER_UNUSED_AGE = 10 * 60 * 1000;
+const BARRIER_UNUSED_CHECKS = 3;
 
-  constructor(token) {
+/** Bound pending-filter requests so a dead node cannot stall the watcher forever. */
+const PENDING_RPC_REQUEST_TIMEOUT = 15000;
+
+/** Minimal ERC-20 interface — everything the bot reads, sends and decodes. */
+const ERC20_ABI = [
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+  'function balanceOf(address owner) view returns (uint256)',
+  'function transfer(address to, uint256 value) returns (bool)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+];
+
+const erc20Interface = new ethers.Interface(ERC20_ABI);
+
+/** The network the bot works on. ERC-20 contract addresses are mainnet addresses. */
+const MAINNET = ethers.Network.from('mainnet');
+
+function createPendingJsonRpcProvider(url) {
+  const request = new ethers.FetchRequest(url);
+
+  request.timeout = PENDING_RPC_REQUEST_TIMEOUT;
+
+  return new ethers.JsonRpcProvider(request, undefined, { staticNetwork: MAINNET });
+}
+
+/**
+ * Builds a provider over the configured Ethereum nodes.
+ *
+ * With more than one node a `FallbackProvider` is used, so a single unreachable
+ * node does not take Ethereum and every ERC-20 token down with it. A quorum of one
+ * keeps the behaviour of the previous single-node setup: the first answer wins.
+ *
+ * @param {string[]} nodes Node URLs
+ * @returns {ethers.AbstractProvider}
+ */
+function createProvider(nodes) {
+  // The token contract addresses in `erc20_models.js` are Ethereum mainnet addresses,
+  // so the network is known in advance. Declaring it skips the detection round trip and
+  // stops ethers from printing a "failed to detect network" retry loop of its own when a
+  // node is unreachable — a node failure then surfaces through this bot's logger instead.
+  const providers = nodes.map((url) => new ethers.JsonRpcProvider(url, undefined, { staticNetwork: MAINNET }));
+
+  if (providers.length === 1) {
+    return providers[0];
+  }
+
+  return new ethers.FallbackProvider(
+    providers.map((provider, index) => ({ provider, priority: index + 1, weight: 1 })),
+    undefined,
+    { quorum: 1 },
+  );
+}
+
+function getSendCoordinator(coin) {
+  return coin.ethInstance ?? coin;
+}
+
+/**
+ * Serializes EVM sends across the shared wallet.
+ *
+ * `NonceManager` allocates sequential nonces but does not wait for one send to finish
+ * before another starts, so two concurrent sends could both pass the barrier check and
+ * the later one could end up behind an uncertain nonce. One lock per wallet covers the
+ * barrier check, the nonce allocation, the broadcast and the result classification.
+ */
+const withWalletLock = createKeyedMutex();
+
+/**
+ * Runs `operation` while holding the send lock of the wallet `coin` uses.
+ *
+ * @param {EthCoin} coin Coin adapter
+ * @param {() => Promise<object>} operation Send operation
+ * @returns {Promise<object>} The operation's result
+ */
+function withSendLock(coin, operation) {
+  return withWalletLock(getSendCoordinator(coin), operation);
+}
+
+function getErrorMessage(error) {
+  return [error?.shortMessage, error?.info?.error?.message, error?.reason, error?.message]
+    .filter((part) => typeof part === 'string' && part.trim())
+    .join('. ');
+}
+
+function isDefinitePreBroadcastFailure(error) {
+  const message = getErrorMessage(error);
+
+  return /insufficient funds|insufficient balance|gas required exceeds allowance|intrinsic gas too low|exceeds block gas limit/i.test(
+    message,
+  );
+}
+
+/**
+ * Ethereum adapter, and the base for the ERC-20 adapter.
+ *
+ * ETH and every ERC-20 token share one wallet, one provider and one gas price, so
+ * the token adapters reuse the instance created for ETH rather than opening their
+ * own connections.
+ */
+module.exports = class EthCoin extends BaseCoin {
+  /**
+   * @param {string} token Ticker, `ETH` or an ERC-20 token symbol
+   * @param {EthCoin} [ethInstance] The ETH adapter, when constructing an ERC-20 token
+   */
+  constructor(token, ethInstance) {
     super();
 
     this.token = token;
-    this.cache.balance = { lifetime: 10000 }; // in wei, string
+    this.gasLimit = BASE_GAS_LIMIT;
+    this.cache.balance = { lifetime: 10000 };
 
-    if (token === 'ETH') {
-      this.reliabilityCoef = reliabilityCoefEth;
-      this.cache.lastBlock = { lifetime: 10000 };
-      this.account.keyPair = api.eth.keys(config.passPhrase);
-      this.account.address = this.account.keyPair.address;
-      this.account.privateKey = this.account.keyPair.privateKey;
-      eth.accounts.wallet.add(this.account.privateKey);
-      eth.defaultAccount = this.account.address;
-      eth.defaultBlock = 'latest';
-
-      this.decimals = 18;
-      this.unit = 'ether';
-
-      this.updateGasPrice().then(() => {
-        log.log(`Estimate ${this.token} gas price: ${this.gasPrice ? this.fromSat(this.gasPrice).toFixed(9) + ' (' + ethUtils.fromWei(this.gasPrice, 'Gwei') + ' gwei)' : 'unable to calculate'}`);
-        log.log(`Estimate ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`);
-      });
-
-      setInterval(() => {
-        this.updateGasPrice();
-      }, updateGasPriceInterval);
+    if (ethInstance) {
+      this.initToken(token, ethInstance);
     } else {
-      this.reliabilityCoef = reliabilityCoefErc20;
-      this.reliabilityCoefFromEth = reliabilityCoefErc20 / reliabilityCoefEth;
-      this.erc20model = erc20models[token];
-      this.contract = new eth.Contract(abiArray, this.erc20model.sc, { from: this.account.address });
-
-      const unitMap = ethUtils.unitMap;
-      const multiplier = '1'.padEnd(this.erc20model.decimals + 1, '0');
-      this.unit = Object.keys(unitMap).find((k) => unitMap[k] === multiplier);
-      this.decimals = this.erc20model.decimals;
-
-      if (!this.unit) {
-        throw String(`No conversion unit found for ${this.token}, decimals: ${this.erc20model.decimals}. Check erc20_models.`);
-      }
+      this.initEther();
     }
-
-    setTimeout(() => this.getBalance().then((balance) => log.log(`Initial ${this.token} balance: ${utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'}`)), 1000);
   }
 
   /**
-   * Returns estimate Tx fee in ETH for regular or contract Tx
-   * @return {Number}
+   * Sets up the ETH adapter: provider, wallet and gas price tracking.
+   *
+   * @private
+   */
+  initEther() {
+    this.provider = createProvider(config.node_ETH);
+    this.pendingNodeIndex = 0;
+    this.pendingProvider = this.createPendingProvider();
+    this.pendingFilterId = undefined;
+
+    const keys = eth.keys(config.passPhrase);
+
+    this.account.address = keys.address;
+    this.account.privateKey = keys.privateKey;
+    // ETH and every ERC-20 payout share one nonce sequence, so the signer must serialize
+    // sends across the whole wallet rather than asking the provider for a fresh pending nonce
+    // on every call.
+    this.wallet = new ethers.NonceManager(new ethers.Wallet(keys.privateKey, this.provider));
+    /**
+     * Set when a send ends with an uncertain outcome; see {@link reconcileSendBarrier}.
+     *
+     * @type {{reason: string, nonce: number|undefined, since: number, lastCheckAt: number, unusedChecks: number}|undefined}
+     */
+    this.sendBarrier = undefined;
+    /** One provider per node: reconciliation must hear from every node, not the first to answer. */
+    this.nodeProviders = config.node_ETH.map(
+      (url) => new ethers.JsonRpcProvider(url, undefined, { staticNetwork: MAINNET }),
+    );
+
+    this.decimals = 18;
+    this.reliabilityCoef = RELIABILITY_COEF_ETH;
+    /** Gas price in wei, as a bigint. Refreshed by {@link startGasPriceUpdates}. */
+    this.gasPrice = 0n;
+
+    this.cache.lastBlock = { lifetime: 10000 };
+  }
+
+  createPendingProvider() {
+    return createPendingJsonRpcProvider(config.node_ETH[this.pendingNodeIndex]);
+  }
+
+  /**
+   * Sets up an ERC-20 adapter on top of the ETH adapter.
+   *
+   * @private
+   * @param {string} token Token symbol
+   * @param {EthCoin} ethInstance The ETH adapter
+   * @throws {Error} When the token is not described in `erc20_models.js`
+   */
+  initToken(token, ethInstance) {
+    const model = erc20models[token];
+
+    if (!model) {
+      throw new Error(`No ERC-20 model found for ${token}. Add it to helpers/cryptos/erc20_models.js.`);
+    }
+
+    this.ethInstance = ethInstance;
+    this.provider = ethInstance.provider;
+    this.wallet = ethInstance.wallet;
+    this.account = ethInstance.account;
+
+    this.model = model;
+    this.decimals = model.decimals;
+    this.reliabilityCoef = RELIABILITY_COEF_ERC20;
+    this.contract = new ethers.Contract(model.sc, ERC20_ABI, this.wallet);
+  }
+
+  /**
+   * Current gas price, in wei.
+   *
+   * ERC-20 tokens read it from the ETH adapter, which is the only one tracking it.
+   *
+   * @returns {bigint}
+   */
+  get currentGasPrice() {
+    return this.ethInstance ? this.ethInstance.gasPrice : this.gasPrice;
+  }
+
+  /**
+   * Estimated transfer fee, in ETH.
+   *
+   * The fee is always paid in ETH, including for ERC-20 transfers.
+   *
+   * @returns {number}
    */
   get FEE() {
+    const gasPrice = this.currentGasPrice;
+
+    if (!gasPrice) {
+      return 0;
+    }
+
+    const feeInEther = Number(ethers.formatEther(gasPrice * BigInt(this.gasLimit)));
+
+    return Number((feeInEther * this.reliabilityCoef).toFixed(constants.PRECISION_DECIMALS));
+  }
+
+  /**
+   * Checks that an address is a valid Ethereum address.
+   *
+   * @param {string} address Address to validate
+   * @returns {boolean}
+   */
+  isValidAddress(address) {
+    return eth.isValidAddress(address);
+  }
+
+  /**
+   * Converts the smallest unit to the base unit, for example wei to ETH, or 15000000 to 15 USDT.
+   *
+   * @param {bigint|string|number} value Amount in the smallest unit
+   * @returns {number|undefined}
+   */
+  fromSat(value) {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+
     try {
-      return +(+ethUtils.fromWei(String(+this.gasPrice * this.gasLimit)) * this.reliabilityCoef)
-          .toFixed(constants.PRECISION_DECIMALS);
-    } catch (e) {
-      log.warn(`Error while calculating Tx fee for ${this.token} in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
+      return Number(ethers.formatUnits(BigInt(value), this.decimals));
+    } catch (error) {
+      log.warn(`Error while converting fromSat(${value}) for ${this.token}: ${error}`);
+
+      return undefined;
     }
   }
 
   /**
-   * Caches gas price in wei. For ETH only, ERC20 tokens don't call it.
-   * @return {undefined} Nothing to return. Store this.gasPrice
+   * Converts the base unit to the smallest unit, for example ETH to wei, or 15.123456 USDT to 15123456.
+   *
+   * @param {string|number} value Amount in the base unit
+   * @returns {bigint|undefined}
    */
-  updateGasPrice() {
-    return new Promise((resolve) => {
-      eth.getGasPrice().then((price) => {
-        if (price) {
-          this.gasPrice = price;
-        } else {
-          log.warn(`Failed to get Ether gas price in updateGasPrice() of ${utils.getModuleName(module.id)} module. Received value: ` + price);
-        }
-        resolve();
-      }).catch((e) => {
-        log.warn(`Error while getting Ether gas price in updateGasPrice() of ${utils.getModuleName(module.id)} module. Error: ` + e);
-        resolve();
-      });
-    });
+  toSat(value) {
+    try {
+      // Values beyond the token's precision cannot be represented on-chain;
+      // fixing the string first keeps parseUnits from throwing on them.
+      return ethers.parseUnits(Number(value).toFixed(this.decimals), this.decimals);
+    } catch (error) {
+      log.warn(`Error while converting toSat(${value}) for ${this.token}: ${error}`);
+
+      return undefined;
+    }
   }
 
   /**
-   * Returns last block of Ethereum blockchain from cache, if it's up to date.
-   * If not, makes an API request and updates cached data.
-   * ERC20 tokens redirects to ETH instance.
-   * @return {Object} or undefined, if unable to get block info
+   * Refreshes the cached gas price. Only the ETH adapter tracks it.
+   *
+   * @returns {Promise<void>}
    */
-  getLastBlock() {
+  async updateGasPrice() {
+    try {
+      const feeData = await this.provider.getFeeData();
+
+      if (feeData.gasPrice) {
+        this.gasPrice = feeData.gasPrice;
+      } else {
+        log.warn(`Failed to get the Ether gas price in updateGasPrice(). Received: ${feeData.gasPrice}`);
+      }
+    } catch (error) {
+      log.warn(`Error while getting the Ether gas price in updateGasPrice(). ${error}`);
+    }
+  }
+
+  /**
+   * Starts refreshing the gas price in the background.
+   *
+   * @returns {Promise<void>}
+   */
+  async startGasPriceUpdates() {
+    await this.updateGasPrice();
+
+    log.log(
+      `Estimated ${this.token} gas price: ${
+        this.gasPrice ? `${ethers.formatUnits(this.gasPrice, 'gwei')} gwei` : 'unable to calculate'
+      }`,
+    );
+    log.log(
+      `Estimated ${this.token} Tx fee: ${this.FEE ? this.FEE.toFixed(constants.PRINT_DECIMALS) : 'unable to calculate'}`,
+    );
+
+    this.gasPriceInterval = setInterval(() => {
+      void this.updateGasPrice();
+    }, UPDATE_GAS_PRICE_INTERVAL);
+
+    this.gasPriceInterval.unref?.();
+  }
+
+  /**
+   * Returns the latest block, from cache when it is fresh.
+   *
+   * @returns {Promise<object|null|undefined>}
+   */
+  async getLastBlock() {
+    if (this.ethInstance) {
+      return this.ethInstance.getLastBlock();
+    }
+
     const cached = this.cache.getData('lastBlock', true);
+
     if (cached) {
       return cached;
     }
-    return new Promise((resolve) => {
-      eth.getBlock('latest').then((block) => {
-        if (block) {
-          this.cache.cacheData('lastBlock', block);
-        } else {
-          log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + block);
-        }
-        resolve(block);
-      }).catch((e) => {
-        log.warn(`Error while getting last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Error: ` + e);
-        resolve();
-      });
-    });
+
+    try {
+      const block = await this.provider.getBlock('latest');
+
+      if (block) {
+        this.cache.cacheData('lastBlock', block);
+      }
+
+      return block;
+    } catch (error) {
+      log.warn(`Error while getting the last block in getLastBlock() for ${this.token}. ${error}`);
+
+      return undefined;
+    }
   }
 
   /**
-   * Returns last block height of Ethereum blockchain.
-   * ERC20 tokens redirects to ETH instance.
-   * @return {Number} or undefined, if unable to get block info
+   * Returns the latest block height.
+   *
+   * @returns {Promise<number|undefined>}
    */
   async getLastBlockHeight() {
     const block = await this.getLastBlock();
+
     return block ? block.number : undefined;
   }
 
   /**
-   * Converts amount in sat to token
-   * 15000000 -> 15 USDT
-   * @param {String|Number} satValue Amount in sat
-   * @return {Number} Amount in token
-   */
-  fromSat(satValue) {
-    try {
-      return +ethUtils.fromWei(String(satValue), this.unit);
-    } catch (e) {
-      log.warn(`Error while converting fromSat(${satValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Converts amount in token to sat/wei
-   * 15.123456 USDT -> 15123456
-   * 15.12345678 USDT -> 15123457
-   * @param {String|Number} tokenValue Amount in token
-   * @return {String} Amount in sat
-   */
-  toSat(tokenValue) {
-    try {
-      tokenValue = (+tokenValue).toFixed(this.decimals);
-      return ethUtils.toWei(tokenValue, this.unit);
-    } catch (e) {
-      log.warn(`Error while converting toSat(${tokenValue}) for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Returns ETH or ERC20 balance from cache, if it's up to date. If not, makes an API request and updates cached data.
-   * Cache stores balance in wei (string)
-   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   * Returns the bot's balance, from cache when it is fresh.
+   *
+   * @returns {Promise<number|undefined>} Balance in ETH or in the token; a stale cached value on failure
    */
   async getBalance() {
+    const cached = this.cache.getData('balance', true);
+
+    if (cached !== undefined) {
+      return this.fromSat(cached);
+    }
+
     try {
+      const balance = this.contract
+        ? await this.contract.balanceOf(this.account.address)
+        : await this.provider.getBalance(this.account.address);
 
-      const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a wei string
-        return this.fromSat(cached);
-      }
-      let balance;
-      if (this.contract) {
-        balance = await this.contract.methods.balanceOf(this.account.address).call();
-      } else {
-        balance = await eth.getBalance(this.account.address);
-      }
-      if (balance !== undefined) {
-        this.cache.cacheData('balance', balance);
-        return this.fromSat(balance);
-      } else {
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.`);
-        return this.fromSat(this.cache.getData('balance', false));
-      }
+      // Cached as a decimal string: a bigint does not survive a JSON round trip.
+      this.cache.cacheData('balance', balance.toString());
 
-    } catch (e) {
-      log.warn(`Error while getting balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+      return this.fromSat(balance);
+    } catch (error) {
+      log.warn(
+        `Error while getting the balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ${error}`,
+      );
+
+      return this.fromSat(this.cache.getData('balance', false));
     }
   }
 
   /**
-   * Returns balance ETH or ERC20 balance from cache. It may be outdated.
-   * @return {Number} cached value; it may be undefined
+   * Returns the cached balance, which may be outdated.
+   *
+   * @returns {number|undefined}
    */
   get balance() {
-    try {
-      return this.fromSat(this.cache.getData('balance', false));
-    } catch (e) {
-      log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
+    return this.fromSat(this.cache.getData('balance', false));
   }
 
   /**
-   * Updates ETH or ERC20 balance in cache. Useful when we don't want to wait for network update.
-   * @param {Number} value New balance in ETH or token
+   * Updates the cached balance.
+   *
+   * @param {number} value New balance, in ETH or in the token
    */
   set balance(value) {
-    try {
-      if (utils.isPositiveOrZeroNumber(value)) {
-        this.cache.cacheData('balance', this.toSat(value));
-      }
-    } catch (e) {
-      log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    if (utils.isPositiveOrZeroNumber(value)) {
+      this.cache.cacheData('balance', this.toSat(value)?.toString());
     }
   }
 
   /**
-   * Returns block details from the blockchain
-   * @param {String} blockHashOrBlockNumber Block ID or its height to fetch
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): timestamp
-   * getBlock doesn't provide confirmations (calc it from height)
+   * Looks up an ERC-20 model by contract address.
+   *
+   * @param {string} [contract] Contract address
+   * @returns {{decimals: number, sc: string, token: string}|undefined}
    */
-  getBlock(blockHashOrBlockNumber) {
-    return new Promise((resolve) => {
-      eth.getBlock(blockHashOrBlockNumber, false, (error, block) => {
-        if (error || !block) {
-          log.warn(`Unable to get block ${blockHashOrBlockNumber} info for ${this.token} in getBlock() of ${utils.getModuleName(module.id)} module. ` + error);
-          resolve(null);
-        } else {
-          resolve({
-            height: block.number,
-            blockId: block.hash,
-            hash: block.hash,
-            timestamp: block.timestamp * 1000,
-          });
-        }
-      }).catch((e) => {
-        // Duplicate of error
-      });
-    });
+  getErc20token(contract) {
+    if (!contract) {
+      return undefined;
+    }
+
+    return Object.values(erc20models).find((model) => utils.isStringEqualCI(model.sc, contract));
   }
 
   /**
-   * Returns Tx receipt and some details from the blockchain
-   * Internal for eth_utils method
-   * @param {String} hash Tx ID to fetch
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount (ERC20 only)
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
-   * status, confirmations || height
-   * Not used, additional info: hash (already known), blockId, logs, gasUsed, contract (ERC20)
-   * getTransactionReceipt doesn't provide amount (ETH), input (ERC20), gasPrice, nonce, confirmations (calc it from height)
-   */
-  getTransactionReceipt(hash) {
-    return new Promise((resolve) => {
-      eth.getTransactionReceipt(hash, (error, receipt) => {
-        if (error || !receipt) {
-          log.warn(`Unable to get Tx ${hash} receipt for ${this.token} in getTransactionReceipt() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
-          resolve(null);
-        } else {
-          resolve(this.formTxUsingReceiptOrEthTx(receipt));
-        }
-      }).catch((e) => {
-        // Duplicate of error
-      });
-    });
-  }
-
-  /**
-   * Returns Tx details from the blockchain
-   * Internal for eth_utils method
-   * @param {String} hash Tx ID to fetch
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
-   * confirmations || height
-   * Not used, additional info: hash (already known), blockId, gasPrice, contract (ERC20), nonce
-   * getTransactionReceipt doesn't provide status, gasUsed, confirmations (calc it from height)
-   */
-  getTransactionDetails(hash) {
-    return new Promise((resolve) => {
-      eth.getTransaction(hash, (error, txDetails) => {
-        if (error || !txDetails) {
-          log.warn(`Unable to get Tx ${hash} details for ${this.token} in getTransactionDetails() of ${utils.getModuleName(module.id)} module. It's expected, if the Tx is new. ` + error);
-          resolve(null);
-        } else {
-          resolve(this.formTxUsingReceiptOrEthTx(txDetails));
-        }
-      }).catch((e) => {
-        // Duplicate of error
-      });
-    });
-  }
-
-  /**
-   * Integrates getTransactionReceipt(), getTransactionDetails(), getBlock() to fetch all available info from the blockchain
-   * It's a common method for every crypto and used in other modules to get Tx info in Exchanger's format
-   * @param {String} hash Tx ID to fetch
-   * @return {Object}
+   * Fetches a transaction, its receipt and its block, and maps them to the bot's common shape.
+   *
+   * The receipt carries the success status and the gas actually used; the transaction
+   * carries the value, the calldata and the nonce; the block carries the timestamp.
+   *
+   * @param {string} hash Transaction hash
+   * @returns {Promise<object|undefined>} Transaction in the bot's common shape, or `undefined` when it is not found
    */
   async getTransaction(hash) {
-    let txDetails; let blockInfo; let tx;
-
-    const txReceipt = await this.getTransactionReceipt(hash);
-    if (txReceipt) {
-      tx = txReceipt;
-
-      txDetails = await this.getTransactionDetails(hash);
-      if (txDetails) {
-        tx = { ...tx, ...txDetails };
-
-        if (tx.blockId) {
-          blockInfo = await this.getBlock(tx.blockId);
-          if (blockInfo) {
-            tx.timestamp = blockInfo.timestamp;
-          }
-        }
-      }
-    }
-
-    if (tx) {
-      log.log(`Checking getTransaction(): ${this.formTxMessage(tx)}.`);
-    }
-
-    return tx;
-  }
-
-  async send(params) {
-    params.try = params.try || 1;
-    const tryString = ` (try number ${params.try})`;
-
-    const gas = Math.round(this.gasLimit * this.reliabilityCoef * params.try);
+    let receipt;
+    let tx;
 
     try {
-      const txParams = {
-        // nonce: this.currentNonce++, // set as default
-        // gasPrice: this.gasPrice, // (deprecated after London hardfork)
-        // maxFeePerGas // set as default
-        // maxPriorityFeePerGas // set as default
-        gas,
-      };
+      [receipt, tx] = await Promise.all([
+        this.provider.getTransactionReceipt(hash),
+        this.provider.getTransaction(hash),
+      ]);
+    } catch (error) {
+      log.warn(`Unable to get Tx ${hash} for ${this.token}. This is expected while the Tx is new. ${error}`);
 
-      if (this.contract) {
-        txParams.value = '0x0';
-        txParams.to = this.erc20model.sc;
-        txParams.data = this.contract.methods.transfer(params.address, this.toSat(params.value)).encodeABI();
-      } else {
-        txParams.value = this.toSat(params.value);
-        txParams.to = params.address;
-      }
-
-      return new Promise((resolve) => {
-        eth.sendTransaction(txParams)
-            .on('transactionHash', (hash) => {
-              log.log(`Formed Tx to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString}, Tx hash: ${hash}.`);
-              resolve({
-                success: true,
-                hash,
-              });
-            })
-            .on('receipt', (receipt) => {
-              log.log(`Got Tx ${receipt.transactionHash} receipt, ${params.value} ${this.token} to ${params.address}: ${this.formTxMessage(this.formTxUsingReceiptOrEthTx(receipt))}.`);
-            })
-            .on('confirmation', (confirmationNumber, receipt) => {
-              if (confirmationNumber === 0) {
-                log.log(`Got the first confirmation for ${receipt.transactionHash} Tx, ${params.value} ${this.token} to ${params.address}. Tx receipt: ${this.formTxMessage(this.formTxUsingReceiptOrEthTx(receipt))}.`);
-              }
-            })
-            .on('error', (e, receipt) => { // If out of gas error, the second parameter is the receipt
-              if (!e.toString().includes('Failed to check for transaction receipt')) {
-                // Known bug that after Tx sent successfully, this error occurred anyway https://github.com/ethereum/web3.js/issues/3145
-                // With "web3-eth": "^1.6.0", still get it
-                log.error(`Failed to send ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}. ` + e);
-                resolve({
-                  success: false,
-                  error: e.toString(),
-                });
-              }
-            }).catch((e) => {
-            // Duplicates on-error
-            });
-      });
-    } catch (e) {
-      log.warn(`Error while sending ${params.value} ${this.token} to ${params.address} with gas limit of ${gas}${tryString} in send() of ${utils.getModuleName(module.id)} module. Error: ` + e);
-
-      return {
-        success: false,
-        error: e.toString(),
-      };
+      return undefined;
     }
-  }
 
-  getErc20token(contract) {
-    let token;
+    if (!receipt && !tx) {
+      return undefined;
+    }
 
-    Object.keys(erc20models).forEach((t) => {
-      if (utils.isStringEqualCI(erc20models[t].sc, contract)) {
-        token = erc20models[t];
+    const formedTx = this.formTx(receipt, tx);
+
+    if (formedTx.blockId) {
+      try {
+        const block = await this.provider.getBlock(formedTx.blockId);
+
+        if (block) {
+          formedTx.timestamp = block.timestamp * 1000;
+        }
+      } catch (error) {
+        log.warn(`Unable to get block ${formedTx.blockId} for ${this.token}. ${error}`);
       }
-    });
+    }
 
-    return token;
+    log.log(`${this.token} Tx status: ${this.formTxMessage(formedTx)}.`);
+
+    return formedTx;
   }
 
   /**
-   * Builds tx info using Tx Receipt or Eth Tx info
-   * @param {Object} receiptOrEthTx Tx Receipt or Eth Tx info
-   * @return {String} Tx info in Exchanger's format
+   * Returns new pending ETH and known ERC-20 transfers to the bot.
+   *
+   * JSON-RPC pending filters report only hashes observed after the filter is
+   * installed, which gives the watcher a real observation boundary without
+   * scanning or trusting the claimant's transaction hash.
+   *
+   * @returns {Promise<object[]|undefined>}
    */
-  formTxUsingReceiptOrEthTx(receiptOrEthTx) {
-    const tx = {
-      status: receiptOrEthTx.status, // receipt only
-      height: receiptOrEthTx.blockNumber,
-      blockId: receiptOrEthTx.blockHash,
-      hash: receiptOrEthTx.transactionHash || receiptOrEthTx.hash, // differs for receipt and eth-tx
-      senderId: receiptOrEthTx.from,
-      recipientId: receiptOrEthTx.to,
-      confirmations: undefined, // we calc confirmations from height in the checker module
-      gasUsed: receiptOrEthTx.gasUsed, // to calculate Tx fee; receipt only
-      gasPrice: receiptOrEthTx.gasPrice, // to calculate Tx fee; eth-tx only
-      nonce: receiptOrEthTx.nonce, // eth-tx only
+  async getPendingIncomingTransactions() {
+    try {
+      if (!this.pendingFilterId) {
+        try {
+          // Current Geth versions can return full pending transactions. This keeps
+          // a five-second poll to one RPC call instead of one call per mempool hash.
+          this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', [true]);
+        } catch {
+          // Older clients implement the standard hash-only form. Keep it as a
+          // bounded compatibility fallback rather than requiring a specific Geth.
+          this.pendingFilterId = await this.pendingProvider.send('eth_newPendingTransactionFilter', []);
+        }
+
+        return [];
+      }
+
+      const changes = await this.pendingProvider.send('eth_getFilterChanges', [this.pendingFilterId]);
+
+      if (!Array.isArray(changes)) {
+        return undefined;
+      }
+
+      const hasFullTransactions = changes.every((tx) => tx && typeof tx === 'object');
+      const workLimit = hasFullTransactions
+        ? constants.DEPOSIT_WATCH_MAX_EVM_CHANGES
+        : constants.DEPOSIT_WATCH_MAX_EVM_HASH_LOOKUPS;
+
+      if (changes.length > workLimit) {
+        // The changes are consumed now, so a deposit among them never gets a trustworthy
+        // first-seen record. Failing the poll makes the watcher treat the gap as such.
+        throw new Error(
+          `the pending filter returned ${changes.length} changes, above the limit of ${workLimit} for ${hasFullTransactions ? 'full transactions' : 'hash lookups'}`,
+        );
+      }
+
+      let transactions;
+
+      if (hasFullTransactions) {
+        transactions = changes
+          .filter((tx) => utils.isStringEqualCI(tx.to, this.account.address) || Boolean(this.getErc20token(tx.to)))
+          .map((tx) => this.formTx(null, this.normalizePendingRpcTransaction(tx)));
+      } else {
+        transactions = [];
+
+        for (let index = 0; index < changes.length; index += constants.DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY) {
+          const batch = changes.slice(index, index + constants.DEPOSIT_WATCH_EVM_FETCH_CONCURRENCY);
+          const fetched = await Promise.all(
+            batch.map(async (hash) => {
+              const tx = await this.pendingProvider.getTransaction(hash);
+
+              return tx ? this.formTx(null, tx) : undefined;
+            }),
+          );
+
+          transactions.push(...fetched);
+        }
+      }
+
+      return transactions.filter((tx) => tx && utils.isStringEqualCI(tx.recipientId, this.account.address));
+    } catch (error) {
+      // Start over on the next node with a fresh filter. The watcher reports the failure.
+      this.pendingFilterId = undefined;
+      this.pendingNodeIndex = (this.pendingNodeIndex + 1) % config.node_ETH.length;
+      this.pendingProvider = this.createPendingProvider();
+
+      throw new Error(`Unable to read the Ethereum pending transaction filter: ${error.message ?? error}`, {
+        cause: error,
+      });
+    }
+  }
+
+  /**
+   * Converts a full transaction returned directly by Geth into the fields used by `formTx`.
+   *
+   * @param {object} tx Raw JSON-RPC transaction
+   * @returns {object}
+   */
+  normalizePendingRpcTransaction(tx) {
+    return {
+      hash: tx.hash,
+      blockNumber: tx.blockNumber === null || tx.blockNumber === undefined ? undefined : Number(tx.blockNumber),
+      blockHash: tx.blockHash ?? undefined,
+      from: tx.from,
+      to: tx.to,
+      value: tx.value === null || tx.value === undefined ? 0n : BigInt(tx.value),
+      gasPrice: tx.gasPrice === null || tx.gasPrice === undefined ? undefined : BigInt(tx.gasPrice),
+      nonce: tx.nonce === null || tx.nonce === undefined ? undefined : Number(tx.nonce),
+      data: tx.input ?? tx.data ?? '0x',
+    };
+  }
+
+  /**
+   * Merges a receipt and a transaction into the bot's common shape.
+   *
+   * An ERC-20 transfer is recognized from the `Transfer` event in the receipt, and
+   * — when the receipt is not available yet — from the transaction's calldata. The
+   * amount is converted with the decimals of the token that was actually moved,
+   * which is not necessarily this adapter's token.
+   *
+   * @param {object|null} receipt Transaction receipt
+   * @param {object|null} tx Transaction
+   * @returns {object} Transaction in the bot's common shape
+   */
+  formTx(receipt, tx) {
+    const formed = {
+      hash: receipt?.hash ?? tx?.hash,
+      height: receipt?.blockNumber ?? tx?.blockNumber ?? undefined,
+      blockId: receipt?.blockHash ?? tx?.blockHash ?? undefined,
+      senderId: receipt?.from ?? tx?.from,
+      recipientId: receipt?.to ?? tx?.to,
+      // Confirmations are derived from the height by the checker modules.
+      confirmations: undefined,
+      gasUsed: receipt ? Number(receipt.gasUsed) : undefined,
+      gasPrice: receipt?.gasPrice ?? tx?.gasPrice,
+      nonce: tx?.nonce,
     };
 
-    // An eth-tx includes value of ETH
-    if (receiptOrEthTx.value) {
-      tx.amount = this.fromSat(receiptOrEthTx.value);
+    if (receipt?.status !== null && receipt?.status !== undefined) {
+      formed.status = receipt.status === 1;
     }
 
-    // A receipt includes logs for ERC20 tokens
-    if (receiptOrEthTx.logs?.[0]?.topics?.[2]?.length > 20) {
-      // it is a ERC20 token transfer
-      tx.logs0 = receiptOrEthTx.logs[0];
-      tx.recipientId = receiptOrEthTx.logs[0].topics[2].replace('000000000000000000000000', '');
-      tx.contract = receiptOrEthTx.to;
-      tx.amount = +receiptOrEthTx.logs[0].data; // from like '0x000...069cd3a5c0' to 28400920000
-      tx.amount = this.fromSat(tx.amount);
+    if (tx?.value !== undefined && tx.value !== 0n) {
+      formed.amount = Number(ethers.formatEther(tx.value));
     }
 
-    // An eth-tx includes input for ERC20 tokens
-    if (receiptOrEthTx.input?.length === 138) {
-      // it is a ERC20 token transfer
-      // Correct contract transfer transaction represents '0x' + 4 bytes 'a9059cbb' +
-      // + 32 bytes (64 chars) for contract address and 32 bytes for its value
-      // 0xa9059cbb000000000000000000000000651a2d48211428be3ffecea7a9aceeef250b019f..
-      // ..000000000000000000000000000000000000000000000000000000069cd3a5c0
-      tx.input = receiptOrEthTx.input;
-      tx.recipientId = '0x' + receiptOrEthTx.input.substring(10, 74).replace('000000000000000000000000', '');
-      tx.contract = receiptOrEthTx.to;
-      tx.amount = +('0x' + receiptOrEthTx.input.substring(74));
-      tx.amount = this.fromSat(tx.amount);
+    const transfer = this.parseErc20Transfer(receipt, tx);
+
+    if (transfer) {
+      formed.contract = transfer.contract;
+      formed.recipientId = transfer.to;
+      formed.senderId = transfer.from ?? formed.senderId;
+      formed.amount = transfer.amount;
     }
 
-    // Remove undefined fields not to loose date when merging receipt and eth-tx
-    Object.keys(tx).forEach((key) => tx[key] === undefined && delete tx[key]);
+    for (const key of Object.keys(formed)) {
+      if (formed[key] === undefined) {
+        delete formed[key];
+      }
+    }
 
-    return tx;
+    return formed;
   }
 
   /**
-   * Creates info string about Transaction
-   * Sample: Tx 0xb831fc54b5113b9726d5b55dcfe531da6761e194b2d9ab2bafbde5f5dc93e549 for 100 USDT
-   *  from 0xFbaC15584dc40A97942BD9720D2c4645736CC5d9 to Me via USDT contract is accepted
-   *  and included at 17975212 blockchain height (2023-08-23 07:06 — 1692767195000), 46097 gas used,
-   *  gas price is 13461439079, 0.000620531957224663 ETH fee, nonce — 3.
-   * @param {Object} tx Tx info in Exchanger's format
-   * @return {String}
+   * Extracts an ERC-20 transfer from a receipt or a transaction.
+   *
+   * @private
+   * @param {object|null} receipt Transaction receipt
+   * @param {object|null} tx Transaction
+   * @returns {{contract: string, from?: string, to: string, amount: number}|undefined}
    */
-  formTxMessage(tx) {
-    let token = this.getErc20token(tx.contract);
+  parseErc20Transfer(receipt, tx) {
+    for (const logEntry of receipt?.logs ?? []) {
+      const model = this.getErc20token(logEntry.address);
 
-    if (token) {
-      token = token.token;
-    } else {
-      token = tx.contract ? tx.contract : 'ETH';
+      if (!model) {
+        continue;
+      }
+
+      let parsed;
+
+      try {
+        parsed = erc20Interface.parseLog({ topics: [...logEntry.topics], data: logEntry.data });
+      } catch {
+        // Not an ERC-20 event the bot knows; other logs in the same receipt may still match.
+        continue;
+      }
+
+      if (parsed?.name === 'Transfer') {
+        return {
+          contract: logEntry.address,
+          from: parsed.args.from,
+          to: parsed.args.to,
+          amount: Number(ethers.formatUnits(parsed.args.value, model.decimals)),
+        };
+      }
     }
 
-    const status = tx.status ? ' is accepted' : tx.status === false ? ' is FAILED' : '';
+    // No receipt yet: fall back to the calldata of a pending contract call.
+    const model = this.getErc20token(tx?.to);
+
+    if (!model || !tx?.data || tx.data === '0x') {
+      return undefined;
+    }
+
+    try {
+      const parsed = erc20Interface.parseTransaction({ data: tx.data });
+
+      if (parsed?.name === 'transfer') {
+        return {
+          contract: tx.to,
+          to: parsed.args[0],
+          amount: Number(ethers.formatUnits(parsed.args[1], model.decimals)),
+        };
+      }
+    } catch {
+      // The call is not an ERC-20 transfer.
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Sends ETH or an ERC-20 token.
+   *
+   * Resolves as soon as the transaction is broadcast and its hash is known; the
+   * result is checked later by `sentTxChecker`, which is what lets a payout survive
+   * a restart.
+   *
+   * @param {object} params Transfer parameters
+   * @param {string} params.address Recipient's address
+   * @param {number} params.value Amount, in ETH or in the token
+   * @param {number} [params.try] Attempt number; each retry raises the gas limit
+   * @returns {Promise<{success: boolean, hash?: string, error?: string}>}
+   */
+  /**
+   * Why EVM sends are paused, if they are.
+   *
+   * Workers check it before marking a payment as in flight, so a paused signer never
+   * turns into a stream of attempts and escalations. The check is also what drives
+   * reconciliation while payments are queued, since a skipped payment never reaches
+   * `send()`.
+   *
+   * @returns {Promise<string|undefined>}
+   */
+  async getSendBlocker() {
+    const coordinator = getSendCoordinator(this);
+
+    if (!coordinator.sendBarrier) {
+      return undefined;
+    }
+
+    return withSendLock(this, async () => {
+      await coordinator.reconcileSendBarrier();
+
+      return coordinator.sendBarrier?.reason;
+    });
+  }
+
+  /**
+   * Sends ETH, or the ERC-20 token this adapter represents.
+   *
+   * @param {object} params Transfer parameters
+   * @param {string} params.address Recipient address
+   * @param {number} params.value Amount, in the base unit
+   * @param {number} [params.try] Attempt number, which raises the gas limit on retries
+   * @returns {Promise<{success: boolean, hash?: string, error?: string, isAmbiguous?: boolean, isDeferred?: boolean}>}
+   */
+  async send(params) {
+    const { address, value } = params;
+    const attempt = params.try || 1;
+    const attemptInfo = ` (attempt ${attempt})`;
+    const gasLimit = Math.round(this.gasLimit * this.reliabilityCoef * attempt);
+
+    return withSendLock(this, async () => {
+      const coordinator = getSendCoordinator(this);
+
+      if (coordinator.sendBarrier) {
+        await coordinator.reconcileSendBarrier();
+      }
+
+      if (coordinator.sendBarrier) {
+        // Nothing was signed or broadcast, so this is a deferral rather than an uncertain
+        // outcome: the payment stays queued and is tried again on a later tick.
+        return { success: false, isDeferred: true, error: coordinator.sendBarrier.reason };
+      }
+
+      if (!this.isValidAddress(address)) {
+        const error = `'${address}' is not a valid Ethereum address`;
+
+        log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
+
+        return { success: false, error };
+      }
+
+      const amount = this.toSat(value);
+
+      if (amount === undefined) {
+        const error = `unable to convert ${value} ${this.token} to the token's smallest unit`;
+
+        log.error(`Refusing to send ${value} ${this.token}: ${error}.`);
+
+        return { success: false, error };
+      }
+
+      // The nonce this send is going to use. NonceManager hands out `pending + delta`,
+      // and nothing else can send while the lock is held, so this is exact. It is what
+      // lets a later reconciliation prove whether an uncertain send used it.
+      const nonce =
+        typeof coordinator.wallet.getNonce === 'function'
+          ? await coordinator.wallet.getNonce('pending').catch(() => undefined)
+          : undefined;
+
+      try {
+        const tx = this.contract
+          ? await this.contract.transfer(address, amount, { gasLimit })
+          : await this.wallet.sendTransaction({ to: address, value: amount, gasLimit });
+
+        log.log(
+          `Sent a Tx to transfer ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}, Tx hash: ${tx.hash}.`,
+        );
+
+        return { success: true, hash: tx.hash };
+      } catch (error) {
+        const message = getErrorMessage(error) || error.toString();
+
+        if (isDefinitePreBroadcastFailure(error)) {
+          coordinator.wallet.reset?.();
+
+          log.warn(
+            `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo} before broadcast. Reset the shared nonce state. ${message}`,
+          );
+
+          return { success: false, error: message };
+        }
+
+        // ethers throws both for a rejected transaction and for a transport failure after
+        // the transaction was submitted, and the two are not reliably distinguishable. The
+        // outcome is therefore unknown, and the caller must not retry on its own.
+        log.error(
+          `Failed to send ${value} ${this.token} to ${address} with a gas limit of ${gasLimit}${attemptInfo}. ${message}`,
+        );
+
+        coordinator.pauseSends(nonce, message);
+
+        return { success: false, isAmbiguous: true, error: coordinator.sendBarrier.reason };
+      }
+    });
+  }
+
+  /**
+   * Pauses every ETH and ERC-20 send after an uncertain outcome.
+   *
+   * If the uncertain transaction did not use its nonce, every later transaction would
+   * sit behind the gap and never be mined; if it did, sending again could pay twice.
+   * Sends stay paused until {@link reconcileSendBarrier} can tell which it was.
+   *
+   * @param {number|undefined} nonce Nonce of the uncertain send, when known
+   * @param {string} message Error that made the outcome uncertain
+   */
+  pauseSends(nonce, message) {
+    this.sendBarrier = {
+      reason: `A previous EVM send has an uncertain outcome${nonce === undefined ? '' : ` at nonce ${nonce}`}. Last error: ${message}`,
+      nonce,
+      since: utils.unix(),
+      lastCheckAt: 0,
+      unusedChecks: 0,
+    };
+
+    const resolution =
+      nonce === undefined
+        ? 'The nonce is unknown, so sends resume only after a restart. Before restarting, check the wallet in an explorer and wait until no transaction of it is pending.'
+        : 'Sends resume automatically once the network shows whether that nonce was used.';
+
+    notify(
+      `${config.notifyName} paused all ETH and ERC-20 sends: ${this.sendBarrier.reason}. Queued payouts and refunds stay queued. ${resolution} Wallet: _${this.account.address}_.`,
+      'warn',
+    );
+  }
+
+  /**
+   * Lifts the send pause once the network proves what happened to the uncertain nonce.
+   *
+   * - Mined: the confirmed nonce count moved past it. Whatever was sent with it is final.
+   * - Never used: for long enough, no node has reported a pending transaction with it.
+   *   The next send reuses the nonce, so even a late copy of the uncertain transaction
+   *   could not also be mined.
+   *
+   * While any node still reports a pending transaction with the nonce, sends stay paused.
+   * Checks are rate-limited, and any error keeps the pause in place.
+   *
+   * @returns {Promise<void>}
+   */
+  async reconcileSendBarrier() {
+    const barrier = this.sendBarrier;
+    const now = utils.unix();
+
+    if (!barrier || barrier.nonce === undefined || now - barrier.lastCheckAt < BARRIER_CHECK_INTERVAL) {
+      return;
+    }
+
+    barrier.lastCheckAt = now;
+
+    try {
+      const address = this.account.address;
+      const mined = await this.provider.getTransactionCount(address, 'latest');
+
+      if (mined > barrier.nonce) {
+        this.resumeSends(`nonce ${barrier.nonce} was mined`);
+
+        return;
+      }
+
+      const pendingCounts = await Promise.all(
+        this.nodeProviders.map((provider) => provider.getTransactionCount(address, 'pending')),
+      );
+
+      if (pendingCounts.some((count) => count > barrier.nonce)) {
+        barrier.unusedChecks = 0;
+
+        return;
+      }
+
+      barrier.unusedChecks += 1;
+
+      if (barrier.unusedChecks >= BARRIER_UNUSED_CHECKS && now - barrier.since >= BARRIER_UNUSED_AGE) {
+        this.resumeSends(`no node has a transaction with nonce ${barrier.nonce}, so it was never used`);
+      }
+    } catch (error) {
+      log.warn(`Unable to reconcile the paused EVM signer. Sends stay paused. ${error}`);
+    }
+  }
+
+  /**
+   * Lifts the send pause and re-reads the nonce from the network.
+   *
+   * @param {string} why What the reconciliation proved
+   */
+  resumeSends(why) {
+    this.sendBarrier = undefined;
+    this.wallet.reset?.();
+
+    notify(`${config.notifyName} resumed ETH and ERC-20 sends: ${why}.`, 'info');
+  }
+
+  /**
+   * Builds a human-readable one-line description of a transaction.
+   *
+   * @param {object} tx Transaction in the bot's common shape
+   * @returns {string}
+   */
+  formTxMessage(tx) {
+    const model = this.getErc20token(tx.contract);
+    const token = model ? model.token : (tx.contract ?? 'ETH');
+
+    const status = tx.status ? ' is accepted' : tx.status === false ? ' has FAILED' : '';
     const amount = tx.amount ? ` for ${tx.amount} ${token}` : '';
     const height = tx.height ? ` ${status ? 'and ' : ''}included at ${tx.height} blockchain height` : '';
     const time = tx.timestamp ? ` (${utils.formatDate(tx.timestamp).YYYY_MM_DD_hh_mm} — ${tx.timestamp})` : '';
-    const hash = tx.hash;
     const gasUsed = tx.gasUsed ? `, ${tx.gasUsed} gas used` : '';
     const gasPrice = tx.gasPrice ? `, gas price is ${tx.gasPrice}` : '';
-
-    let fee;
-    if (tx.gasUsed && tx.gasPrice) {
-      fee = +ethUtils.fromWei(String(+tx.gasUsed * +tx.gasPrice));
-    }
-    fee = fee ? `, ${fee} ETH fee` : '';
-
     const nonce = tx.nonce ? `, nonce — ${tx.nonce}` : '';
+    const contract = tx.contract ? ` via the ${token} contract` : '';
     const senderId = utils.isStringEqualCI(tx.senderId, this.account.address) ? 'Me' : tx.senderId;
     const recipientId = utils.isStringEqualCI(tx.recipientId, this.account.address) ? 'Me' : tx.recipientId;
-    const contract = tx.contract ? ` via ${token} contract` : '';
-    const message = `Tx ${hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`;
 
-    return message;
+    let fee = '';
+
+    if (tx.gasUsed && tx.gasPrice) {
+      fee = `, ${ethers.formatEther(BigInt(tx.gasUsed) * BigInt(tx.gasPrice))} ETH fee`;
+    }
+
+    return `Tx ${tx.hash}${amount} from ${senderId} to ${recipientId}${contract}${status}${height}${time}${gasUsed}${gasPrice}${fee}${nonce}`;
+  }
+
+  /**
+   * Logs the balance the bot starts with.
+   *
+   * @returns {Promise<void>}
+   */
+  async logInitialState() {
+    const balance = await this.getBalance();
+
+    log.log(
+      `Initial ${this.token} balance: ${
+        utils.isPositiveOrZeroNumber(balance) ? balance.toFixed(constants.PRINT_DECIMALS) : 'unable to receive'
+      }`,
+    );
   }
 };
-
-const abiArray = [{
-  'constant': true,
-  'inputs': [],
-  'name': 'name',
-  'outputs': [{
-    'name': '',
-    'type': 'string',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': false,
-  'inputs': [{
-    'name': '_spender',
-    'type': 'address',
-  }, {
-    'name': '_value',
-    'type': 'uint256',
-  }],
-  'name': 'approve',
-  'outputs': [{
-    'name': '',
-    'type': 'bool',
-  }],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [],
-  'name': 'totalSupply',
-  'outputs': [{
-    'name': '',
-    'type': 'uint256',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': false,
-  'inputs': [{
-    'name': '_from',
-    'type': 'address',
-  }, {
-    'name': '_to',
-    'type': 'address',
-  }, {
-    'name': '_value',
-    'type': 'uint256',
-  }],
-  'name': 'transferFrom',
-  'outputs': [{
-    'name': '',
-    'type': 'bool',
-  }],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [],
-  'name': 'INITIAL_SUPPLY',
-  'outputs': [{
-    'name': '',
-    'type': 'uint256',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [],
-  'name': 'decimals',
-  'outputs': [{
-    'name': '',
-    'type': 'uint8',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': false,
-  'inputs': [{
-    'name': '_spender',
-    'type': 'address',
-  }, {
-    'name': '_subtractedValue',
-    'type': 'uint256',
-  }],
-  'name': 'decreaseApproval',
-  'outputs': [{
-    'name': '',
-    'type': 'bool',
-  }],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [{
-    'name': '_owner',
-    'type': 'address',
-  }],
-  'name': 'balanceOf',
-  'outputs': [{
-    'name': 'balance',
-    'type': 'uint256',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [],
-  'name': 'symbol',
-  'outputs': [{
-    'name': '',
-    'type': 'string',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'constant': false,
-  'inputs': [{
-    'name': '_to',
-    'type': 'address',
-  }, {
-    'name': '_value',
-    'type': 'uint256',
-  }],
-  'name': 'transfer',
-  'outputs': [{
-    'name': '',
-    'type': 'bool',
-  }],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'function',
-}, {
-  'constant': false,
-  'inputs': [{
-    'name': '_spender',
-    'type': 'address',
-  }, {
-    'name': '_addedValue',
-    'type': 'uint256',
-  }],
-  'name': 'increaseApproval',
-  'outputs': [{
-    'name': '',
-    'type': 'bool',
-  }],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'function',
-}, {
-  'constant': true,
-  'inputs': [{
-    'name': '_owner',
-    'type': 'address',
-  }, {
-    'name': '_spender',
-    'type': 'address',
-  }],
-  'name': 'allowance',
-  'outputs': [{
-    'name': '',
-    'type': 'uint256',
-  }],
-  'payable': false,
-  'stateMutability': 'view',
-  'type': 'function',
-}, {
-  'inputs': [],
-  'payable': false,
-  'stateMutability': 'nonpayable',
-  'type': 'constructor',
-}, {
-  'anonymous': false,
-  'inputs': [{
-    'indexed': true,
-    'name': 'owner',
-    'type': 'address',
-  }, {
-    'indexed': true,
-    'name': 'spender',
-    'type': 'address',
-  }, {
-    'indexed': false,
-    'name': 'value',
-    'type': 'uint256',
-  }],
-  'name': 'Approval',
-  'type': 'event',
-}, {
-  'anonymous': false,
-  'inputs': [{
-    'indexed': true,
-    'name': 'from',
-    'type': 'address',
-  }, {
-    'indexed': true,
-    'name': 'to',
-    'type': 'address',
-  }, {
-    'indexed': false,
-    'name': 'value',
-    'type': 'uint256',
-  }],
-  'name': 'Transfer',
-  'type': 'event',
-}];

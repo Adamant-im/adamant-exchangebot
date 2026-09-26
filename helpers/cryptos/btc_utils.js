@@ -1,341 +1,305 @@
+const { btc } = require('adamant-api/coins/btc');
+
 const config = require('../../modules/configReader');
 const log = require('../log');
 const utils = require('../utils');
+const { NodeClient } = require('./nodeClient');
+const BtcBaseCoin = require('./btcBaseCoin');
 
-const btcNode = config.node_BTC[0]; // TODO: health check
-const axios = require('axios');
-const bitcoin = require('bitcoinjs-lib');
+/** How often the fee estimate is refreshed. */
+const UPDATE_FEE_RATE_INTERVAL = 60 * 1000;
 
-const updateFeeRateInterval = 60 * 1000; // Update fee rate every minute
+/**
+ * Assumed transaction size, in virtual bytes.
+ *
+ * The bot's transfers are P2PKH: roughly 181 vbytes per input and 34 per output,
+ * plus a 10-byte overhead. Three inputs and two outputs — the recipient and the
+ * change — cover the common case with room to spare.
+ */
+const ASSUMED_TX_VSIZE = 3 * 181 + 2 * 34 + 10;
 
-const btcBaseCoin = require('./btcBaseCoin');
-module.exports = class btcCoin extends btcBaseCoin {
+/** Fee used until the first estimate arrives, or when the node does not provide one, in BTC. */
+const FALLBACK_FEE = 0.0001;
 
+/** Outputs below this many satoshi are not relayed. */
+const DUST_THRESHOLD = 546;
+
+/**
+ * Bitcoin adapter.
+ *
+ * Talks to an Esplora-compatible node, the API the ADAMANT Bitcoin nodes expose.
+ */
+module.exports = class BtcCoin extends BtcBaseCoin {
+  /** @param {string} token Ticker, `BTC` */
   constructor(token) {
-    super(token);
+    super(token, btc, config.passPhrase);
+
+    this.client = new NodeClient(token, config.node_BTC);
+
     this.cache.balance = { lifetime: 60000 };
     this.cache.lastBlock = { lifetime: 180000 };
-    this.cache.fee = { lifetime: updateFeeRateInterval };
-    this.getFeeRate().then(() => {
-      log.log(`Estimate ${this.token} Tx fee: ${this.FEE.toFixed(this.decimals)}`);
-    });
-    setInterval(() => {
-      this.getFeeRate();
-    }, updateFeeRateInterval);
+    this.cache.fee = { lifetime: UPDATE_FEE_RATE_INTERVAL };
   }
 
-  /**
-   * Returns BTC decimals (precision)
-   * @override
-   * @return {Number}
-   */
+  /** @returns {number} */
   get decimals() {
     return 8;
   }
 
+  /** @returns {number} */
+  get dustThreshold() {
+    return DUST_THRESHOLD;
+  }
+
   /**
-   * Returns estimate tx fee for transfers in BTC
-   * @return {Number}
+   * Estimated transfer fee, in BTC.
+   *
+   * @returns {number}
    */
   get FEE() {
-    try {
-      const cached = this.cache.getData('fee', false);
-      if (cached) { // fee is a number in sat
-        return this.fromSat(cached);
-      } else {
-        return 0.0001; // default
-      }
-    } catch (e) {
-      log.warn(`Error while calculating Tx fee for ${this.token} in FEE() of ${utils.getModuleName(module.id)} module: ` + e);
-    }
+    const cached = this.cache.getData('fee', false);
+
+    return cached ? this.fromSat(cached) : FALLBACK_FEE;
   }
 
   /**
-   * Updates estimate tx fee in sat to cache
+   * Refreshes the cached fee estimate.
+   *
+   * @returns {Promise<void>}
    */
   async getFeeRate() {
-    try {
-      const feeRate = await requestBitcoin('/fee-estimates');
-      if (feeRate && feeRate['2']) {
-        // Estimated tx size is: ins * 180 + outs * 34 + 10 (https://news.bitcoin.com/how-to-calculate-bitcoin-transaction-fees-when-youre-in-a-hurry/)
-        // We assume that there're always 2 outputs: transfer target and the remains, and 3 inputs
-        const fee = Math.ceil((3 * 181 + 78) * feeRate['2']);
-        this.cache.cacheData('fee', fee);
-      } else {
-        const feeRateErrorMessage = feeRate && feeRate.errorMessage ? ' ' + feeRate.errorMessage : '';
-        log.warn(`Failed to get fee estimates in getFeeRate() for ${this.token} of ${utils.getModuleName(module.id)} module.${feeRateErrorMessage}`);
-      }
-    } catch (e) {
-      log.warn(`Error while getting fee estimates in getFeeRate() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    const feeEstimates = await this.client.request({ endpoint: '/fee-estimates', description: 'fee estimates' });
+    const satPerVbyte = feeEstimates?.['2'];
+
+    if (!utils.isPositiveNumber(satPerVbyte)) {
+      log.warn(
+        `Failed to get fee estimates for ${this.token} in getFeeRate() of ${utils.getModuleName(module.id)} module. Keeping the previous estimate.`,
+      );
+
+      return;
     }
+
+    this.cache.cacheData('fee', Math.ceil(ASSUMED_TX_VSIZE * satPerVbyte));
   }
 
   /**
-   * Returns balance in BTC from cache, if it's up to date. If not, makes an API request and updates cached data.
-   * @override
-   * @return {Number} or outdated cached value, if unable to fetch data; it may be undefined also
+   * Starts refreshing the fee estimate in the background.
+   *
+   * @returns {Promise<void>}
+   */
+  async startFeeUpdates() {
+    await this.getFeeRate();
+
+    log.log(`Estimated ${this.token} Tx fee: ${this.FEE.toFixed(this.decimals)}`);
+
+    this.feeInterval = setInterval(() => {
+      void this.getFeeRate();
+    }, UPDATE_FEE_RATE_INTERVAL);
+
+    this.feeInterval.unref?.();
+  }
+
+  /**
+   * Returns the bot's BTC balance, from cache when it is fresh.
+   *
+   * Unconfirmed movements are included: the change output of a payout the bot has
+   * just made is spendable, and counting only confirmed funds would make the bot
+   * believe it is out of money until the next block.
+   *
+   * @returns {Promise<number|undefined>} Balance in BTC; a stale cached value when the request fails
    */
   async getBalance() {
-    try {
+    const cached = this.cache.getData('balance', true);
 
-      const cached = this.cache.getData('balance', true);
-      if (cached) { // balance is a number in sat
-        return this.fromSat(cached);
-      }
-
-      let balance = await requestBitcoin(`/address/${this.address}`);
-      if (balance && balance.chain_stats) {
-        balance = balance.chain_stats.funded_txo_sum - balance.chain_stats.spent_txo_sum;
-        this.cache.cacheData('balance', balance);
-        return this.fromSat(balance);
-      } else {
-        const balanceErrorMessage = balance && balance.errorMessage ? ' ' + balance.errorMessage : '';
-        log.warn(`Failed to get balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning outdated cached balance.${balanceErrorMessage}`);
-        return this.fromSat(this.cache.getData('balance', false));
-      }
-
-    } catch (e) {
-      log.warn(`Error while getting balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
+    if (cached !== undefined) {
+      return this.fromSat(cached);
     }
+
+    const stats = await this.client.request({
+      endpoint: `/address/${this.address}`,
+      description: 'address balance',
+    });
+
+    if (stats?.chain_stats) {
+      const confirmed = stats.chain_stats.funded_txo_sum - stats.chain_stats.spent_txo_sum;
+      const unconfirmed = stats.mempool_stats
+        ? stats.mempool_stats.funded_txo_sum - stats.mempool_stats.spent_txo_sum
+        : 0;
+      const balance = confirmed + unconfirmed;
+
+      this.cache.cacheData('balance', balance);
+
+      return this.fromSat(balance);
+    }
+
+    log.warn(
+      `Failed to get the balance in getBalance() for ${this.token} of ${utils.getModuleName(module.id)} module; returning the outdated cached balance.`,
+    );
+
+    return this.fromSat(this.cache.getData('balance', false));
   }
 
   /**
-   * Returns balance in BTC from cache. It may be outdated.
-   * @override
-   * @return {Number} cached value; it may be undefined
+   * Returns the chain tip height, from cache when it is fresh.
+   *
+   * @returns {Promise<number|undefined>}
    */
-  get balance() {
-    try {
-      return this.fromSat(this.cache.getData('balance', false));
-    } catch (e) {
-      log.warn(`Error while getting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Updates BTC balance in cache. Useful when we don't want to wait for network update.
-   * @override
-   * @param {Number} value New balance in BTC
-   */
-  set balance(value) {
-    try {
-      if (utils.isPositiveOrZeroNumber(value)) {
-        this.cache.cacheData('balance', this.toSat(value));
-      }
-    } catch (e) {
-      log.warn(`Error setting balance in balance() for ${this.token} of ${utils.getModuleName(module.id)} module: ` + e);
-    }
-  }
-
-  /**
-   * Returns last block of BTC blockchain from cache, if it's up to date.
-   * If not, makes an API request and updates cached data.
-   * Used only for this.getLastBlockHeight()
-   * @override
-   * @return {Object} or undefined, if unable to get block info
-   */
-  getLastBlock() {
+  async getLastBlock() {
     const cached = this.cache.getData('lastBlock', true);
+
     if (cached) {
       return cached;
     }
-    return requestBitcoin('/blocks/tip/height').then((result) => {
-      if (utils.isPositiveNumber(result)) {
-        this.cache.cacheData('lastBlock', result);
-        return result;
-      } else {
-        log.warn(`Failed to get last block in getLastBlock() of ${utils.getModuleName(module.id)} module. Received value: ` + result);
-      }
-    });
+
+    const height = await this.client.request({ endpoint: '/blocks/tip/height', description: 'chain tip height' });
+
+    if (!utils.isPositiveNumber(height)) {
+      log.warn(
+        `Failed to get the last block in getLastBlock() for ${this.token} of ${utils.getModuleName(module.id)} module. Received: ${height}`,
+      );
+
+      return undefined;
+    }
+
+    this.cache.cacheData('lastBlock', height);
+
+    return height;
   }
 
   /**
-   * Returns last block height of BTC blockchain
-   * @override
-   * @return {Number} or undefined, if unable to get block info
-   */
-  async getLastBlockHeight() {
-    const block = await this.getLastBlock();
-    return block ? block : undefined;
-  }
-
-  /**
-   * Returns Tx status and details from the blockchain
-   * @override
-   * @param {String} txid Tx ID to fetch
-   * @return {Object}
-   * Used for income Tx security validation (deepExchangeValidator): senderId, recipientId, amount, timestamp
-   * Used for checking income Tx status (confirmationsCounter), exchange and send-back Tx status (sentTxChecker):
-   * status, confirmations || height
-   * Not used, additional info: hash (already known), blockId, fee, recipients, senders
+   * Fetches a transaction and maps it to the bot's common shape.
+   *
+   * @param {string} txid Transaction ID
+   * @param {boolean} [disableLogging] Do not log the result; used for bulk lookups
+   * @returns {Promise<object|undefined>}
    */
   async getTransaction(txid, disableLogging = false) {
-    return requestBitcoin(`/tx/${txid}`).then((result) => {
-      if (typeof result !== 'object') return undefined;
-      const formedTx = this._mapTransaction(result);
-      if (!disableLogging) log.log(`${this.token} tx status: ${this.formTxMessage(formedTx)}.`);
-      return formedTx;
-    });
-  }
+    const tx = await this.client.request({ endpoint: `/tx/${txid}`, description: `Tx ${txid}`, quiet: true });
 
-  /**
-   * Retrieves unspents (UTXO)
-   * It's for bitcoinjs-lib's deprecated TransactionBuilder
-   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
-   * @override
-   * @return {Promise<Array<{txid: string, vout: number, amount: number}>>} or undefined
-   */
-  getUnspents() {
-    return requestBitcoin(`/address/${this.address}/utxo`).then((outputs) =>
-      outputs.map((x) => ({ txid: x.txid, amount: x.value, vout: x.vout })),
-    );
-  }
-
-  /**
-   * Creates a raw BTC-based transaction as a hex string.
-   * We override base method, as it uses Psbt
-   * We don't use Psbt as it needs full tx hexes, and we don't know how to get them
-   * @override
-   * @param {string} address target address
-   * @param {number} amount amount to send
-   * @param {Array<{txid: string, amount: number, vout: number}>} unspents unspent transaction to use as inputs
-   * @param {number} fee transaction fee in BTC
-   * @return {string}
-   */
-  _buildTransaction(address, amount, unspents, fee) {
-    try {
-      const amountInSat = this.toSat(amount);
-      const target = amountInSat + this.toSat(fee);
-      const txb = new bitcoin.TransactionBuilder(this.account.network);
-      txb.setVersion(1);
-
-      let transferAmount = 0;
-      let inputs = 0;
-      unspents.forEach((tx) => {
-        const amt = Math.floor(tx.amount);
-        if (transferAmount < target) {
-          txb.addInput(tx.txid, tx.vout);
-          transferAmount += amt;
-          inputs++;
-        }
-      });
-
-      txb.addOutput(bitcoin.address.toOutputScript(address, this.account.network), amountInSat);
-      // This is a necessary step
-      // If we'll not add a change to output, it will burn in hell
-      const change = transferAmount - target;
-      if (utils.isPositiveNumber(change)) {
-        txb.addOutput(this.address, change);
-      }
-
-      for (let i = 0; i < inputs; ++i) {
-        txb.sign(i, this.account.keyPair);
-      }
-
-      return txb.build().toHex();
-    } catch (e) {
-      log.warn(`Error while building Tx to send ${amount} ${this.token} to ${address} with ${fee} ${this.token} fee in _buildTransaction() of ${utils.getModuleName(module.id)} module: ` + e);
+    if (typeof tx !== 'object' || tx === null) {
+      return undefined;
     }
+
+    const formedTx = this.mapEsploraTransaction(tx);
+
+    if (!disableLogging) {
+      log.log(`${this.token} Tx status: ${this.formTxMessage(formedTx)}.`);
+    }
+
+    return formedTx;
   }
 
   /**
-   * Broadcasts the specified transaction to the BTC network
-   * @override
-   * @param {string} txHex raw transaction as a HEX literal
+   * Returns transactions currently in the mempool that pay the bot's address.
+   *
+   * @returns {Promise<object[]|undefined>}
    */
-  sendTransaction(txHex) {
-    return requestBitcoin('/tx', txHex).then((txid) => {
-      return txid;
+  async getPendingIncomingTransactions() {
+    const transactions = await this.client.request({
+      endpoint: `/address/${this.address}/txs/mempool`,
+      description: 'pending incoming transactions',
+      // The deposit watcher reports failures itself, at a bounded rate.
+      quiet: true,
     });
+
+    return Array.isArray(transactions) ? transactions.map((tx) => this.mapEsploraTransaction(tx)) : undefined;
   }
 
-  /** @override */
-  _mapTransaction(tx) {
-    const mapped = super._mapTransaction({
+  /**
+   * Fetches a transaction's raw hex.
+   *
+   * PSBT needs the full previous transaction to sign a P2PKH input.
+   *
+   * @param {string} txid Transaction ID
+   * @returns {Promise<string|undefined>}
+   */
+  async getTransactionHex(txid) {
+    const hex = await this.client.request({ endpoint: `/tx/${txid}/hex`, description: `raw Tx ${txid}` });
+
+    return typeof hex === 'string' ? hex.trim() : undefined;
+  }
+
+  /**
+   * Returns the bot's unspent outputs, each with the raw hex of the transaction that created it.
+   *
+   * @returns {Promise<Array<{txid: string, vout: number, amount: number, hex: string}>|undefined>}
+   */
+  async getUnspents() {
+    const outputs = await this.client.request({
+      endpoint: `/address/${this.address}/utxo`,
+      description: 'unspent outputs',
+    });
+
+    if (!Array.isArray(outputs)) {
+      return undefined;
+    }
+
+    const unspents = [];
+
+    for (const output of outputs) {
+      const hex = await this.getTransactionHex(output.txid);
+
+      if (!hex) {
+        log.warn(
+          `Skipping the unspent output ${output.txid}:${output.vout} — its raw ${this.token} Tx is unavailable.`,
+        );
+        continue;
+      }
+
+      unspents.push({ txid: output.txid, vout: output.vout, amount: output.value, hex });
+    }
+
+    return unspents;
+  }
+
+  /**
+   * Broadcasts a signed transaction.
+   *
+   * @param {string} txHex Raw transaction, as a hex string
+   * @returns {Promise<string|undefined>} Transaction ID, or `undefined` when the broadcast failed
+   */
+  async sendTransaction(txHex) {
+    const txid = await this.client.request({
+      endpoint: '/tx',
+      method: 'post',
+      data: txHex,
+      description: 'broadcast Tx',
+    });
+
+    return typeof txid === 'string' ? txid.trim() : undefined;
+  }
+
+  /**
+   * Normalizes an Esplora transaction into the shape {@link BtcBaseCoin#mapTransaction} expects.
+   *
+   * Esplora reports amounts in satoshi and names its address fields differently from
+   * Insight- and Core-style nodes.
+   *
+   * @param {object} tx Esplora transaction
+   * @returns {object} Transaction in the bot's common shape
+   */
+  mapEsploraTransaction(tx) {
+    const mapped = this.mapTransaction({
       ...tx,
-      vin: tx.vin.map((x) => ({ ...x, addr: x.prevout.scriptpubkey_address })),
-      vout: tx.vout.map((x) => ({
-        ...x,
-        scriptPubKey: { addresses: [x.scriptpubkey_address] },
+      vin: tx.vin.map((input) => ({ ...input, address: input.prevout?.scriptpubkey_address })),
+      vout: tx.vout.map((out) => ({
+        ...out,
+        scriptPubKey: { addresses: out.scriptpubkey_address ? [out.scriptpubkey_address] : [] },
       })),
       fees: tx.fee,
-      time: tx.status.block_time,
-      // confirmations: tx.status.confirmed ? 1 : 0,
-      blockhash: tx.status.block_hash,
+      time: tx.status?.block_time,
+      blockhash: tx.status?.block_hash,
     });
 
     mapped.amount = this.fromSat(mapped.amount);
     mapped.fee = this.fromSat(mapped.fee);
-    mapped.height = tx.status.block_height;
-    if (tx.status.confirmed) { // if confirmed: false, it doesn't mean tx failed
-      mapped.status = tx.status.confirmed;
+    mapped.height = tx.status?.block_height;
+
+    // `confirmed: false` only means the Tx is still in the mempool, not that it failed.
+    if (tx.status?.confirmed) {
+      mapped.status = true;
     }
 
     return mapped;
   }
-
 };
-
-/**
- * Makes a GET request to Bitcoin node. Internal function.
- * @param {string} endpoint Endpoint name
- * @param {*} params Endpoint params
- * @return {*} Request results or undefined
- */
-function requestBitcoin(endpoint, params) {
-  const httpOptions = {
-    url: btcNode + endpoint,
-    method: params ? 'post' : 'get', // Only post requests to Bitcoin node have params
-    data: params,
-  };
-
-  return axios(httpOptions)
-      .then((response) => {
-        response = formatRequestResults(response, true);
-        if (response.success) {
-          return response.data;
-        } else {
-          log.warn(`Request to ${endpoint} RPC returned an error: ${response.errorMessage}.`);
-        }
-      })
-      .catch(function(error) {
-        log.warn(`Request to ${endpoint} RPC in ${utils.getModuleName(module.id)} module failed. ${formatRequestResults(error, false).errorMessage}.`);
-      });
-}
-
-/**
- * Formats axios request results. Internal function.
- * @param {object} response Axios response
- * @param {boolean} isRequestSuccess If axios request succeed
- * @return {object} Formatted request results
- */
-function formatRequestResults(response, isRequestSuccess) {
-
-  const results = {};
-  results.details = {};
-
-  if (isRequestSuccess) {
-    results.success = (response.data !== undefined) && !response.data.error;
-    results.data = response.data;
-    results.details.status = response.status;
-    results.details.statusText = response.statusText;
-    results.details.response = response;
-    if (!results.success && results.data) {
-      results.errorMessage = `Node's reply: ${results.data.error}`;
-    }
-  } else {
-    results.success = false;
-    results.data = response.response && response.response.data;
-    results.details.status = response.response ? response.response.status : undefined;
-    results.details.statusText = response.response ? response.response.statusText : undefined;
-    results.details.error = response.toString();
-    if (response.response && response.response.data && response.response.data.error) {
-      results.details.message = typeof response.response.data.error == 'object' ? JSON.stringify(response.response.data.error) : response.response.data.error.toString().trim();
-    }
-    results.details.response = response.response;
-    results.errorMessage = `${results.details.error}${results.details.message ? '. Message: ' + results.details.message : ''}`;
-  }
-
-  return results;
-
-}

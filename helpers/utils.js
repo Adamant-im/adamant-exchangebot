@@ -1,307 +1,295 @@
-const { SAT, EPOCH } = require('./const');
+const { SAT, ADM_EPOCH } = require('./const');
+
+/**
+ * Converts a number or numeric string to a plain decimal string, expanding scientific notation.
+ *
+ * @param {number|string} num
+ * @returns {string} Plain decimal representation without 'e' or 'E'
+ */
+function toPlainNumberString(num) {
+  const numVal = Number(num);
+
+  if (!Number.isFinite(numVal)) {
+    return String(num);
+  }
+
+  const str = String(numVal);
+  const match = str.match(/^([+-]?\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/);
+
+  if (!match) {
+    return str;
+  }
+
+  const sign = match[1].startsWith('-') ? '-' : '';
+  const intPart = match[1].replace(/^[+-]/, '');
+  const fracPart = match[2] || '';
+  const exp = parseInt(match[3], 10);
+
+  if (exp === 0) {
+    return sign + intPart + (fracPart ? '.' + fracPart : '');
+  }
+
+  if (exp > 0) {
+    if (exp >= fracPart.length) {
+      return sign + intPart + fracPart + '0'.repeat(exp - fracPart.length);
+    }
+
+    return sign + intPart + fracPart.slice(0, exp) + '.' + fracPart.slice(exp);
+  }
+
+  const absExp = Math.abs(exp);
+  const combined = intPart + fracPart;
+
+  if (absExp < intPart.length) {
+    const splitIdx = intPart.length - absExp;
+
+    return sign + intPart.slice(0, splitIdx) + '.' + intPart.slice(splitIdx) + fracPart;
+  }
+
+  return sign + '0.' + '0'.repeat(absExp - intPart.length) + combined;
+}
 
 module.exports = {
-
   /**
-   * Converts provided `time` to ADAMANT's epoch timestamp
-   * @param {number} time Timestamp to convert
-   * @return {number}
-   */
-  epochTime(time) {
-    if (!time) {
-      time = Date.now();
-    }
-
-    return Math.floor((time - EPOCH) / 1000);
-  },
-
-  /**
-   * Converts ADAMANT's epoch timestamp to a Unix timestamp
-   * @param {number} epochTime Timestamp to convert
-   * @return {number}
+   * Converts an ADAMANT epoch timestamp to a Unix timestamp in milliseconds.
+   *
+   * @param {number} epochTime ADAMANT epoch timestamp, in seconds
+   * @returns {number} Unix timestamp, in milliseconds
    */
   toTimestamp(epochTime) {
-    return epochTime * 1000 + EPOCH;
+    return epochTime * 1000 + ADM_EPOCH;
   },
 
   /**
-   * Converts ADAMANT's sats to ADM value
-   * @param {number|string} sats Sats to convert
-   * @param {number} decimals Round up to
-   * @return {number} Value in ADM
+   * Converts ADM sats to ADM.
+   *
+   * @param {number|string} sats Amount in sats
+   * @param {number} [decimals=8] Number of decimals to round to
+   * @returns {number|undefined} Amount in ADM, or `undefined` when the input is not a number
    */
   satsToADM(sats, decimals = 8) {
-    try {
-      let adm = (+sats / SAT).toFixed(decimals);
-      adm = +adm;
-      return adm;
-    } catch (e) { }
+    // `Number(null)` and `Number('')` are 0, which would turn a missing balance into
+    // a real one. Reject those before converting.
+    if (sats === null || sats === undefined || sats === '') {
+      return undefined;
+    }
+
+    const amount = Number(sats);
+
+    if (!Number.isFinite(amount)) {
+      return undefined;
+    }
+
+    return Number((amount / SAT).toFixed(decimals));
   },
 
   /**
-   * Converts ADM value to sats
-   * @param {number|string} adm ADM to convert
-   * @return {number} Value in sats
+   * Converts ADM to ADM sats.
+   *
+   * @param {number|string} adm Amount in ADM
+   * @returns {number|undefined} Amount in sats, or `undefined` when the input is not a number
    */
-  AdmToSats(adm) {
-    try {
-      let sats = (+adm * SAT).toFixed(0);
-      sats = +sats;
-      return sats;
-    } catch (e) { }
+  admToSats(adm) {
+    if (adm === null || adm === undefined || adm === '') {
+      return undefined;
+    }
+
+    const amount = Number(adm);
+
+    if (!Number.isFinite(amount)) {
+      return undefined;
+    }
+
+    return Number((amount * SAT).toFixed(0));
   },
 
   /**
-   * Returns current time in milliseconds since Unix Epoch
-   * @return {number}
+   * Returns the current time in milliseconds since the Unix epoch.
+   *
+   * @returns {number}
    */
   unix() {
-    return new Date().getTime();
+    return Date.now();
   },
 
   /**
-   * Returns random of (min-max)
-   * @param {number} min Minimum is inclusive
-   * @param {number} max Maximum is inclusive
-   * @return {number} Integer random of (min-max)
+   * Returns a random integer in the `[min, max]` range, both ends inclusive.
+   *
+   * @param {number} min Lower bound, inclusive
+   * @param {number} max Upper bound, inclusive
+   * @returns {number}
    */
   getRandomIntInclusive(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
+    const lower = Math.ceil(min);
+    const upper = Math.floor(max);
 
-    return Math.floor(Math.random() * (max - min + 1) + min);
+    return Math.floor(Math.random() * (upper - lower + 1) + lower);
   },
 
   /**
-   * Checks if string contains correct number
-   * @param {string} str String value to check
-   * @return {boolean}
-   */
-  isNumeric(str) {
-    if (typeof str !== 'string') return false;
-
-    return !isNaN(str) && !isNaN(parseFloat(str));
-  },
-
-  /**
-   * Checks if number is integer
-   * @param {number} value Number to validate
-   * @return {boolean}
-   */
-  isInteger(value) {
-    if (typeof (value) !== 'number' || isNaN(value) || !Number.isSafeInteger(value)) {
-      return false;
-    } else {
-      return true;
-    }
-  },
-
-  /**
-   * Checks if number is integer and not less, than 0
-   * @param {number} value Number to validate
-   * @return {boolean}
-   */
-  isPositiveOrZeroInteger(value) {
-    if (!this.isInteger(value) || value < 0) {
-      return false;
-    } else {
-      return true;
-    }
-  },
-
-  /**
-   * Checks if number is finite
-   * @param {number} value Number to validate
-   * @return {boolean}
+   * Checks that a value is a finite number.
+   *
+   * @param {*} value Value to validate
+   * @returns {boolean}
    */
   isNumber(value) {
-    if (typeof (value) !== 'number' || isNaN(value) || !Number.isFinite(value)) {
-      return false;
-    } else {
-      return true;
-    }
+    return typeof value === 'number' && Number.isFinite(value);
   },
 
   /**
-   * Checks if number is finite and not less, than 0
-   * @param {number} value Number to validate
-   * @return {boolean}
+   * Checks that a value is a finite number and not less than 0.
+   *
+   * @param {*} value Value to validate
+   * @returns {boolean}
    */
   isPositiveOrZeroNumber(value) {
-    if (!this.isNumber(value) || value < 0) {
-      return false;
-    } else {
-      return true;
-    }
+    return this.isNumber(value) && value >= 0;
   },
 
   /**
-   * Checks if number is finite and greater, than 0
-   * @param {number} value Number to validate
-   * @return {boolean}
+   * Checks that a value is a finite number greater than 0.
+   *
+   * @param {*} value Value to validate
+   * @returns {boolean}
    */
   isPositiveNumber(value) {
-    if (!this.isNumber(value) || value <= 0) {
-      return false;
-    } else {
-      return true;
-    }
+    return this.isNumber(value) && value > 0;
   },
 
   /**
-   * Parses string value to JSON
+   * Parses a JSON string without throwing.
+   *
    * @param {string} jsonString String to parse
-   * @return {object} JSON object or false, if unable to parse
+   * @returns {object|false} The parsed object, or `false` when the string is not a JSON object
    */
   tryParseJSON(jsonString) {
     try {
-      const o = JSON.parse(jsonString);
+      const parsed = JSON.parse(jsonString);
 
-      if (o && typeof o === 'object') {
-        return o;
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
       }
-    } catch (e) { }
+    } catch {
+      // Chat messages are untrusted input, so unparsable values are expected here.
+    }
 
     return false;
   },
 
   /**
-   * Formats unix timestamp to string
-   * @param {number} timestamp Timestamp to format
-   * @return {object} Contains different formatted strings
+   * Formats a Unix timestamp into the string forms used in logs and chat messages.
+   *
+   * @param {number} timestamp Unix timestamp, in milliseconds
+   * @returns {object|false} Formatted parts, or `false` when the timestamp is falsy
    */
   formatDate(timestamp) {
     if (!timestamp) return false;
 
-    const formattedDate = {};
-    const dateObject = new Date(timestamp);
+    const date = new Date(timestamp);
+    const pad = (value) => String(value).padStart(2, '0');
 
-    formattedDate.year = dateObject.getFullYear();
-    formattedDate.month = ('0' + (dateObject.getMonth() + 1)).slice(-2);
-    formattedDate.date = ('0' + dateObject.getDate()).slice(-2);
-    formattedDate.hours = ('0' + dateObject.getHours()).slice(-2);
-    formattedDate.minutes = ('0' + dateObject.getMinutes()).slice(-2);
-    formattedDate.seconds = ('0' + dateObject.getSeconds()).slice(-2);
-    formattedDate.YYYY_MM_DD = formattedDate.year + '-' + formattedDate.month + '-' + formattedDate.date;
-    formattedDate.YYYY_MM_DD_hh_mm = formattedDate.year + '-' + formattedDate.month + '-' + formattedDate.date + ' ' + formattedDate.hours + ':' + formattedDate.minutes;
-    formattedDate.hh_mm_ss = formattedDate.hours + ':' + formattedDate.minutes + ':' + formattedDate.seconds;
+    const formatted = {
+      year: date.getFullYear(),
+      month: pad(date.getMonth() + 1),
+      date: pad(date.getDate()),
+      hours: pad(date.getHours()),
+      minutes: pad(date.getMinutes()),
+      seconds: pad(date.getSeconds()),
+    };
 
-    return formattedDate;
+    formatted.YYYY_MM_DD = `${formatted.year}-${formatted.month}-${formatted.date}`;
+    formatted.YYYY_MM_DD_hh_mm = `${formatted.YYYY_MM_DD} ${formatted.hours}:${formatted.minutes}`;
+    formatted.hh_mm_ss = `${formatted.hours}:${formatted.minutes}:${formatted.seconds}`;
+
+    return formatted;
   },
 
   /**
-   * Formats number to a pretty string
-   * @param {number} num Number to format
-   * @param {boolean} doBold If to add **bold** markdown for integer part
-   * @return {string} Formatted number, like 3 134 234.778
+   * Formats a number with thin groups of three digits, as in `3 134 234.778`.
+   * Expands scientific exponential notation (e.g. `1e25`) into full decimal representation.
+   *
+   * @param {number|string} num Number to format
+   * @param {boolean} [doBold] Wrap the integer part in Markdown bold
+   * @returns {string}
    */
   formatNumber(num, doBold) {
-    const parts = (+num + '').split('.');
-    const main = parts[0];
-    const len = main.length;
+    const plain = toPlainNumberString(num);
+    const isNegative = plain.startsWith('-');
+    const unsigned = isNegative ? plain.slice(1) : plain;
+    const [integerPart, fractionPart] = unsigned.split('.');
 
     let output = '';
-    let i = len - 1;
+    let position = integerPart.length - 1;
 
-    while (i >= 0) {
-      output = main.charAt(i) + output;
+    while (position >= 0) {
+      output = integerPart.charAt(position) + output;
 
-      if ((len - i) % 3 === 0 && i > 0) {
+      if ((integerPart.length - position) % 3 === 0 && position > 0) {
         output = ' ' + output;
       }
 
-      --i;
+      position -= 1;
     }
 
-    if (parts.length > 1) {
-      if (doBold) {
-        output = `**${output}**.${parts[1]}`;
-      } else {
-        output = `${output}.${parts[1]}`;
-      }
+    const sign = isNegative ? '-' : '';
+
+    if (fractionPart === undefined) {
+      return sign + output;
     }
 
-    return output;
+    return doBold ? `${sign}**${output}**.${fractionPart}` : `${sign}${output}.${fractionPart}`;
   },
 
   /**
-   * Returns precision for number of decimals. getPrecision(3) = 0.001
-   * @param {number} decimals Number of decimals
-   * @return {number} Precision
-   */
-  getPrecision(decimals) {
-    return +(Math.pow(10, -decimals).toFixed(decimals));
-  },
-
-  /**
-   * Returns decimals for precision
-   * 0.00001 -> 5
-   * 1000 -> 0
-   * 1 -> 0
-   * 0 -> undefined
-   * @param {Number|String} precision e.g. 0.00001
-   * @return {number} returns 5
-   */
-  getDecimalsFromPrecision(precision) {
-    if (!precision) return;
-    if (precision > 1) return 0;
-    return Math.round(Math.abs(Math.log10(+precision)));
-  },
-
-  /**
-   * Returns module name from its ID
-   * @param {string} id Module name, module.id
-   * @return {string}
+   * Returns a module's file name, used to make log messages traceable.
+   *
+   * @param {string} id Module identifier, that is `module.id`
+   * @returns {string} File name, or an empty string when `id` has no path separator
    */
   getModuleName(id) {
     if (!id) {
       return '';
     }
 
-    let n = id.lastIndexOf('\\');
+    const separator = Math.max(id.lastIndexOf('/'), id.lastIndexOf('\\'));
 
-    if (n === -1) {
-      n = id.lastIndexOf('/');
-    }
-
-    if (n === -1) {
-      return '';
-    } else {
-      return id.substring(n + 1);
-    }
+    return separator === -1 ? '' : id.substring(separator + 1);
   },
 
   /**
-   * Compares two arrays
-   * @param {array} array1
-   * @param {array} array2
-   * @return {boolean} True, if arrays are equal
+   * Compares two arrays by their contents, ignoring order. Does not modify the inputs.
+   *
+   * @param {Array} array1
+   * @param {Array} array2
+   * @returns {boolean} `true` when both arrays hold the same values
    */
   isArraysEqual(array1, array2) {
-    return array1.length === array2.length && array1.sort().every(function(value, index) {
-      return value === array2.sort()[index];
-    });
+    if (!Array.isArray(array1) || !Array.isArray(array2) || array1.length !== array2.length) {
+      return false;
+    }
+
+    const sorted1 = [...array1].sort();
+    const sorted2 = [...array2].sort();
+
+    return sorted1.every((value, index) => value === sorted2[index]);
   },
 
   /**
-   * Returns array with unique values
-   * @param {array} values Input array
-   * @return {array}
+   * Returns the unique values of an array, preserving order and value types.
+   *
+   * @param {Array} values Input array
+   * @returns {Array}
    */
   getUnique(values) {
-    const map = values.reduce((m, v) => {
-      m[v] = 1;
-      return m;
-    }, { });
-
-    return Object.keys(map);
+    return [...new Set(values)];
   },
 
   /**
-   * Compares two strings, case sensitive
-   * @param {string} string1
-   * @param {string} string2
-   * @return {boolean} True, if strings are equal
+   * Compares two strings, case sensitive. Non-string arguments never match.
+   *
+   * @param {*} string1
+   * @param {*} string2
+   * @returns {boolean}
    */
   isStringEqual(string1, string2) {
     if (typeof string1 !== 'string' || typeof string2 !== 'string') return false;
@@ -310,10 +298,11 @@ module.exports = {
   },
 
   /**
-   * Compares two strings, case insensitive
-   * @param {string} string1
-   * @param {string} string2
-   * @return {boolean} True, if strings are equal, case insensitive
+   * Compares two strings, case insensitive. Non-string arguments never match.
+   *
+   * @param {*} string1
+   * @param {*} string2
+   * @returns {boolean}
    */
   isStringEqualCI(string1, string2) {
     if (typeof string1 !== 'string' || typeof string2 !== 'string') return false;
@@ -322,11 +311,13 @@ module.exports = {
   },
 
   /**
-   * Trims any chars from beginning and from end of string, case sensitive
-   * Example: trimAny(str, ' "\') trims quotes, spaces and slashes
+   * Trims any of the given characters from both ends of a string, case sensitive.
+   *
+   * For example, `trimAny(str, ' "\'')` trims spaces, quotes and apostrophes.
+   *
    * @param {string} str String to trim
-   * @param {string} chars Chars to trim from 'str'.
-   * @return {string} Trimmed string; or empty string, if 'str' is not a string.
+   * @param {string} chars Characters to trim
+   * @returns {string} The trimmed string, or an empty string when `str` is not a string
    */
   trimAny(str, chars) {
     if (!str || typeof str !== 'string') {
@@ -337,47 +328,48 @@ module.exports = {
     let end = str.length;
 
     while (start < end && chars.indexOf(str[start]) >= 0) {
-      ++start;
+      start += 1;
     }
 
     while (end > start && chars.indexOf(str[end - 1]) >= 0) {
-      --end;
+      end -= 1;
     }
 
-    return (start > 0 || end < str.length) ? str.substring(start, end) : str;
+    return start > 0 || end < str.length ? str.substring(start, end) : str;
   },
 
   /**
-   * Replaces last occurrence of substring in a string, case sensitive
+   * Replaces the last occurrence of a substring, case sensitive.
+   *
    * @param {string} str String to process
-   * @param {string} searchValue Substring to search
-   * @param {string} newValue Substring to replace
-   * @return {string} Processed string; or empty string, if 'str' is not a string.
+   * @param {string} searchValue Substring to search for
+   * @param {string} newValue Replacement
+   * @returns {string} The processed string, or an empty string when `str` is not a string
    */
   replaceLastOccurrence(str, searchValue, newValue) {
     if (!str || typeof str !== 'string') {
       return '';
     }
 
-    const n = str.lastIndexOf(searchValue);
+    const position = str.lastIndexOf(searchValue);
 
-    return str.slice(0, n) + str.slice(n).replace(searchValue, newValue);
+    if (position === -1) {
+      return str;
+    }
+
+    return str.slice(0, position) + str.slice(position).replace(searchValue, newValue);
   },
 
   /**
-   * Converts a bytes array to the respective string representation
-   * @param {Array<number>|Uint8Array} bytes bytes array
-   * @return {string}
+   * Checks whether a payment is currently awaiting user clarification.
+   *
+   * Persisted records in MongoDB store cleared fields as `null`, while in-memory
+   * documents use `undefined`. Both represent "no clarification pending".
+   *
+   * @param {object|null|undefined} payment Stored payment document
+   * @returns {boolean}
    */
-  bytesToHex(bytes = []) {
-    const hex = [];
-
-    bytes.forEach((b) => hex.push(
-        (b >>> 4).toString(16),
-        (b & 0xF).toString(16),
-    ));
-
-    return hex.join('');
+  isAwaitingClarification(payment) {
+    return Boolean(payment && payment.inUpdateState !== undefined && payment.inUpdateState !== null);
   },
-
 };

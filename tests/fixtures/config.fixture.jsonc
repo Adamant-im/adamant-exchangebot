@@ -1,0 +1,52 @@
+{
+  /**
+    Config used by the test suite.
+
+    The passphrase below was generated for this repository and controls no funds.
+    Never send anything to U14172822264918400879, and never reuse this passphrase
+    for a running bot.
+
+    Tests never reach the network, so the node URLs only have to be well-formed.
+  **/
+  "passPhrase": "badge inherit crop candy beauty also close furnace dragon tiger battle figure",
+
+  "node_ADM": ["http://localhost:36666"],
+  "node_ETH": ["http://localhost:8545"],
+  "node_BTC": ["http://localhost:3001"],
+  "node_DASH": ["http://localhost:9998"],
+  "node_DOGE": ["http://localhost:3002"],
+  "infoservice": ["http://localhost:36668"],
+
+  "socket": false,
+  "ws_type": "ws",
+
+  "db_url": "mongodb://localhost:27017/",
+  "db_name": "exchangerdb_test",
+
+  "accepted_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "USDT"],
+  "exchange_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "USDT"],
+  "known_crypto": ["ADM", "BTC", "ETH", "DASH", "DOGE", "USDT", "USDC"],
+  "erc20": ["USDT", "USDC"],
+
+  "exchange_fee": 5,
+  "exchange_fee_ADM": 10,
+
+  "min_value_usd": 1,
+  "daily_limit_usd": 1000,
+  "daily_limit_usd_ADM": 0,
+  "daily_limit_show": true,
+
+  "max_buy_price_usd_ADM": 0,
+  "min_sell_price_usd_ADM": 0,
+  "fixed_buy_price_usd_ADM": 0,
+  "fixed_sell_price_usd_ADM": 0,
+
+  "min_confirmations": 2,
+  "min_confirmations_ADM": 1,
+
+  "welcome_string": "Hi! I'm a test exchange bot.",
+  "bot_name": "Test Exchange Bot",
+  "adamant_notify": "",
+  "slack": "",
+  "log_level": "none"
+}

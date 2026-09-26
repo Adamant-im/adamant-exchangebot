@@ -1,23 +1,18 @@
-const constants = require('../const');
+const EthCoin = require('./eth_utils');
 
-const ethCoin = require('./eth_utils');
-
-module.exports = class erc20coin extends ethCoin {
-  constructor(token, etherInstance) {
-    super(token);
-    this.etherInstance = etherInstance;
-    this.account.address = this.etherInstance.account.address;
-  }
-
-  getLastBlock() {
-    return this.etherInstance.getLastBlock();
-  }
-
-  async getLastBlockHeight() {
-    return this.etherInstance.getLastBlockHeight();
-  }
-
-  get FEE() {
-    return +(this.etherInstance.FEE * this.reliabilityCoefFromEth).toFixed(constants.PRECISION_DECIMALS);
+/**
+ * ERC-20 token adapter.
+ *
+ * A token shares the Ethereum wallet, provider and gas price with the ETH adapter —
+ * the only things that differ are the contract, the decimals, and the larger fee
+ * margin a contract call needs.
+ */
+module.exports = class Erc20Coin extends EthCoin {
+  /**
+   * @param {string} token Token symbol, which must exist in `erc20_models.js`
+   * @param {EthCoin} ethInstance The ETH adapter to share the wallet and provider with
+   */
+  constructor(token, ethInstance) {
+    super(token, ethInstance);
   }
 };
